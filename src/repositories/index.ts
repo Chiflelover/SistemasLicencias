@@ -1,4 +1,2 @@
-// Capa de repositorios (acceso a datos).
-// Implementar en fases posteriores.
+export * from "./user.repository";
 
-export {};
