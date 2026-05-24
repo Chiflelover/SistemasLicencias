@@ -38,12 +38,12 @@ export default function Sidebar({ role, userName }: SidebarProps) {
     },
     {
       label: "Subir Documentos",
-      href: "/solicitante/nuevo-tramite?step=2",
+      href: "/solicitante/subir-documentos",
       icon: FileText,
     },
     {
-      label: "Simulador de Pago",
-      href: "/solicitante/nuevo-tramite?step=3",
+      label: "Pago S/2",
+      href: "/solicitante/pago",
       icon: DollarSign,
     },
     {

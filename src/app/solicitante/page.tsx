@@ -128,6 +128,9 @@ export default async function SolicitanteDashboard() {
                 <p className="text-sm text-slate-400">
                   Abona los S/ 2.00 requeridos simulando el depósito para habilitar la inspección técnica obligatoria.
                 </p>
+                <p className="text-sm text-amber-300">
+                  <a href="/solicitante/pago" className="underline hover:text-amber-200">Ir al pago simulado</a>
+                </p>
               </div>
             </div>
 

@@ -33,4 +33,11 @@ export class UserRepository {
       },
     });
   }
+
+  static async findInspectors(): Promise<User[]> {
+    return prisma.user.findMany({
+      where: { role: Role.INSPECTOR, active: true },
+      orderBy: { fullName: "asc" },
+    });
+  }
 }

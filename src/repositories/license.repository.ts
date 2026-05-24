@@ -1,6 +1,17 @@
 import { prisma } from "../lib/db/prisma";
 import { License, LicenseStatus } from "@prisma/client";
 
+interface LicenseWithApplication extends License {
+  application: {
+    id: string;
+    number: string;
+    business: {
+      legalName: string;
+      ruc: string;
+    };
+  };
+}
+
 export class LicenseRepository {
   static async create(data: {
     applicationId: string;
@@ -31,10 +42,17 @@ export class LicenseRepository {
     return prisma.license.update({ where: { id }, data: { status, updatedAt: new Date() } });
   }
 
-  static async renew(id: string, newExpiresAt: Date, pdfContent: Buffer, pdfFileName: string): Promise<License> {
+  static async renew(
+    id: string,
+    issuedAt: Date,
+    newExpiresAt: Date,
+    pdfContent: Buffer,
+    pdfFileName: string
+  ): Promise<License> {
     return prisma.license.update({
       where: { id },
       data: {
+        issuedAt,
         expiresAt: newExpiresAt,
         status: "ACTIVE",
         pdfContent,
@@ -44,7 +62,16 @@ export class LicenseRepository {
     });
   }
 
-  static async findAllActive(): Promise<License[]> {
-    return prisma.license.findMany({ where: { status: { in: ["ACTIVE", "RENEWAL_AVAILABLE"] } } });
+  static async findAllActive(): Promise<LicenseWithApplication[]> {
+    return prisma.license.findMany({
+      where: { status: { in: ["ACTIVE", "RENEWAL_AVAILABLE"] } },
+      include: {
+        application: {
+          include: {
+            business: true,
+          },
+        },
+      },
+    });
   }
 }

@@ -15,9 +15,9 @@ export async function POST(request: Request) {
     const parsed = LoginSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { 
-          error: "Datos de inicio de sesión inválidos", 
-          details: parsed.error.flatten().fieldErrors 
+        {
+          error: "Datos de inicio de sesión inválidos",
+          details: parsed.error.flatten().fieldErrors
         },
         { status: 400 }
       );
