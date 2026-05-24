@@ -1,6 +1,7 @@
 import { ApplicationRepository } from "@/repositories/application.repository";
 import { LicenseRepository } from "@/repositories/license.repository";
 import { generateLicensePdf } from "@/lib/pdf";
+import { addYears, getCurrentSystemDate } from "@/lib/date";
 import { ApplicationStatus, LicenseStatus } from "@prisma/client";
 
 export class LicenseService {
@@ -19,9 +20,8 @@ export class LicenseService {
     }
 
     const licenseNumber = await LicenseRepository.generateNumber();
-    const issuedAt = new Date();
-    const expiresAt = new Date(issuedAt);
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    const issuedAt = await getCurrentSystemDate();
+    const expiresAt = addYears(issuedAt, 1);
 
     const pdfBytes = await generateLicensePdf({
       licenseNumber,
@@ -52,7 +52,7 @@ export class LicenseService {
     }
 
     const license = application.license;
-    const now = new Date();
+    const now = await getCurrentSystemDate();
     const expirationTime = license.expiresAt.getTime();
     const daysUntilExpiration = (expirationTime - now.getTime()) / (1000 * 60 * 60 * 24);
 
@@ -95,9 +95,8 @@ export class LicenseService {
       throw new Error("La renovación solo está habilitada cuando falta hasta 30 días para el vencimiento.");
     }
 
-    const newIssuedAt = new Date();
-    const newExpiresAt = new Date(license.expiresAt);
-    newExpiresAt.setFullYear(newExpiresAt.getFullYear() + 1);
+    const newIssuedAt = await getCurrentSystemDate();
+    const newExpiresAt = addYears(newIssuedAt, 1);
 
     const pdfBytes = await generateLicensePdf({
       licenseNumber: license.licenseNumber,

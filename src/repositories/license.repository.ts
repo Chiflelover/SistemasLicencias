@@ -1,4 +1,5 @@
 import { prisma } from "../lib/db/prisma";
+import { getCurrentSystemDate } from "@/lib/date";
 import { License, LicenseStatus } from "@prisma/client";
 
 interface LicenseWithApplication extends License {
@@ -34,12 +35,12 @@ export class LicenseRepository {
 
   static async generateNumber(): Promise<string> {
     const count = await prisma.license.count();
-    const year = new Date().getFullYear();
+    const year = (await getCurrentSystemDate()).getFullYear();
     return `LIC-MPT-${year}-${String(count + 1).padStart(5, "0")}`;
   }
 
   static async updateStatus(id: string, status: LicenseStatus): Promise<License> {
-    return prisma.license.update({ where: { id }, data: { status, updatedAt: new Date() } });
+    return prisma.license.update({ where: { id }, data: { status, updatedAt: await getCurrentSystemDate() } });
   }
 
   static async renew(
@@ -57,7 +58,7 @@ export class LicenseRepository {
         status: "ACTIVE",
         pdfContent,
         pdfFileName,
-        updatedAt: new Date(),
+        updatedAt: await getCurrentSystemDate(),
       },
     });
   }

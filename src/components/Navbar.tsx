@@ -1,7 +1,7 @@
 "use client";
 
 import { Shield, Calendar, Clock, ChevronDown, User, LogOut } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface NavbarProps {
@@ -15,8 +15,23 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Mock de fecha del sistema (será conectada con el DevPanel y la BD en fases posteriores)
-  const mockSystemDate = "24/05/2026";
+  const [systemDate, setSystemDate] = useState<string>("");
+
+  const fetchSystemDate = async () => {
+    try {
+      const response = await fetch("/api/system/date");
+      if (!response.ok) return;
+      const data = await response.json();
+      const date = new Date(data.currentSystemDate);
+      setSystemDate(date.toLocaleDateString("es-PE"));
+    } catch {
+      setSystemDate("--/--/----");
+    }
+  };
+
+  useEffect(() => {
+    fetchSystemDate();
+  }, []);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -53,10 +68,8 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
         <div className="flex items-center gap-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 px-3.5 py-1.5 rounded-lg text-xs font-semibold">
           <Calendar className="w-4 h-4" />
           <span className="hidden md:inline">FECHA DEL SISTEMA:</span>
-          <span>{mockSystemDate}</span>
+          <span>{systemDate || "Cargando..."}</span>
         </div>
-
-        {/* Separador */}
         <div className="h-6 w-px bg-slate-800 hidden sm:block" />
 
         {/* Dropdown de Usuario */}

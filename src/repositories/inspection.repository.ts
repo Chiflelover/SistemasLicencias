@@ -1,4 +1,5 @@
 import { prisma } from "../lib/db/prisma";
+import { getCurrentSystemDate } from "@/lib/date";
 import { Inspection, InspectionNumber, InspectionResult } from "@prisma/client";
 
 export class InspectionRepository {
@@ -66,7 +67,7 @@ export class InspectionRepository {
         status: "COMPLETED",
         result,
         observations: observations ?? null,
-        resultAt: new Date(),
+        resultAt: await getCurrentSystemDate(),
       },
     });
   }

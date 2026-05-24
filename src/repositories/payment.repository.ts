@@ -1,4 +1,5 @@
 import { prisma } from "../lib/db/prisma";
+import { getCurrentSystemDate } from "@/lib/date";
 import { Payment, PaymentType } from "@prisma/client";
 
 export class PaymentRepository {
@@ -26,7 +27,7 @@ export class PaymentRepository {
   }
 
   static async generateOperationNumber(): Promise<string> {
-    const timestamp = Date.now().toString(36).toUpperCase();
+    const timestamp = (await getCurrentSystemDate()).getTime().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 7).toUpperCase();
     return `MPT-${timestamp}-${random}`;
   }

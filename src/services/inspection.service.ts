@@ -1,6 +1,7 @@
 import { InspectionRepository } from "@/repositories/inspection.repository";
 import { ApplicationRepository } from "@/repositories/application.repository";
 import { UserRepository } from "@/repositories/user.repository";
+import { cloneDate, getCurrentSystemDate } from "@/lib/date";
 import { InspectionNumber, ApplicationStatus, InspectionResult } from "@prisma/client";
 
 const WORK_START_HOUR = 8;
@@ -13,10 +14,10 @@ function isWeekend(date: Date) {
 }
 
 function normalizeToNextSlot(date: Date): Date {
-  const current = new Date(date);
+  const current = cloneDate(date);
 
   if (isWeekend(current)) {
-    const next = new Date(current);
+    const next = cloneDate(current);
     do {
       next.setDate(next.getDate() + 1);
     } while (isWeekend(next));
@@ -34,7 +35,7 @@ function normalizeToNextSlot(date: Date): Date {
   }
 
   if (hour > lastStartHour || (hour === lastStartHour && minute > 0)) {
-    const next = new Date(current);
+    const next = cloneDate(current);
     next.setDate(next.getDate() + 1);
     do {
       if (!isWeekend(next)) break;
@@ -52,7 +53,7 @@ function normalizeToNextSlot(date: Date): Date {
 }
 
 function addOneHour(date: Date): Date {
-  const next = new Date(date);
+  const next = cloneDate(date);
   next.setHours(next.getHours() + 1, 0, 0, 0);
   if (next.getHours() >= WORK_END_HOUR) {
     next.setDate(next.getDate() + 1);
@@ -81,8 +82,16 @@ export class InspectionService {
       throw new Error("Trámite no encontrado.");
     }
 
-    if (application.status !== ApplicationStatus.PAYMENT_COMPLETED) {
-      throw new Error("La inspección solo puede programarse después de que el pago esté completo.");
+    const firstInspection = application.inspections.find((inspection) => inspection.number === InspectionNumber.FIRST);
+    const secondInspection = application.inspections.find((inspection) => inspection.number === InspectionNumber.SECOND);
+
+    const isSchedulingSecondInspection =
+      application.status === ApplicationStatus.FIRST_INSPECTION_REJECTED &&
+      firstInspection?.result === InspectionResult.REJECTED &&
+      !secondInspection;
+
+    if (!isSchedulingSecondInspection && application.status !== ApplicationStatus.PAYMENT_COMPLETED) {
+      throw new Error("La inspección solo puede programarse después de que el pago esté completo o tras una primera inspección rechazada.");
     }
 
     const inspectors = await UserRepository.findInspectors();
@@ -95,24 +104,25 @@ export class InspectionService {
       throw new Error("Ya existe una inspección programada para este trámite.");
     }
 
-    const firstInspection = application.inspections.find((inspection) => inspection.number === InspectionNumber.FIRST);
-    const secondInspection = application.inspections.find((inspection) => inspection.number === InspectionNumber.SECOND);
     let inspectionNumber: InspectionNumber = InspectionNumber.FIRST;
     let targetStatus: ApplicationStatus = ApplicationStatus.INSPECTION_SCHEDULED;
 
-    if (firstInspection && firstInspection.result === InspectionResult.REJECTED && !secondInspection) {
+    if (firstInspection && firstInspection.result === InspectionResult.REJECTED) {
+      if (secondInspection) {
+        throw new Error("Este trámite ya tiene una segunda inspección programada o completada.");
+      }
       inspectionNumber = InspectionNumber.SECOND;
       targetStatus = ApplicationStatus.SECOND_INSPECTION_SCHEDULED;
     } else if (firstInspection && firstInspection.result !== InspectionResult.REJECTED) {
       throw new Error("Este trámite ya cuenta con una inspección previa aprobada o en curso.");
     }
 
-    const now = new Date();
+    const now = await getCurrentSystemDate();
     let bestSchedule: { inspectorId: string; scheduledAt: Date } | null = null;
 
     for (const inspector of inspectors) {
       const scheduledSlots = await InspectionRepository.findScheduledSlots(inspector.id);
-      const occupied = new Set(scheduledSlots.map((slot) => formatSlotKey(new Date(slot))));
+      const occupied = new Set(scheduledSlots.map((slot) => formatSlotKey(cloneDate(slot))));
 
       let candidate = normalizeToNextSlot(now);
       let tries = 0;
@@ -120,7 +130,7 @@ export class InspectionService {
         const key = formatSlotKey(candidate);
         if (!occupied.has(key)) {
           if (!bestSchedule || candidate.getTime() < bestSchedule.scheduledAt.getTime()) {
-            bestSchedule = { inspectorId: inspector.id, scheduledAt: new Date(candidate) };
+            bestSchedule = { inspectorId: inspector.id, scheduledAt: cloneDate(candidate) };
           }
           break;
         }

@@ -1,22 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles, CalendarDays, ChevronRight, ChevronLeft, Zap, Info } from "lucide-react";
 
 export default function DevPanel() {
   const [collapsed, setCollapsed] = useState(true);
-  const [simulatedDate, setSimulatedDate] = useState<Date>(new Date(2026, 4, 24)); // 24 de Mayo de 2026
+  const [simulatedDate, setSimulatedDate] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleAdvanceTime = (days: number, type: "days" | "years") => {
-    const newDate = new Date(simulatedDate);
-    if (type === "days") {
-      newDate.setDate(newDate.getDate() + days);
-    } else {
-      newDate.setFullYear(newDate.getFullYear() + days);
+  const fetchCurrentSystemDate = async () => {
+    try {
+      const response = await fetch("/api/system/date");
+      if (!response.ok) throw new Error("Error al obtener fecha del sistema");
+      const data = await response.json();
+      setSimulatedDate(new Date(data.currentSystemDate));
+    } catch (error) {
+      console.error(error);
     }
-    setSimulatedDate(newDate);
-    // Notificación en consola para pruebas visuales en esta fase sin lógica de servidor
-    console.log(`[DEV PANEL] Tiempo avanzado. Nueva fecha simulada: ${newDate.toLocaleDateString("es-PE")}`);
+  };
+
+  useEffect(() => {
+    fetchCurrentSystemDate();
+  }, []);
+
+  const handleAdvanceTime = async (amount: number, unit: "days" | "years") => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/system/date", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unit, amount }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error?.error || "No se pudo avanzar la fecha.");
+      }
+      const data = await response.json();
+      setSimulatedDate(new Date(data.currentSystemDate));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -60,7 +85,9 @@ export default function DevPanel() {
               <CalendarDays className="w-5 h-5 text-amber-500" />
               <div>
                 <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">FECHA DEL DEMO</span>
-                <span className="text-sm font-extrabold text-amber-400 tracking-wide">{formatDate(simulatedDate)}</span>
+                <span className="text-sm font-extrabold text-amber-400 tracking-wide">
+                  {simulatedDate ? formatDate(simulatedDate) : "Cargando..."}
+                </span>
               </div>
             </div>
             <span className="px-2 py-0.5 rounded text-[8px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold uppercase">
@@ -74,19 +101,22 @@ export default function DevPanel() {
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => handleAdvanceTime(1, "days")}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold py-2 px-1 rounded-lg border border-slate-750 transition hover:border-slate-600 cursor-pointer text-center"
+                disabled={loading || !simulatedDate}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold py-2 px-1 rounded-lg border border-slate-750 transition hover:border-slate-600 disabled:cursor-not-allowed disabled:opacity-50 text-center"
               >
                 +1 Día
               </button>
               <button
                 onClick={() => handleAdvanceTime(30, "days")}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold py-2 px-1 rounded-lg border border-slate-750 transition hover:border-slate-600 cursor-pointer text-center"
+                disabled={loading || !simulatedDate}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold py-2 px-1 rounded-lg border border-slate-750 transition hover:border-slate-600 disabled:cursor-not-allowed disabled:opacity-50 text-center"
               >
                 +30 Días
               </button>
               <button
                 onClick={() => handleAdvanceTime(1, "years")}
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] font-extrabold py-2 px-1 rounded-lg transition transform hover:scale-[1.02] cursor-pointer text-center"
+                disabled={loading || !simulatedDate}
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] font-extrabold py-2 px-1 rounded-lg transition transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50 text-center"
               >
                 +1 Año
               </button>

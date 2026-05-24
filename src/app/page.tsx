@@ -56,6 +56,12 @@ export default function HomePage() {
               <ArrowRight className="w-5 h-5" />
             </Link>
             <Link
+              href="/consulta"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 font-semibold px-8 py-3 rounded-lg flex items-center justify-center gap-2 transition duration-150"
+            >
+              Consulta Pública
+            </Link>
+            <Link
               href="/login"
               className="bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold px-8 py-3 rounded-lg flex items-center justify-center gap-2 transition duration-150"
             >

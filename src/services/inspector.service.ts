@@ -1,7 +1,8 @@
 import { InspectionRepository } from "@/repositories/inspection.repository";
 import { ApplicationRepository } from "@/repositories/application.repository";
 import { LicenseService } from "@/services/license.service";
-import { ApplicationStatus, InspectionResult } from "@prisma/client";
+import { InspectionService } from "@/services/inspection.service";
+import { ApplicationStatus, InspectionNumber, InspectionResult } from "@prisma/client";
 
 export class InspectorService {
   static async getAssignedInspections(inspectorId: string) {
@@ -32,7 +33,7 @@ export class InspectorService {
 
     const applicationStatus = action === "approve"
       ? ApplicationStatus.LICENSE_ISSUED
-      : inspection.number === "FIRST"
+      : inspection.number === InspectionNumber.FIRST
       ? ApplicationStatus.FIRST_INSPECTION_REJECTED
       : ApplicationStatus.DEFINITIVELY_REJECTED;
 
@@ -40,6 +41,10 @@ export class InspectorService {
 
     if (action === "approve") {
       await LicenseService.createLicenseForApplication(inspection.applicationId);
+    }
+
+    if (action === "reject" && inspection.number === InspectionNumber.FIRST) {
+      await InspectionService.scheduleInspection(inspection.applicationId);
     }
 
     return updatedInspection;

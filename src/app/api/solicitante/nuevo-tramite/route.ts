@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
-import { BusinessService } from "@/services/business.service";
+import { getCurrentUser } from "@/lib/auth";
+import { ApplicationService } from "@/services/application.service";
 import { BusinessSchema } from "@/lib/validation/business";
 
 export async function POST(request: Request) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+
+    if (user.role !== "APPLICANT") {
+      return NextResponse.json({ error: "Acceso restringido." }, { status: 403 });
+    }
+
     const body = await request.json();
     const parsed = BusinessSchema.safeParse(body);
 
@@ -17,9 +27,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const business = await BusinessService.registerBusiness(parsed.data);
+    const { application, business } = await ApplicationService.startNewApplication({
+      applicantId: user.id,
+      legalName: parsed.data.legalName,
+      ruc: parsed.data.ruc,
+      fiscalAddress: parsed.data.fiscalAddress,
+      commercialAddress: parsed.data.commercialAddress,
+      activityType: parsed.data.activityType,
+      representativeName: parsed.data.representativeName,
+    });
 
-    return NextResponse.json({ success: true, business });
+    return NextResponse.json({ success: true, application, business });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Error interno al registrar el negocio." },

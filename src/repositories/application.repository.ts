@@ -1,4 +1,5 @@
 import { prisma } from "../lib/db/prisma";
+import { getCurrentSystemDate } from "@/lib/date";
 import { Application, ApplicationStatus } from "@prisma/client";
 
 export class ApplicationRepository {
@@ -55,7 +56,7 @@ export class ApplicationRepository {
 
   static async generateNumber(): Promise<string> {
     const count = await prisma.application.count();
-    const year = new Date().getFullYear();
+    const year = (await getCurrentSystemDate()).getFullYear();
     return `MPT-${year}-${String(count + 1).padStart(4, "0")}`;
   }
 
@@ -68,7 +69,7 @@ export class ApplicationRepository {
   }
 
   static async updateStatus(id: string, status: ApplicationStatus): Promise<Application> {
-    return prisma.application.update({ where: { id }, data: { status, updatedAt: new Date() } });
+    return prisma.application.update({ where: { id }, data: { status, updatedAt: await getCurrentSystemDate() } });
   }
 
   static async lockData(id: string): Promise<Application> {

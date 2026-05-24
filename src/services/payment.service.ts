@@ -2,6 +2,7 @@ import { PaymentRepository } from "@/repositories/payment.repository";
 import { ApplicationRepository } from "@/repositories/application.repository";
 import { InspectionService } from "@/services/inspection.service";
 import { LicenseService } from "@/services/license.service";
+import { getCurrentSystemDate } from "@/lib/date";
 import { Payment, PaymentType, ApplicationStatus } from "@prisma/client";
 
 export class PaymentService {
@@ -38,7 +39,7 @@ export class PaymentService {
       type: paymentType,
       amount: 2.0,
       operationNumber,
-      paidAt: new Date(),
+      paidAt: await getCurrentSystemDate(),
     });
 
     if (paymentType === PaymentType.INITIAL_APPLICATION) {
