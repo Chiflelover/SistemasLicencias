@@ -18,6 +18,13 @@ export default async function PagoPage() {
   }
 
   const application = await ApplicationRepository.findByApplicantId(user.id);
+  const uploadedDocuments = application?.documents ?? [];
+  const hasFloorPlan = uploadedDocuments.some((document) => document.type === "FLOOR_PLAN");
+  const hasRucRecord = uploadedDocuments.some((document) => document.type === "RUC_RECORD");
+  const missingDocuments = [
+    !hasFloorPlan && "Plano del local",
+    !hasRucRecord && "Registro RUC",
+  ].filter(Boolean) as string[];
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -76,14 +83,31 @@ export default async function PagoPage() {
 
               <div className="rounded-3xl border border-slate-850 bg-slate-900/80 p-5 text-slate-300">
                 <p className="text-sm">
-                  Haz clic en el botón para generar un número de operación, almacenar la fecha y el monto del pago, y marcar este trámite como pagado.
+                  Si el botón está deshabilitado, significa que primero debes subir los documentos requeridos o completar el trámite.
+                </p>
+                {missingDocuments.length > 0 ? (
+                  <div className="mt-3 text-sm text-amber-300">
+                    <p className="font-semibold">Documentos que faltan:</p>
+                    <ul className="list-disc pl-5 mt-2 text-slate-200">
+                      {missingDocuments.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-400">
+                    Ya tienes los documentos necesarios. Si el pago sigue bloqueado, revisa el estado del trámite.
+                  </p>
+                )}
+                <p className="text-sm mt-3 text-slate-400">
+                  El número de operación se genera automáticamente cuando haces clic en &quot;Pagar S/2&quot;.
                 </p>
               </div>
             </div>
           )}
         </section>
 
-        <PayButton applicationId={application?.id ?? null} />
+        <PayButton applicationId={application?.id ?? null} applicationStatus={application?.status ?? null} />
       </div>
     </div>
   );

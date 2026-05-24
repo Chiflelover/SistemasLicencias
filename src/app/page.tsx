@@ -61,12 +61,6 @@ export default function HomePage() {
             >
               Consulta Pública
             </Link>
-            <Link
-              href="/login"
-              className="bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold px-8 py-3 rounded-lg flex items-center justify-center gap-2 transition duration-150"
-            >
-              Portal del Inspector
-            </Link>
           </div>
         </div>
 

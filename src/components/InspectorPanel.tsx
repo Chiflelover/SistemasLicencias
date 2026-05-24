@@ -26,7 +26,7 @@ interface InspectionDetail {
     id: string;
     number: string;
     status: string;
-    business: { legalName: string; ruc: string; address: string | null; activity: string | null };
+    business: { legalName: string; ruc: string; commercialAddress: string | null; activityType: string | null };
     applicant: { fullName: string; email: string; phone: string } | null;
     documents: Array<{ id: string; name: string; type: string; fileName: string }>;
     payments: Array<{ id: string; amount: number; operationNumber: string; status: string; createdAt: string }>;
@@ -53,6 +53,18 @@ export function InspectorPanel() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const formatPaymentAmount = (amount: unknown) => {
+    if (typeof amount === "number") {
+      return amount.toFixed(2);
+    }
+
+    if (typeof amount === "string" && !Number.isNaN(Number(amount))) {
+      return Number(amount).toFixed(2);
+    }
+
+    return String(amount ?? "0.00");
+  };
 
   const selectedInspection = useMemo(
     () => inspections.find((item) => item.id === selectedInspectionId) || null,
@@ -200,32 +212,6 @@ export function InspectorPanel() {
           </div>
         </div>
 
-        <div className="bg-slate-900/40 border border-slate-850 rounded-2xl p-6">
-          <div className="flex items-center gap-3 text-slate-300">
-            <FileSearch className="w-5 h-5" />
-            <div>
-              <p className="text-xs uppercase tracking-wider text-slate-500">Detalle rápido</p>
-              <p className="text-sm font-semibold text-white">{selectedInspection?.application.number || "Selecciona una inspección"}</p>
-            </div>
-          </div>
-
-          <div className="mt-6 space-y-4 text-sm text-slate-300">
-            <div className="rounded-2xl border border-slate-850 bg-slate-950/30 p-4">
-              <p className="text-slate-500 uppercase text-[11px] tracking-[0.2em]">Estado actual</p>
-              <p className="mt-2 text-white">{selectedInspection ? selectedInspection.status : "Esperando selección"}</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-850 bg-slate-950/30 p-4">
-              <p className="text-slate-500 uppercase text-[11px] tracking-[0.2em]">Tipo</p>
-              <p className="mt-2 text-white">{selectedInspection ? selectedInspection.number : "N/A"}</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-850 bg-slate-950/30 p-4">
-              <p className="text-slate-500 uppercase text-[11px] tracking-[0.2em]">Programado para</p>
-              <p className="mt-2 text-white">{selectedInspection ? formatDateTime(selectedInspection.scheduledAt) : "N/A"}</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
@@ -267,11 +253,11 @@ export function InspectorPanel() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-850 bg-slate-950/40 p-4">
                 <p className="text-slate-500 uppercase text-[11px] tracking-[0.2em]">Dirección</p>
-                <p className="mt-2 text-white">{details?.application.business.address || "No registrada"}</p>
+                <p className="mt-2 text-white">{details?.application.business.commercialAddress || "No registrada"}</p>
               </div>
               <div className="rounded-2xl border border-slate-850 bg-slate-950/40 p-4">
                 <p className="text-slate-500 uppercase text-[11px] tracking-[0.2em]">Rubro</p>
-                <p className="mt-2 text-white">{details?.application.business.activity || "No registrada"}</p>
+                <p className="mt-2 text-white">{details?.application.business.activityType || "No registrada"}</p>
               </div>
             </div>
 
@@ -312,9 +298,11 @@ export function InspectorPanel() {
               <div className="rounded-2xl border border-slate-850 bg-slate-950/40 p-4">
                 <p className="text-slate-500 uppercase text-[11px] tracking-[0.2em]">Último pago</p>
                 <p className="mt-2 text-white">
-                  {details?.application.payments.length
-                    ? `S/ ${details.application.payments.at(-1)?.amount.toFixed(2)} - ${details.application.payments.at(-1)?.operationNumber}`
-                    : "Sin pago registrado"}
+                  {details?.application.payments.length ? (
+                    `S/ ${formatPaymentAmount(details.application.payments.at(-1)?.amount)} - ${details.application.payments.at(-1)?.operationNumber}`
+                  ) : (
+                    "Sin pago registrado"
+                  )}
                 </p>
               </div>
               <div className="rounded-2xl border border-slate-850 bg-slate-950/40 p-4">

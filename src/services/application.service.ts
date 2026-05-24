@@ -8,17 +8,11 @@ export class ApplicationService {
     legalName: string;
     ruc: string;
     fiscalAddress: string;
-    commercialAddress: string;
-    activityType: string;
-    representativeName: string;
   }): Promise<{ application: Application; business: { id: string } }> {
     const business = await BusinessService.registerBusiness({
       legalName: params.legalName,
       ruc: params.ruc,
       fiscalAddress: params.fiscalAddress,
-      commercialAddress: params.commercialAddress,
-      activityType: params.activityType,
-      representativeName: params.representativeName,
     });
 
     const applicationNumber = await ApplicationRepository.generateNumber();

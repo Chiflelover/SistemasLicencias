@@ -6,9 +6,6 @@ export class BusinessService {
     legalName: string;
     ruc: string;
     fiscalAddress: string;
-    commercialAddress: string;
-    activityType: string;
-    representativeName: string;
   }): Promise<Business> {
     const existingBusiness = await BusinessRepository.findByRuc(data.ruc);
     if (existingBusiness) {
@@ -19,9 +16,9 @@ export class BusinessService {
       legalName: data.legalName,
       ruc: data.ruc,
       fiscalAddress: data.fiscalAddress,
-      commercialAddress: data.commercialAddress,
-      activityType: data.activityType,
-      representativeName: data.representativeName,
+      commercialAddress: data.fiscalAddress,
+      activityType: "No registrado",
+      representativeName: "No registrado",
       representativeDni: "",
       representativeRole: "Representante Legal",
       representativePhone: "",

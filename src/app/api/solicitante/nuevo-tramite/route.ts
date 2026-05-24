@@ -32,9 +32,6 @@ export async function POST(request: Request) {
       legalName: parsed.data.legalName,
       ruc: parsed.data.ruc,
       fiscalAddress: parsed.data.fiscalAddress,
-      commercialAddress: parsed.data.commercialAddress,
-      activityType: parsed.data.activityType,
-      representativeName: parsed.data.representativeName,
     });
 
     return NextResponse.json({ success: true, application, business });

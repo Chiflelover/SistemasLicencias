@@ -2,6 +2,7 @@
 
 import { Shield, Calendar, Clock, ChevronDown, User, LogOut, Home } from "lucide-react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface NavbarProps {
@@ -54,16 +55,13 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
     <header className="sticky top-0 z-30 h-16 bg-slate-900 border-b border-slate-850 flex items-center justify-between px-6 lg:px-8">
       {/* Lado Izquierdo: Contexto */}
       <div className="flex items-center gap-3">
-        {/* Espacio para que el botón de menú móvil no se sobreponga */}
-        <div className="w-12 lg:hidden" />
-        <button
-          type="button"
-          onClick={() => router.push("/")}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-900 transition"
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/95 px-3 py-2 text-xs font-semibold text-slate-100 shadow-lg shadow-slate-950/20 transition hover:bg-slate-900"
         >
           <Home className="w-4 h-4" />
           Inicio
-        </button>
+        </Link>
         <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 font-semibold">
           <Shield className="w-3.5 h-3.5 text-amber-500" />
           CONEXIÓN CIFRADA (SSL)

@@ -23,9 +23,6 @@ export default function NuevoTramitePage() {
       legalName: "",
       ruc: "",
       fiscalAddress: "",
-      commercialAddress: "",
-      activityType: "",
-      representativeName: "",
     },
   });
 
@@ -129,7 +126,7 @@ export default function NuevoTramitePage() {
               </label>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4">
               <label className="space-y-2 text-sm text-slate-300">
                 <span className="font-semibold">Domicilio fiscal</span>
                 <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
@@ -142,55 +139,7 @@ export default function NuevoTramitePage() {
                 </div>
                 {errors.fiscalAddress && <p className="text-xs text-rose-400">{errors.fiscalAddress.message}</p>}
               </label>
-
-              <label className="space-y-2 text-sm text-slate-300">
-                <span className="font-semibold">Dirección local</span>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
-                  <input
-                    {...register("commercialAddress")}
-                    type="text"
-                    placeholder="Jr. San Martín 456, Local 7"
-                    className="w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-500"
-                  />
-                </div>
-                {errors.commercialAddress && <p className="text-xs text-rose-400">{errors.commercialAddress.message}</p>}
-              </label>
             </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="space-y-2 text-sm text-slate-300">
-                <span className="font-semibold">Rubro</span>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
-                  <input
-                    {...register("activityType")}
-                    type="text"
-                    placeholder="Comercio minorista, Restaurant, Servicios"
-                    className="w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-500"
-                  />
-                </div>
-                {errors.activityType && <p className="text-xs text-rose-400">{errors.activityType.message}</p>}
-              </label>
-
-              <label className="space-y-2 text-sm text-slate-300">
-                <span className="font-semibold">Representante legal</span>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
-                  <input
-                    {...register("representativeName")}
-                    type="text"
-                    placeholder="Nombre completo del representante"
-                    className="w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-500"
-                  />
-                </div>
-                {errors.representativeName && <p className="text-xs text-rose-400">{errors.representativeName.message}</p>}
-              </label>
-            </div>
-
-            <div className="space-y-3 rounded-3xl border border-slate-850 bg-slate-950/40 p-5">
-              <div className="flex items-center gap-3 text-slate-300">
-                <ClipboardCopy className="w-5 h-5 text-amber-400" />
-              </div>
-            </div>
-
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-slate-500">
                 Consejo: revisa tus datos antes de avanzar al siguiente paso.
@@ -226,18 +175,6 @@ export default function NuevoTramitePage() {
                 <li className="flex items-start gap-3">
                   <span className="mt-1 text-amber-400">•</span>
                   <span>Domicilio fiscal registrado en SUNAT.</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 text-amber-400">•</span>
-                  <span>Dirección exacta del local comercial.</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 text-amber-400">•</span>
-                  <span>Rubro o actividad económica principal.</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="mt-1 text-amber-400">•</span>
-                  <span>Representante legal a cargo del trámite.</span>
                 </li>
               </ul>
             </div>

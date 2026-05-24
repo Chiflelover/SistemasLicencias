@@ -30,7 +30,16 @@ export class InspectionRepository {
             applicant: { select: { id: true, fullName: true, email: true, phone: true } },
             documents: { select: { id: true, type: true, name: true, fileName: true, mimeType: true, size: true, createdAt: true } },
             payments: true,
-            license: true,
+            license: {
+              select: {
+                id: true,
+                licenseNumber: true,
+                status: true,
+                issuedAt: true,
+                expiresAt: true,
+                pdfFileName: true,
+              },
+            },
           },
         },
         inspector: { select: { id: true, fullName: true } },
