@@ -1,16 +1,16 @@
 import { getCurrentUser } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { 
-  Building2, 
-  FileText, 
-  DollarSign, 
-  CalendarDays, 
-  Award, 
+import { ApplicationRepository } from "@/repositories/application.repository";
+import {
+  Building2,
+  FileText,
+  DollarSign,
+  CalendarDays,
+  Award,
   Plus,
   ArrowRight,
-  ShieldCheck,
-  AlertCircle
+  AlertTriangle,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -26,141 +26,132 @@ export default async function SolicitanteDashboard() {
     redirect("/login");
   }
 
-  // Simulación visual de estado de trámite (Fase mockup)
-  const hasActiveApplication = false;
+  const application = await ApplicationRepository.findByApplicantId(user.id);
+  const hasActiveApplication = Boolean(application);
+  const license = application?.license;
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* Bienvenida y Encabezado */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-900/40 p-6 rounded-2xl border border-slate-850">
         <div>
           <h1 className="text-2xl font-bold text-white">¡Hola, {user.fullName}!</h1>
           <p className="text-slate-400 text-sm mt-1">
-            Desde este portal puedes gestionar tus licencias comerciales y programar inspecciones.
+            Administra tu trámite, sube documentos, paga y revisa el estado de tu licencia.
           </p>
         </div>
-        {!hasActiveApplication && (
-          <Link
-            href="/solicitante/nuevo-tramite"
-            className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-5 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-1.5 transition self-start cursor-pointer"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            Nueva Solicitud
-          </Link>
-        )}
-      </div>
-
-      {/* Grid de Estado Rápido */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-slate-900/50 border border-slate-850 p-6 rounded-2xl space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Estado de Solicitud</span>
-            <span className="px-2.5 py-0.5 rounded text-[10px] bg-slate-950/60 border border-slate-800 text-slate-400 font-bold uppercase">
-              Ninguna
-            </span>
-          </div>
-          <p className="text-sm text-slate-300">No tienes trámites en curso en este momento.</p>
-        </div>
-
-        <div className="bg-slate-900/50 border border-slate-850 p-6 rounded-2xl space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Inspecciones</span>
-            <span className="px-2.5 py-0.5 rounded text-[10px] bg-slate-950/60 border border-slate-800 text-slate-400 font-bold uppercase">
-              0 Pendientes
-            </span>
-          </div>
-          <p className="text-sm text-slate-300">No hay inspecciones agendadas para tus locales.</p>
-        </div>
-
-        <div className="bg-slate-900/50 border border-slate-850 p-6 rounded-2xl space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Licencia Comercial</span>
-            <span className="px-2.5 py-0.5 rounded text-[10px] bg-slate-950/60 border border-slate-800 text-slate-400 font-bold uppercase">
-              Inactivo
-            </span>
-          </div>
-          <p className="text-sm text-slate-300">Aún no cuentas con una licencia emitida.</p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          {!hasActiveApplication ? (
+            <Link
+              href="/solicitante/nuevo-tramite"
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-5 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              Nueva Solicitud
+            </Link>
+          ) : (
+            <Link
+              href="/solicitante/inspecciones"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-950/70 px-5 py-2.5 text-sm font-semibold text-slate-100 hover:border-amber-500 hover:text-amber-200 transition"
+            >
+              <ArrowRight className="w-4 h-4" />
+              Ver mi trámite
+            </Link>
+          )}
         </div>
       </div>
 
-      {/* Flujo de Trámite Municipal */}
-      <div className="bg-slate-900/30 border border-slate-850 rounded-2xl p-6 lg:p-8 space-y-6">
-        <h2 className="text-lg font-bold text-white">Cronograma del Flujo de Trámite Municipal</h2>
-        <div className="relative">
-          {/* Línea conectora */}
-          <div className="absolute left-8 top-8 bottom-8 w-0.5 bg-slate-800 hidden md:block" />
-
-          {/* Pasos */}
-          <div className="space-y-8">
-            {/* Paso 1 */}
-            <div className="flex flex-col md:flex-row gap-6 relative">
-              <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-850 text-slate-400 flex items-center justify-center shrink-0 z-10">
-                <Building2 className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-bold text-white text-base">Paso 1: Registrar Datos del Negocio</h3>
-                <p className="text-sm text-slate-400">
-                  Ingresa los datos fiscales (RUC de 11 dígitos, razón social, dirección comercial, actividad y representante legal).
-                </p>
-              </div>
+      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
+        <section className="space-y-6 rounded-3xl border border-slate-850 bg-slate-900/40 p-6 lg:p-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Resumen del trámite</p>
+              <h2 className="text-2xl font-bold text-white">Tu estado actual</h2>
             </div>
-
-            {/* Paso 2 */}
-            <div className="flex flex-col md:flex-row gap-6 relative">
-              <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-850 text-slate-400 flex items-center justify-center shrink-0 z-10">
-                <FileText className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-bold text-white text-base">Paso 2: Cargar Documentación Exigida</h3>
-                <p className="text-sm text-slate-400">
-                  Sube el croquis de distribución o plano del local, y tu ficha RUC actualizada en formatos PDF, JPG o PNG (máximo 5MB).
-                </p>
-              </div>
-            </div>
-
-            {/* Paso 3 */}
-            <div className="flex flex-col md:flex-row gap-6 relative">
-              <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-850 text-slate-400 flex items-center justify-center shrink-0 z-10">
-                <DollarSign className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-bold text-white text-base">Paso 3: Pago Simulado de Tasa</h3>
-                <p className="text-sm text-slate-400">
-                  Abona los S/ 2.00 requeridos simulando el depósito para habilitar la inspección técnica obligatoria.
-                </p>
-                <p className="text-sm text-amber-300">
-                  <a href="/solicitante/pago" className="underline hover:text-amber-200">Ir al pago simulado</a>
-                </p>
-              </div>
-            </div>
-
-            {/* Paso 4 */}
-            <div className="flex flex-col md:flex-row gap-6 relative">
-              <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-850 text-slate-400 flex items-center justify-center shrink-0 z-10">
-                <CalendarDays className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-bold text-white text-base">Paso 4: Programación Automática de Inspección</h3>
-                <p className="text-sm text-slate-400">
-                  El sistema agendará de forma automática la inspección técnica más cercana de lunes a viernes en horario de 8:00 AM a 5:00 PM.
-                </p>
-              </div>
-            </div>
-
-            {/* Paso 5 */}
-            <div className="flex flex-col md:flex-row gap-6 relative">
-              <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-850 text-slate-400 flex items-center justify-center shrink-0 z-10">
-                <Award className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-bold text-white text-base">Paso 5: Aprobación y Descarga de Licencia</h3>
-                <p className="text-sm text-slate-400">
-                  Una vez que el inspector apruebe el local, el sistema generará automáticamente la licencia municipal firmada digitalmente en formato PDF para su descarga.
-                </p>
-              </div>
+            <div className="rounded-2xl border border-slate-850 bg-slate-950/70 px-4 py-3 text-sm text-slate-300">
+              {application?.status?.replaceAll("_", " ") ?? "SIN TRÁMITE"}
             </div>
           </div>
-        </div>
+
+          {hasActiveApplication ? (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-3xl border border-slate-850 bg-slate-950/30 p-5">
+                <p className="text-sm uppercase tracking-[0.18em] text-slate-500">Trámite</p>
+                <p className="mt-3 text-xl font-semibold text-white">{application?.number}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-850 bg-slate-950/30 p-5">
+                <p className="text-sm uppercase tracking-[0.18em] text-slate-500">Inspecciones</p>
+                <p className="mt-3 text-xl font-semibold text-white">{application?.inspections.length}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-850 bg-slate-950/30 p-5">
+                <p className="text-sm uppercase tracking-[0.18em] text-slate-500">Licencia</p>
+                <p className="mt-3 text-xl font-semibold text-white">
+                  {license ? license.status.replaceAll("_", " ") : "No emitida"}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-slate-850 bg-slate-950/30 p-6 text-slate-300">
+              <div className="flex items-center gap-3 text-amber-300 mb-3">
+                <AlertTriangle className="w-5 h-5" />
+                <p className="font-semibold">Aún no tienes un trámite iniciado</p>
+              </div>
+              <p>Registra tu negocio para comenzar el flujo de licencia municipal.</p>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Link
+              href="/solicitante/nuevo-tramite"
+              className="rounded-3xl border border-slate-850 bg-slate-950/40 p-5 text-left transition hover:border-amber-500"
+            >
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">1. Registrar negocio</p>
+              <p className="mt-3 text-sm text-slate-300">Comienza el trámite con tus datos fiscales.</p>
+            </Link>
+            <Link
+              href="/solicitante/subir-documentos"
+              className="rounded-3xl border border-slate-850 bg-slate-950/40 p-5 text-left transition hover:border-amber-500"
+            >
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">2. Subir documentos</p>
+              <p className="mt-3 text-sm text-slate-300">Adjunta el plano y la ficha RUC.</p>
+            </Link>
+            <Link
+              href="/solicitante/pago"
+              className="rounded-3xl border border-slate-850 bg-slate-950/40 p-5 text-left transition hover:border-amber-500"
+            >
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">3. Pago simulado</p>
+              <p className="mt-3 text-sm text-slate-300">Realiza el pago para activar la inspección.</p>
+            </Link>
+            <Link
+              href="/solicitante/licencia"
+              className="rounded-3xl border border-slate-850 bg-slate-950/40 p-5 text-left transition hover:border-amber-500"
+            >
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">4. Licencia</p>
+              <p className="mt-3 text-sm text-slate-300">Revisa tu licencia y descárgala cuando esté lista.</p>
+            </Link>
+          </div>
+        </section>
+
+        <aside className="space-y-6">
+          <div className="rounded-3xl border border-slate-850 bg-slate-900/40 p-6">
+            <p className="text-sm uppercase tracking-[0.18em] text-slate-500">Acciones sugeridas</p>
+            <div className="mt-4 space-y-4 text-slate-300 text-sm">
+              <div className="rounded-2xl border border-slate-850 bg-slate-950/30 p-4">
+                <p className="font-semibold text-white">Carga documentos</p>
+                <p className="mt-2">Sube el plano y la ficha RUC para mover el trámite a pago.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-850 bg-slate-950/30 p-4">
+                <p className="font-semibold text-white">Paga la tasa</p>
+                <p className="mt-2">El pago simulado es necesario para que se programe la inspección.</p>
+              </div>
+              {license && (
+                <div className="rounded-2xl border border-slate-850 bg-slate-950/30 p-4">
+                  <p className="font-semibold text-white">Tu licencia está lista</p>
+                  <p className="mt-2">Descarga el PDF desde la sección de licencias.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );

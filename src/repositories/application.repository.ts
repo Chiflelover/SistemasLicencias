@@ -25,7 +25,10 @@ export class ApplicationRepository {
         business: true,
         documents: true,
         payments: true,
-        inspections: { orderBy: { createdAt: "asc" } },
+        inspections: {
+          orderBy: { createdAt: "asc" },
+          include: { inspector: { select: { fullName: true } } },
+        },
         license: true,
       },
     });

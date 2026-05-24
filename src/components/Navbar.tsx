@@ -1,6 +1,6 @@
 "use client";
 
-import { Shield, Calendar, Clock, ChevronDown, User, LogOut } from "lucide-react";
+import { Shield, Calendar, Clock, ChevronDown, User, LogOut, Home } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -56,6 +56,14 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
       <div className="flex items-center gap-3">
         {/* Espacio para que el botón de menú móvil no se sobreponga */}
         <div className="w-12 lg:hidden" />
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-900 transition"
+        >
+          <Home className="w-4 h-4" />
+          Inicio
+        </button>
         <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 font-semibold">
           <Shield className="w-3.5 h-3.5 text-amber-500" />
           CONEXIÓN CIFRADA (SSL)

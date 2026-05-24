@@ -185,13 +185,7 @@ export default function LoginPage() {
 
           <div className="text-center pt-2">
             <p className="text-sm text-slate-400">
-              ¿No tienes una cuenta de Solicitante?{" "}
-              <Link
-                href="/register"
-                className="text-amber-400 hover:text-amber-300 font-medium hover:underline transition"
-              >
-                Regístrate aquí
-              </Link>
+              Si necesitas una cuenta de solicitante, usa el botón de registro en la página principal.
             </p>
           </div>
         </div>
