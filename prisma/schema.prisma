@@ -1,0 +1,253 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enumeraciones ───────────────────────────────────────────────────────────
+
+enum Role {
+  APPLICANT
+  INSPECTOR
+}
+
+enum ApplicationStatus {
+  DRAFT
+  DOCUMENTS_COMPLETE
+  PENDING_PAYMENT
+  PAYMENT_COMPLETED
+  INSPECTION_SCHEDULED
+  FIRST_INSPECTION_REJECTED
+  SECOND_INSPECTION_SCHEDULED
+  LICENSE_ISSUED
+  DEFINITIVELY_REJECTED
+  RENEWAL_AVAILABLE
+  EXPIRED
+}
+
+enum LicenseStatus {
+  ACTIVE
+  RENEWAL_AVAILABLE
+  EXPIRED
+}
+
+enum DocumentType {
+  FLOOR_PLAN
+  RUC_RECORD
+  ADDITIONAL
+}
+
+enum PaymentType {
+  INITIAL_APPLICATION
+  RENEWAL
+}
+
+enum PaymentStatus {
+  COMPLETED
+}
+
+enum InspectionNumber {
+  FIRST
+  SECOND
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  COMPLETED
+}
+
+enum InspectionResult {
+  APPROVED
+  REJECTED
+}
+
+enum FineStatus {
+  ISSUED
+  PAID
+}
+
+// ─── Usuario (Solicitante / Inspector) ───────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  dni          String
+  phone        String
+  role         Role
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  applications Application[] @relation("ApplicantApplications")
+  inspections  Inspection[]  @relation("InspectorInspections")
+  fines        Fine[]        @relation("InspectorFines")
+
+  @@index([role])
+  @@index([active])
+}
+
+// ─── Negocio ─────────────────────────────────────────────────────────────────
+
+model Business {
+  id                String   @id @default(cuid())
+  legalName         String
+  ruc               String   @unique
+  fiscalAddress     String
+  commercialAddress String
+  activityType      String
+
+  representativeName  String
+  representativeDni   String
+  representativeRole  String
+  representativePhone String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applications Application[]
+
+  @@index([legalName])
+}
+
+// ─── Trámite (Application) ───────────────────────────────────────────────────
+
+model Application {
+  id          String            @id @default(cuid())
+  number      String            @unique
+  status      ApplicationStatus @default(DRAFT)
+  dataLocked  Boolean           @default(false)
+
+  applicantId String
+  businessId  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applicant   User         @relation("ApplicantApplications", fields: [applicantId], references: [id], onDelete: Restrict)
+  business    Business     @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  documents   Document[]
+  payments    Payment[]
+  inspections Inspection[]
+  license     License?
+
+  @@index([applicantId])
+  @@index([businessId])
+  @@index([status])
+}
+
+// ─── Documento (binario en BD) ───────────────────────────────────────────────
+
+model Document {
+  id                    String       @id @default(cuid())
+  applicationId         String
+  type                  DocumentType
+  name                  String
+  fileName              String
+  mimeType              String
+  size                  Int
+  content               Bytes
+  additionalDocumentName String?
+  createdAt             DateTime     @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([type])
+}
+
+// ─── Pago simulado ─────────────────────────────────────────────────────────────
+
+model Payment {
+  id              String        @id @default(cuid())
+  applicationId   String
+  type            PaymentType
+  amount          Decimal       @db.Decimal(10, 2)
+  operationNumber String        @unique
+  status          PaymentStatus @default(COMPLETED)
+  paidAt          DateTime
+  createdAt       DateTime      @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([type])
+}
+
+// ─── Inspección ────────────────────────────────────────────────────────────────
+
+model Inspection {
+  id            String            @id @default(cuid())
+  applicationId String
+  inspectorId   String
+  number        InspectionNumber
+  status        InspectionStatus  @default(SCHEDULED)
+  scheduledAt   DateTime
+  result        InspectionResult?
+  observations  String?
+  resultAt      DateTime?
+  createdAt     DateTime          @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  inspector   User        @relation("InspectorInspections", fields: [inspectorId], references: [id], onDelete: Restrict)
+
+  @@index([applicationId])
+  @@index([inspectorId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+// ─── Licencia (PDF en BD) ──────────────────────────────────────────────────────
+
+model License {
+  id            String        @id @default(cuid())
+  applicationId String        @unique
+  licenseNumber String        @unique
+  issuedAt      DateTime
+  expiresAt     DateTime
+  status        LicenseStatus @default(ACTIVE)
+  pdfContent    Bytes
+  pdfFileName   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  fines       Fine[]
+
+  @@index([status])
+  @@index([expiresAt])
+}
+
+// ─── Multa (inspección inopinada u observación post-emisión) ───────────────────
+
+model Fine {
+  id           String     @id @default(cuid())
+  licenseId    String
+  inspectorId  String
+  amount       Decimal    @db.Decimal(10, 2)
+  description  String
+  observations String?
+  status       FineStatus @default(ISSUED)
+  issuedAt     DateTime
+  createdAt    DateTime   @default(now())
+
+  license   License @relation(fields: [licenseId], references: [id], onDelete: Restrict)
+  inspector User    @relation("InspectorFines", fields: [inspectorId], references: [id], onDelete: Restrict)
+
+  @@index([licenseId])
+  @@index([inspectorId])
+  @@index([status])
+  @@index([issuedAt])
+}
+
+// ─── Configuración del Sistema (Simulación de Tiempo) ──────────────────────────
+
+model SystemConfig {
+  id            String   @id @default("singleton")
+  simulatedDate DateTime @default(now())
+}
+
