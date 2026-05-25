@@ -11,7 +11,7 @@ export interface RucResponse {
 }
 
 export class RucService {
-  private static API_URL = "https://apiperu.dev/api/ruc";
+  private static API_URL = "https://apiperu.dev/api/v1/ruc";
   private static TOKEN = process.env.APIPERU_TOKEN;
 
   static async getBusinessData(ruc: string) {
@@ -25,12 +25,16 @@ export class RucService {
     }
 
     try {
-      const response = await fetch(`${this.API_URL}/${ruc}`, {
+      const url = `${this.API_URL}/${ruc}`;
+      const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${this.TOKEN}`,
+          "Accept": "application/json",
         },
+        // Evitar caché para asegurar datos frescos de la SUNAT
+        cache: 'no-store'
       });
 
       const result: RucResponse = await response.json();
