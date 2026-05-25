@@ -1,21 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { ArrowLeft, Briefcase, MapPin, Home, ClipboardCopy, Layers } from "lucide-react";
+import { ArrowLeft, Briefcase, MapPin, Home, ClipboardCopy, Layers, Loader2 } from "lucide-react";
 import { BusinessSchema, type BusinessFormValues } from "@/lib/validation/business";
 
 export default function NuevoTramitePage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isFetchingRuc, setIsFetchingRuc] = useState(false);
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<BusinessFormValues>({
     resolver: zodResolver(BusinessSchema),
@@ -25,6 +29,54 @@ export default function NuevoTramitePage() {
       fiscalAddress: "",
     },
   });
+
+  const rucValue = watch("ruc")?.trim();
+
+  // Efecto para consultar el RUC automáticamente al llegar a 11 dígitos
+  useEffect(() => {
+    let isMounted = true;
+    const fetchRucData = async (ruc: string) => {
+      setIsFetchingRuc(true);
+      setErrorMessage(null);
+      
+      try {
+        const response = await fetch(`/api/ruc/${ruc}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "No se encontró información para el RUC proporcionado.");
+        }
+
+        if (!isMounted) return;
+
+        setValue("legalName", data.legalName, { shouldValidate: true });
+        setValue("fiscalAddress", data.fiscalAddress, { shouldValidate: true });
+        
+        // Limpiar errores previos si la consulta fue exitosa
+        clearErrors(["legalName", "ruc", "fiscalAddress"]);
+      } catch (err: any) {
+        if (!isMounted) return;
+        setErrorMessage(err.message);
+        setError("ruc", { type: "manual", message: err.message });
+        
+        // Limpiar campos para evitar datos inconsistentes
+        setValue("legalName", "");
+        setValue("fiscalAddress", "");
+      } finally {
+        setIsFetchingRuc(false);
+      }
+    };
+
+    if (rucValue?.length === 11 && /^\d+$/.test(rucValue)) {
+      fetchRucData(rucValue);
+    } else if (rucValue?.length > 0 && rucValue?.length < 11) {
+      // Limpiar campos mientras el RUC se está escribiendo o es incompleto
+      setValue("legalName", "");
+      setValue("fiscalAddress", "");
+    }
+
+    return () => { isMounted = false; };
+  }, [rucValue, setValue, setError, clearErrors]);
 
   const onSubmit = async (values: BusinessFormValues) => {
     setSuccessMessage(null);
@@ -99,42 +151,49 @@ export default function NuevoTramitePage() {
           <form className="grid gap-6" onSubmit={handleSubmit(onSubmit)}>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2 text-sm text-slate-300">
-                <span className="font-semibold">Razón social</span>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
-                  <input
-                    {...register("legalName")}
-                    type="text"
-                    placeholder="Ej. Inversiones Trujillo S.A.C."
-                    className="w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-500"
-                  />
-                </div>
-                {errors.legalName && <p className="text-xs text-rose-400">{errors.legalName.message}</p>}
-              </label>
-
-              <label className="space-y-2 text-sm text-slate-300">
                 <span className="font-semibold">RUC</span>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
+                <div className="relative rounded-2xl border border-slate-800 bg-slate-950/70 p-3 focus-within:border-amber-500/50 transition">
                   <input
                     {...register("ruc")}
                     type="text"
                     placeholder="20123456789"
                     maxLength={11}
-                    className="w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-500"
+                    className="w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-500 pr-10"
                   />
+                  {isFetchingRuc && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+                    </div>
+                  )}
                 </div>
                 {errors.ruc && <p className="text-xs text-rose-400">{errors.ruc.message}</p>}
+              </label>
+
+              <label className="space-y-2 text-sm text-slate-300">
+                <span className="font-semibold">Razón social</span>
+                <div className={`rounded-2xl border border-slate-800 p-3 transition ${isFetchingRuc ? 'bg-slate-900/30' : 'bg-slate-900/50'}`}>
+                  <input
+                    {...register("legalName")}
+                    type="text"
+                    readOnly
+                    placeholder="Se autocompletará con el RUC"
+                    className="w-full bg-transparent text-slate-400 outline-none placeholder:text-slate-600 cursor-not-allowed"
+                  />
+                </div>
+                {errors.legalName && <p className="text-xs text-rose-400">{errors.legalName.message}</p>}
               </label>
             </div>
 
             <div className="grid gap-4">
               <label className="space-y-2 text-sm text-slate-300">
                 <span className="font-semibold">Domicilio fiscal</span>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
+                <div className={`rounded-2xl border border-slate-800 p-3 transition ${isFetchingRuc ? 'bg-slate-900/30' : 'bg-slate-900/50'}`}>
                   <input
                     {...register("fiscalAddress")}
                     type="text"
-                    placeholder="Av. España 123, Trujillo"
-                    className="w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-500"
+                    readOnly
+                    placeholder="Se autocompletará con el RUC"
+                    className="w-full bg-transparent text-slate-400 outline-none placeholder:text-slate-600 cursor-not-allowed"
                   />
                 </div>
                 {errors.fiscalAddress && <p className="text-xs text-rose-400">{errors.fiscalAddress.message}</p>}
@@ -146,10 +205,10 @@ export default function NuevoTramitePage() {
               </div>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isFetchingRuc}
                 className="inline-flex items-center justify-center rounded-2xl bg-amber-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isSubmitting ? "Guardando..." : "Guardar datos"}
+                {isSubmitting ? "Guardando..." : isFetchingRuc ? "Verificando RUC..." : "Guardar datos"}
               </button>
             </div>
           </form>

@@ -98,13 +98,13 @@ model Business {
   legalName         String
   ruc               String   @unique
   fiscalAddress     String
-  commercialAddress String
-  activityType      String
+  commercialAddress String?
+  activityType      String?
 
-  representativeName  String
-  representativeDni   String
-  representativeRole  String
-  representativePhone String
+  representativeName  String?
+  representativeDni   String?
+  representativeRole  String?
+  representativePhone String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -250,4 +250,3 @@ model SystemConfig {
   id            String   @id @default("singleton")
   simulatedDate DateTime @default(now())
 }
-

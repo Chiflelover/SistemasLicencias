@@ -4,7 +4,7 @@ import { Application, ApplicationStatus } from "@prisma/client";
 
 export class ApplicationRepository {
   static async findById(id: string) {
-    return prisma.application.findUnique({
+    const app = await prisma.application.findUnique({
       where: { id },
       include: {
         business: true,
@@ -15,10 +15,11 @@ export class ApplicationRepository {
         license: true,
       },
     });
+    return app ? this.syncStatusWithSimulatedDate(app) : null;
   }
 
   static async findByApplicantId(applicantId: string) {
-    return prisma.application.findFirst({
+    const app = await prisma.application.findFirst({
       where: { applicantId },
       orderBy: { createdAt: "desc" },
       include: {
@@ -32,6 +33,42 @@ export class ApplicationRepository {
         license: true,
       },
     });
+    return app ? this.syncStatusWithSimulatedDate(app) : null;
+  }
+
+  /**
+   * Lógica del Simulador de Tiempo: 
+   * Verifica si la licencia ha expirado o está en periodo de renovación
+   * comparándola con la simulatedDate del sistema.
+   */
+  private static async syncStatusWithSimulatedDate(application: any) {
+    if (!application.license) return application;
+
+    const simulatedDate = await getCurrentSystemDate();
+    const expiresAt = new Date(application.license.expiresAt);
+    
+    // 30 días antes de expirar comienza el periodo de renovación
+    const renewalPeriodStart = new Date(expiresAt);
+    renewalPeriodStart.setDate(expiresAt.getDate() - 30);
+
+    let newStatus: ApplicationStatus = application.status;
+
+    if (simulatedDate > expiresAt) {
+      newStatus = ApplicationStatus.EXPIRED;
+    } else if (simulatedDate >= renewalPeriodStart) {
+      newStatus = ApplicationStatus.RENEWAL_AVAILABLE;
+    }
+
+    // Si el estado calculado es diferente al de la BD, actualizamos la instancia en memoria
+    // y opcionalmente podríamos persistirlo aquí.
+    if (newStatus !== application.status) {
+      application.status = newStatus;
+      if (application.license) {
+        application.license.status = simulatedDate > expiresAt ? "EXPIRED" : "RENEWAL_AVAILABLE";
+      }
+    }
+
+    return application;
   }
 
   static async findAllForInspector() {

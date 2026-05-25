@@ -115,8 +115,8 @@ export default async function ConsultaPage({ searchParams }: ConsultaPageProps) 
                       {results.map((application) => (
                         <tr key={application.id} className="hover:bg-slate-900/60">
                           <td className="px-4 py-4 text-white">{application.business.legalName}</td>
-                          <td className="px-4 py-4 text-slate-300">{application.business.commercialAddress}</td>
-                          <td className="px-4 py-4 text-slate-300">{application.business.activityType}</td>
+                          <td className="px-4 py-4 text-slate-300">{application.business.commercialAddress ?? "No registrada"}</td>
+                          <td className="px-4 py-4 text-slate-300">{application.business.activityType ?? "No especificado"}</td>
                           <td className="px-4 py-4 text-amber-300">{formatStatus(application.license?.status ?? "-")}</td>
                         </tr>
                       ))}
