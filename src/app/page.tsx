@@ -141,7 +141,7 @@ export default function HomePage() {
               </div>
 
               <span className="text-3xl font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-xl">
-                S/ 2.00
+                S/ 180.00
               </span>
             </div>
           </div>
