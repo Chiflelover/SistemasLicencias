@@ -75,6 +75,7 @@ export default function HomePage() {
 
             <Link
               href="/consulta"
+              prefetch={false}
               className="bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 font-semibold px-8 py-3 rounded-lg flex items-center justify-center gap-2 transition duration-150"
             >
               Consulta Pública
