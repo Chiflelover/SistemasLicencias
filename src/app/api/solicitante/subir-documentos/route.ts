@@ -7,6 +7,10 @@ import { DocumentType } from "@prisma/client";
 const ACCEPTED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
+type UploadedDocumentForCheck = {
+  type: DocumentType | string;
+};
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -69,17 +73,19 @@ export async function POST(request: Request) {
       parsed.data.applicationId
     );
 
-    const documents = application?.documents ?? [];
+    const documents = (application?.documents ?? []) as UploadedDocumentForCheck[];
 
     const hasFloorPlan = documents.some(
-      (document) => document.type === DocumentType.FLOOR_PLAN
+      (document: UploadedDocumentForCheck) =>
+        String(document.type) === DocumentType.FLOOR_PLAN
     );
 
     const hasRucRecord = documents.some(
-      (document) => document.type === DocumentType.RUC_RECORD
+      (document: UploadedDocumentForCheck) =>
+        String(document.type) === DocumentType.RUC_RECORD
     );
 
-    const { content, ...documentWithoutContent } = createdDocument;
+    const { content, ...documentWithoutContent } = createdDocument as any;
 
     return NextResponse.json({
       success: true,
@@ -97,8 +103,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        error:
-          error?.message || "Error interno al subir el documento.",
+        error: error?.message || "Error interno al subir el documento.",
       },
       { status: 500 }
     );
