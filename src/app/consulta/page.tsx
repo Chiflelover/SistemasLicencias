@@ -107,7 +107,6 @@ export default async function ConsultaPage({ searchParams }: ConsultaPageProps) 
                       <tr>
                         <th className="px-4 py-4">Razón social</th>
                         <th className="px-4 py-4">Dirección</th>
-                        <th className="px-4 py-4">Rubro</th>
                         <th className="px-4 py-4">Estado licencia</th>
                       </tr>
                     </thead>
@@ -116,7 +115,6 @@ export default async function ConsultaPage({ searchParams }: ConsultaPageProps) 
                         <tr key={application.id} className="hover:bg-slate-900/60">
                           <td className="px-4 py-4 text-white">{application.business.legalName}</td>
                           <td className="px-4 py-4 text-slate-300">{application.business.commercialAddress ?? "No registrada"}</td>
-                          <td className="px-4 py-4 text-slate-300">{application.business.activityType ?? "No especificado"}</td>
                           <td className="px-4 py-4 text-amber-300">{formatStatus(application.license?.status ?? "-")}</td>
                         </tr>
                       ))}
