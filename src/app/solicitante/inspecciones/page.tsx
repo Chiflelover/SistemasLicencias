@@ -1,12 +1,78 @@
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ApplicationRepository } from "@/repositories/application.repository";
-import { FileSearch, AlertCircle } from "lucide-react";
+import { CalendarDays, ClipboardList, FileCheck2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
+type InspectionForView = {
+  id: string;
+  type: string;
+  status: string;
+  scheduledAt: Date | string;
+  observations: string | null;
+  inspector?: {
+    fullName: string;
+  } | null;
+};
+
+function formatApplicationStatus(status?: string | null) {
+  const statuses: Record<string, string> = {
+    DRAFT: "BORRADOR",
+    PENDING_PAYMENT: "PAGO PENDIENTE",
+    PAYMENT_COMPLETED: "PAGO COMPLETADO",
+    INSPECTION_SCHEDULED: "INSPECCIÓN PROGRAMADA",
+    SECOND_INSPECTION_SCHEDULED: "SEGUNDA INSPECCIÓN PROGRAMADA",
+    FIRST_INSPECTION_REJECTED: "PRIMERA INSPECCIÓN RECHAZADA",
+    LICENSE_ISSUED: "LICENCIA EMITIDA",
+    RENEWAL_AVAILABLE: "RENOVACIÓN DISPONIBLE",
+    EXPIRED: "VENCIDA",
+    DEFINITIVELY_REJECTED: "RECHAZADA DEFINITIVAMENTE",
+  };
+
+  if (!status) return "SIN ESTADO";
+  return statuses[status] || status.replaceAll("_", " ");
+}
+
+function formatInspectionType(type?: string | null) {
+  const types: Record<string, string> = {
+    FIRST: "PRIMERA INSPECCIÓN",
+    SECOND: "SEGUNDA INSPECCIÓN",
+    SURPRISE: "INSPECCIÓN INOPINADA",
+  };
+
+  if (!type) return "INSPECCIÓN";
+  return types[type] || type.replaceAll("_", " ");
+}
+
+function formatInspectionStatus(status?: string | null) {
+  const statuses: Record<string, string> = {
+    SCHEDULED: "PROGRAMADA",
+    APPROVED: "APROBADA",
+    REJECTED: "RECHAZADA",
+    COMPLETED: "COMPLETADA",
+    CANCELLED: "CANCELADA",
+  };
+
+  if (!status) return "SIN ESTADO";
+  return statuses[status] || status.replaceAll("_", " ");
+}
+
+function formatDate(date?: Date | string | null) {
+  if (!date) return "Sin fecha";
+
+  return new Date(date).toLocaleString("es-PE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default async function InspeccionesPage() {
   const user = await getCurrentUser();
+
   if (!user) {
     redirect("/login");
   }
@@ -17,84 +83,141 @@ export default async function InspeccionesPage() {
 
   const application = await ApplicationRepository.findByApplicantId(user.id);
 
+  const inspections = (application?.inspections ?? []) as InspectionForView[];
+
   return (
     <div className="space-y-8 animate-fadeIn">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-900/40 p-6 rounded-3xl border border-slate-850">
-        <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-amber-400 font-semibold mb-2">Inspecciones</p>
-          <h1 className="text-3xl font-bold text-white">Estado de inspecciones</h1>
-          <p className="mt-2 text-slate-400 max-w-2xl">
-            Revisa el historial de inspecciones programadas y sus resultados para tu trámite.
-          </p>
-        </div>
+      <div className="rounded-3xl border border-slate-850 bg-slate-900/40 p-6">
+        <p className="text-xs uppercase tracking-[0.35em] text-amber-400 font-semibold mb-2">
+          Inspecciones
+        </p>
+
+        <h1 className="text-3xl font-bold text-white">
+          Estado de inspecciones
+        </h1>
+
+        <p className="mt-2 text-slate-400 max-w-3xl">
+          Revisa el historial de inspecciones programadas y sus resultados para
+          tu trámite.
+        </p>
       </div>
 
       {!application ? (
         <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-rose-200">
-          <div className="flex items-center gap-3 text-sm font-semibold">
-            <AlertCircle className="w-5 h-5" />
-            No se encontró un trámite activo
-          </div>
-          <p className="mt-3 text-slate-300">Registra primero un trámite para ver las inspecciones asociadas.</p>
+          No se encontró un trámite activo. Primero debes registrar un negocio.
         </div>
       ) : (
-        <div className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-3">
+        <>
+          <div className="grid gap-6 md:grid-cols-3">
             <div className="rounded-3xl border border-slate-850 bg-slate-900/40 p-6">
-              <p className="text-sm uppercase tracking-[0.18em] text-slate-500">Trámite</p>
-              <p className="mt-3 text-xl font-semibold text-white">{application.number}</p>
+              <p className="text-sm uppercase tracking-[0.25em] text-slate-500">
+                Trámite
+              </p>
+
+              <p className="mt-4 text-2xl font-bold text-white">
+                {application.number}
+              </p>
             </div>
+
             <div className="rounded-3xl border border-slate-850 bg-slate-900/40 p-6">
-              <p className="text-sm uppercase tracking-[0.18em] text-slate-500">Estado actual</p>
-              <p className="mt-3 text-xl font-semibold text-white">{application.status.replaceAll("_", " ")}</p>
+              <p className="text-sm uppercase tracking-[0.25em] text-slate-500">
+                Estado actual
+              </p>
+
+              <p className="mt-4 text-2xl font-bold text-white">
+                {formatApplicationStatus(application.status)}
+              </p>
             </div>
+
             <div className="rounded-3xl border border-slate-850 bg-slate-900/40 p-6">
-              <p className="text-sm uppercase tracking-[0.18em] text-slate-500">Total inspecciones</p>
-              <p className="mt-3 text-xl font-semibold text-white">{application.inspections.length}</p>
+              <p className="text-sm uppercase tracking-[0.25em] text-slate-500">
+                Total inspecciones
+              </p>
+
+              <p className="mt-4 text-2xl font-bold text-white">
+                {inspections.length}
+              </p>
             </div>
           </div>
 
-          {application.inspections.length === 0 ? (
-            <div className="rounded-3xl border border-slate-850 bg-slate-950/40 p-8 text-slate-400">
-              <div className="flex items-center gap-3 text-amber-300 mb-3">
-                <FileSearch className="w-5 h-5" />
-                <p className="font-semibold">No hay inspecciones programadas aún</p>
+          {inspections.length === 0 ? (
+            <div className="rounded-3xl border border-slate-850 bg-slate-900/40 p-6 text-slate-300">
+              <div className="flex items-start gap-3">
+                <ClipboardList className="w-6 h-6 text-amber-300 shrink-0 mt-1" />
+
+                <div>
+                  <p className="font-bold text-white">
+                    Aún no hay inspecciones programadas
+                  </p>
+
+                  <p className="mt-2 text-sm text-slate-400">
+                    Cuando completes el pago, el sistema programará la
+                    inspección municipal automáticamente.
+                  </p>
+                </div>
               </div>
-              <p>Completa el pago simulado para que el sistema programe la inspección automáticamente.</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {application.inspections.map((inspection) => (
-                <div key={inspection.id} className="rounded-3xl border border-slate-850 bg-slate-900/40 p-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {inspections.map((inspection: InspectionForView) => (
+                <div
+                  key={inspection.id}
+                  className="rounded-3xl border border-slate-850 bg-slate-900/40 p-6"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Inspección</p>
-                      <p className="text-lg font-semibold text-white">{inspection.number.replaceAll("_", " ")}</p>
+                      <p className="text-sm uppercase tracking-[0.25em] text-slate-500">
+                        Inspección
+                      </p>
+
+                      <p className="mt-2 text-xl font-bold text-white">
+                        {formatInspectionType(inspection.type)}
+                      </p>
                     </div>
-                    <div className="rounded-2xl bg-slate-950/80 px-4 py-3 text-sm text-slate-300 border border-slate-850">
-                      {inspection.status} {inspection.result ? `· ${inspection.result}` : ""}
+
+                    <div className="rounded-2xl border border-slate-700 px-4 py-3 text-sm font-semibold text-amber-300">
+                      {formatInspectionStatus(inspection.status)}
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                  <div className="mt-6 grid gap-4 md:grid-cols-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Programada</p>
-                      <p className="mt-2 text-white">{new Date(inspection.scheduledAt).toLocaleString("es-PE")}</p>
+                      <div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-[0.2em]">
+                        <CalendarDays className="w-4 h-4" />
+                        Programada
+                      </div>
+
+                      <p className="mt-2 text-white">
+                        {formatDate(inspection.scheduledAt)}
+                      </p>
                     </div>
+
                     <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Observaciones</p>
-                      <p className="mt-2 text-slate-300">{inspection.observations || "Sin observaciones"}</p>
+                      <div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-[0.2em]">
+                        <FileCheck2 className="w-4 h-4" />
+                        Revisado por
+                      </div>
+
+                      <p className="mt-2 text-white">
+                        {inspection.inspector?.fullName || "Inspector asignado"}
+                      </p>
                     </div>
+
                     <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Revisado por</p>
-                      <p className="mt-2 text-white">{inspection.inspector?.fullName || "Pendiente"}</p>
+                      <p className="text-slate-500 text-xs uppercase tracking-[0.2em]">
+                        Observaciones
+                      </p>
+
+                      <p className="mt-2 text-white">
+                        {inspection.observations || "Sin observaciones"}
+                      </p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
