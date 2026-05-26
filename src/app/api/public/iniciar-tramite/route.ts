@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
 import { ApplicationService } from "@/services/application.service";
-import { BusinessSchema } from "@/lib/validation/business";
 import { RucService } from "@/services/ruc.service";
 
 export const dynamic = "force-dynamic";
@@ -32,37 +30,17 @@ function belongsToDistrictTrujillo(data: {
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "No autorizado. Debes iniciar sesión para registrar el trámite." },
-        { status: 401 }
-      );
-    }
-
-    if (user.role !== "APPLICANT") {
-      return NextResponse.json(
-        { error: "Acceso restringido. Solo los solicitantes pueden iniciar trámites." },
-        { status: 403 }
-      );
-    }
-
     const body = await request.json();
+    const ruc = String(body.ruc || "").trim();
 
-    const parsed = BusinessSchema.safeParse(body);
-
-    if (!parsed.success) {
+    if (!/^\d{11}$/.test(ruc)) {
       return NextResponse.json(
-        {
-          error: "Datos inválidos para el registro del negocio.",
-          details: parsed.error.flatten().fieldErrors,
-        },
+        { error: "El RUC debe tener 11 dígitos." },
         { status: 400 }
       );
     }
 
-    const rucData = await RucService.getBusinessData(parsed.data.ruc);
+    const rucData = await RucService.getBusinessData(ruc);
 
     if (!belongsToDistrictTrujillo(rucData)) {
       return NextResponse.json(
@@ -80,8 +58,7 @@ export async function POST(request: Request) {
     }
 
     const { application, business } =
-      await ApplicationService.startNewApplication({
-        applicantId: user.id,
+      await ApplicationService.startPublicApplication({
         ruc: rucData.ruc,
         legalName: rucData.legalName,
         fiscalAddress: rucData.fiscalAddress,
@@ -90,20 +67,19 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: true,
-        message: "Trámite iniciado correctamente.",
+        message: "Trámite público iniciado correctamente.",
         application,
         business,
       },
       { status: 201 }
     );
   } catch (error: any) {
-    console.error("Error al iniciar trámite:", error);
+    console.error("Error en trámite público:", error);
 
     return NextResponse.json(
       {
         error:
-          error?.message ||
-          "Error interno al registrar el negocio e iniciar el trámite.",
+          error?.message || "Error interno al iniciar el trámite público.",
       },
       { status: 400 }
     );

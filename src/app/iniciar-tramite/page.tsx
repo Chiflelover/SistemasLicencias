@@ -1,0 +1,519 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Building2,
+  BriefcaseBusiness,
+  CheckCircle2,
+  Home,
+  Loader2,
+  MapPin,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
+
+type RucData = {
+  ruc: string;
+  legalName: string;
+  fiscalAddress: string;
+  distrito?: string;
+  provincia?: string;
+  departamento?: string;
+  estado?: string;
+  condicion?: string;
+};
+
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+function isAllowedForTrujillo(data: RucData | null) {
+  if (!data) return false;
+
+  const distrito = normalizeText(data.distrito || "");
+  const provincia = normalizeText(data.provincia || "");
+  const departamento = normalizeText(data.departamento || "");
+
+  return (
+    distrito === "TRUJILLO" &&
+    provincia === "TRUJILLO" &&
+    departamento === "LA LIBERTAD"
+  );
+}
+
+export default function IniciarTramitePage() {
+  const router = useRouter();
+
+  const [ruc, setRuc] = useState("");
+  const [rucData, setRucData] = useState<RucData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [creatingApplication, setCreatingApplication] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const allowed = isAllowedForTrujillo(rucData);
+
+  const handleRucChange = (value: string) => {
+    const cleanValue = value.replace(/\D/g, "").slice(0, 11);
+
+    setRuc(cleanValue);
+    setRucData(null);
+    setErrorMessage(null);
+  };
+
+  const handleSearch = async () => {
+    const cleanRuc = ruc.trim();
+
+    setRucData(null);
+    setErrorMessage(null);
+
+    if (!/^\d{11}$/.test(cleanRuc)) {
+      setErrorMessage("Ingresa un RUC válido de 11 dígitos.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`/api/ruc/${cleanRuc}`, {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo consultar el RUC.");
+      }
+
+      setRucData(data);
+    } catch (error) {
+      setErrorMessage((error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartApplication = async () => {
+    if (!rucData) {
+      setErrorMessage("Primero debes consultar un RUC válido.");
+      return;
+    }
+
+    if (!allowed) {
+      setErrorMessage(
+        "No se puede iniciar el trámite. Este sistema solo atiende establecimientos con domicilio fiscal en el distrito de Trujillo, provincia de Trujillo, departamento de La Libertad."
+      );
+      return;
+    }
+
+    setCreatingApplication(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/public/iniciar-tramite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ruc: rucData.ruc,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "No se pudo iniciar el trámite con este RUC."
+        );
+      }
+
+      if (!data.application?.id) {
+        throw new Error("El servidor no devolvió el ID del trámite.");
+      }
+
+      router.push(`/tramite/${data.application.id}/subir-documentos`);
+      router.refresh();
+    } catch (error) {
+      setErrorMessage((error as Error).message);
+    } finally {
+      setCreatingApplication(false);
+    }
+  };
+
+  return (
+    <main className="min-h-screen bg-slate-950 text-white">
+      <div className="border-b border-slate-800 bg-slate-900/40">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/80 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-amber-500 hover:text-amber-200"
+          >
+            <Home className="h-4 w-4" />
+            Inicio
+          </Link>
+
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
+            Trámite digital público
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl space-y-8 px-6 py-8">
+        <section className="flex flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-900/40 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.35em] text-amber-400">
+              Nuevo trámite
+            </p>
+
+            <h1 className="text-3xl font-bold text-white">
+              Validación de negocio por RUC
+            </h1>
+
+            <p className="mt-2 max-w-3xl text-slate-400">
+              Ingresa el RUC del establecimiento. El sistema consultará los
+              datos públicos y solo permitirá iniciar el trámite si el domicilio
+              fiscal pertenece al distrito de Trujillo, provincia de Trujillo,
+              departamento de La Libertad.
+            </p>
+          </div>
+
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-amber-500 hover:text-amber-200"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver al inicio
+          </Link>
+        </section>
+
+        {errorMessage && (
+          <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-200">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <p>{errorMessage}</p>
+            </div>
+          </div>
+        )}
+
+        <section className="grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
+          <div className="space-y-6 rounded-3xl border border-slate-800 bg-slate-900/40 p-6 lg:p-8">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+                <BriefcaseBusiness className="h-4 w-4" />
+                Paso 1: Datos del negocio
+              </div>
+
+              <h2 className="text-2xl font-bold text-white">
+                Consulta y validación del RUC
+              </h2>
+
+              <p className="text-slate-400">
+                Completa el RUC para autocompletar la razón social, domicilio
+                fiscal y verificar si pertenece exactamente al distrito de
+                Trujillo.
+              </p>
+            </div>
+
+            <div className="grid gap-5">
+              <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+                <label className="space-y-2 text-sm text-slate-300">
+                  <span className="font-semibold">RUC</span>
+
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3 transition focus-within:border-amber-500/50">
+                    <input
+                      value={ruc}
+                      onChange={(event) => handleRucChange(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          handleSearch();
+                        }
+                      }}
+                      maxLength={11}
+                      type="text"
+                      placeholder="Ej. 20123456789"
+                      className="w-full bg-transparent text-slate-100 outline-none placeholder:text-slate-500"
+                    />
+                  </div>
+                </label>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleSearch}
+                    disabled={loading}
+                    className="inline-flex h-[52px] min-w-[150px] items-center justify-center gap-2 rounded-2xl bg-amber-500 px-6 font-bold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Search className="h-5 w-5" />
+                    )}
+                    {loading ? "Buscando..." : "Buscar"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-2 text-sm text-slate-300">
+                  <span className="font-semibold">Razón social</span>
+
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+                    <input
+                      value={rucData?.legalName || ""}
+                      readOnly
+                      placeholder="Se autocompletará con el RUC"
+                      className="w-full cursor-not-allowed bg-transparent text-slate-400 outline-none placeholder:text-slate-600"
+                    />
+                  </div>
+                </label>
+
+                <label className="space-y-2 text-sm text-slate-300">
+                  <span className="font-semibold">Estado tributario</span>
+
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+                    <input
+                      value={rucData?.estado || ""}
+                      readOnly
+                      placeholder="Se autocompletará con el RUC"
+                      className="w-full cursor-not-allowed bg-transparent text-slate-400 outline-none placeholder:text-slate-600"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              <label className="space-y-2 text-sm text-slate-300">
+                <span className="font-semibold">Domicilio fiscal</span>
+
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+                  <input
+                    value={rucData?.fiscalAddress || ""}
+                    readOnly
+                    placeholder="Se autocompletará con el RUC"
+                    className="w-full cursor-not-allowed bg-transparent text-slate-400 outline-none placeholder:text-slate-600"
+                  />
+                </div>
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="space-y-2 text-sm text-slate-300">
+                  <span className="font-semibold">Distrito</span>
+
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+                    <input
+                      value={rucData?.distrito || ""}
+                      readOnly
+                      placeholder="---"
+                      className="w-full cursor-not-allowed bg-transparent text-slate-400 outline-none placeholder:text-slate-600"
+                    />
+                  </div>
+                </label>
+
+                <label className="space-y-2 text-sm text-slate-300">
+                  <span className="font-semibold">Provincia</span>
+
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+                    <input
+                      value={rucData?.provincia || ""}
+                      readOnly
+                      placeholder="---"
+                      className="w-full cursor-not-allowed bg-transparent text-slate-400 outline-none placeholder:text-slate-600"
+                    />
+                  </div>
+                </label>
+
+                <label className="space-y-2 text-sm text-slate-300">
+                  <span className="font-semibold">Departamento</span>
+
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+                    <input
+                      value={rucData?.departamento || ""}
+                      readOnly
+                      placeholder="---"
+                      className="w-full cursor-not-allowed bg-transparent text-slate-400 outline-none placeholder:text-slate-600"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              {rucData && (
+                <div
+                  className={`rounded-3xl border p-5 ${
+                    allowed
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                      : "border-rose-500/30 bg-rose-500/10 text-rose-200"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {allowed ? (
+                      <CheckCircle2 className="mt-1 h-5 w-5 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="mt-1 h-5 w-5 shrink-0" />
+                    )}
+
+                    <div>
+                      <p className="font-bold">
+                        {allowed
+                          ? "RUC válido para iniciar trámite"
+                          : "RUC fuera de jurisdicción"}
+                      </p>
+
+                      <p className="mt-2 text-sm">
+                        {allowed
+                          ? "El domicilio fiscal pertenece al distrito de Trujillo, provincia de Trujillo, departamento de La Libertad. Puedes continuar con el trámite."
+                          : "No se puede iniciar el trámite. Este sistema solo atiende establecimientos con domicilio fiscal en el distrito de Trujillo, provincia de Trujillo, departamento de La Libertad."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-slate-500">
+                  Solo se permite iniciar trámites para establecimientos cuyo
+                  domicilio fiscal sea: distrito Trujillo, provincia Trujillo,
+                  departamento La Libertad.
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleStartApplication}
+                  disabled={!rucData || !allowed || creatingApplication}
+                  className="inline-flex items-center justify-center rounded-2xl bg-amber-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {creatingApplication
+                    ? "Iniciando trámite..."
+                    : "Iniciar trámite y subir documentos"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <aside className="space-y-6 rounded-3xl border border-slate-800 bg-slate-900/40 p-6 lg:p-8">
+            <div className="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-5">
+              <div className="mb-4 flex items-center gap-3 text-amber-300">
+                <ShieldCheck className="h-5 w-5" />
+                <h3 className="text-base font-bold text-white">
+                  Validación municipal
+                </h3>
+              </div>
+
+              <div className="space-y-4 text-sm text-slate-400">
+                <p>Antes de iniciar el trámite se verificará:</p>
+
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 text-amber-400">•</span>
+                    <span>RUC existente y activo en APIPERU/SUNAT.</span>
+                  </li>
+
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 text-amber-400">•</span>
+                    <span>Distrito exactamente igual a TRUJILLO.</span>
+                  </li>
+
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 text-amber-400">•</span>
+                    <span>Provincia TRUJILLO y departamento LA LIBERTAD.</span>
+                  </li>
+
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 text-amber-400">•</span>
+                    <span>Razón social y dirección fiscal autocompletadas.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-5">
+              <div className="mb-4 flex items-center gap-3 text-amber-300">
+                <MapPin className="h-5 w-5" />
+                <h3 className="text-base font-bold text-white">
+                  Resultado de jurisdicción
+                </h3>
+              </div>
+
+              {!rucData ? (
+                <p className="text-sm leading-6 text-slate-400">
+                  Ingresa un RUC para conocer si el negocio pertenece al
+                  distrito de Trujillo.
+                </p>
+              ) : (
+                <div
+                  className={`rounded-2xl border p-4 text-sm ${
+                    allowed
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                      : "border-rose-500/30 bg-rose-500/10 text-rose-200"
+                  }`}
+                >
+                  <p className="font-bold">
+                    {allowed ? "APTO PARA TRÁMITE" : "NO APTO PARA TRÁMITE"}
+                  </p>
+
+                  <p className="mt-2">
+                    Distrito detectado:{" "}
+                    <span className="font-semibold">
+                      {rucData.distrito || "No registrado"}
+                    </span>
+                  </p>
+
+                  <p className="mt-1">
+                    Provincia detectada:{" "}
+                    <span className="font-semibold">
+                      {rucData.provincia || "No registrado"}
+                    </span>
+                  </p>
+
+                  <p className="mt-1">
+                    Departamento detectado:{" "}
+                    <span className="font-semibold">
+                      {rucData.departamento || "No registrado"}
+                    </span>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-5">
+                <div className="mb-3 flex items-center gap-3 text-amber-300">
+                  <Building2 className="h-5 w-5" />
+                  <h3 className="text-sm font-bold text-white">
+                    Datos públicos
+                  </h3>
+                </div>
+
+                <p className="text-sm leading-6 text-slate-400">
+                  La información se obtiene desde la API pública configurada en
+                  el sistema.
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-5">
+                <div className="mb-3 flex items-center gap-3 text-amber-300">
+                  <MapPin className="h-5 w-5" />
+                  <h3 className="text-sm font-bold text-white">
+                    Jurisdicción
+                  </h3>
+                </div>
+
+                <p className="text-sm leading-6 text-slate-400">
+                  Si el negocio pertenece a otro distrito, el sistema bloquea el
+                  inicio del trámite.
+                </p>
+              </div>
+            </div>
+          </aside>
+        </section>
+      </div>
+    </main>
+  );
+}
