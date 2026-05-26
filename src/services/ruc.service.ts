@@ -58,9 +58,6 @@ export class RucService {
       throw new Error("APIPERU no devolvió JSON. Revisa el endpoint o el token.");
     }
 
-    console.log("APIPERU STATUS:", response.status);
-    console.log("APIPERU RESPONSE:", result);
-
     if (!response.ok) {
       throw new Error(
         result.message ||
@@ -98,6 +95,9 @@ export class RucService {
       ruc: result.data.ruc || ruc,
       legalName,
       fiscalAddress,
+      departamento: result.data.departamento || "",
+      provincia: result.data.provincia || "",
+      distrito: result.data.distrito || "",
       estado: result.data.estado || "No registrado",
       condicion: result.data.condicion || "No registrado",
       ubigeo: result.data.ubigeo || "",

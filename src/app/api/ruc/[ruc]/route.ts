@@ -1,22 +1,21 @@
 import { NextResponse } from "next/server";
 import { RucService } from "@/services/ruc.service";
-import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(
   request: Request,
   { params }: { params: { ruc: string } }
 ) {
   try {
-    const user = await getCurrentUser();
+    const ruc = params.ruc?.trim();
 
-    if (!user) {
+    if (!ruc || !/^\d{11}$/.test(ruc)) {
       return NextResponse.json(
-        { error: "No autorizado. Inicia sesión para consultar el RUC." },
-        { status: 401 }
+        { error: "El RUC debe tener 11 dígitos." },
+        { status: 400 }
       );
     }
 
-    const data = await RucService.getBusinessData(params.ruc);
+    const data = await RucService.getBusinessData(ruc);
 
     return NextResponse.json(data, { status: 200 });
   } catch (error: any) {
@@ -25,7 +24,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          error.message ||
+          error?.message ||
           "No se pudo consultar el RUC en APIPERU. Intenta nuevamente.",
       },
       { status: 400 }

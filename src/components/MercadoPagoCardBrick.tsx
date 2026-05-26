@@ -15,6 +15,21 @@ interface MercadoPagoCardBrickProps {
   payerEmail: string;
 }
 
+function isInvalidPublicKey(publicKey?: string) {
+  if (!publicKey) return true;
+
+  const value = publicKey.trim();
+
+  return (
+    value.length < 20 ||
+    value.includes("AQUI_PEGA") ||
+    value.includes("PEGA_AQUI") ||
+    value.includes("PUBLIC_KEY_REAL") ||
+    value === "TEST" ||
+    value === "APP_USR"
+  );
+}
+
 export default function MercadoPagoCardBrick({
   applicationId,
   payerEmail,
@@ -67,9 +82,9 @@ export default function MercadoPagoCardBrick({
 
         const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
 
-        if (!publicKey || publicKey.includes("PEGA_AQUI")) {
+        if (isInvalidPublicKey(publicKey)) {
           throw new Error(
-            "Tu Public Key de Mercado Pago no está configurada. Revisa NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY en .env."
+            "Tu Public Key de Mercado Pago no está configurada correctamente. Revisa NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY en .env y reinicia npm run dev."
           );
         }
 
@@ -93,7 +108,7 @@ export default function MercadoPagoCardBrick({
           try {
             await window.cardPaymentBrickController.unmount();
           } catch {
-            // No hacemos nada si ya estaba desmontado.
+            // No hacer nada si ya estaba desmontado.
           }
         }
 
@@ -132,17 +147,20 @@ export default function MercadoPagoCardBrick({
 
               return new Promise<void>(async (resolve, reject) => {
                 try {
-                  const response = await fetch("/api/solicitante/pago/card", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      ...cardFormData,
-                      applicationId,
-                      transaction_amount: 2,
-                    }),
-                  });
+                  const response = await fetch(
+                    `/api/public/tramite/${applicationId}/pago/card`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        ...cardFormData,
+                        applicationId,
+                        transaction_amount: 2,
+                      }),
+                    }
+                  );
 
                   const data = await response.json();
 
@@ -160,7 +178,7 @@ export default function MercadoPagoCardBrick({
 
                   setTimeout(() => {
                     router.refresh();
-                    router.push("/solicitante/inspecciones");
+                    router.push(`/tramite/${applicationId}/inspecciones`);
                   }, 1500);
                 } catch (error) {
                   setErrorMessage((error as Error).message);
@@ -197,7 +215,7 @@ export default function MercadoPagoCardBrick({
           ) {
             setLoading(false);
             setErrorMessage(
-              "Mercado Pago no renderizó el formulario. Revisa tu Public Key en .env y reinicia el servidor."
+              "Mercado Pago no renderizó el formulario. Revisa tu Public Key real en .env y reinicia el servidor."
             );
           }
         }, 8000);
@@ -218,7 +236,7 @@ export default function MercadoPagoCardBrick({
         try {
           window.cardPaymentBrickController.unmount();
         } catch {
-          // No hacemos nada.
+          // No hacer nada.
         }
       }
     };
@@ -226,9 +244,9 @@ export default function MercadoPagoCardBrick({
 
   return (
     <div className="rounded-3xl border border-slate-800 bg-white p-5 text-slate-950">
-      <h3 className="text-lg font-bold mb-2">Pago con Visa / Mastercard</h3>
+      <h3 className="mb-2 text-lg font-bold">Pago con Visa / Mastercard</h3>
 
-      <p className="text-sm text-slate-600 mb-4">
+      <p className="mb-4 text-sm text-slate-600">
         Ingresa los datos de tu tarjeta. Mercado Pago procesará el pago de forma
         segura por S/ 2.00.
       </p>
