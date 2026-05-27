@@ -28,7 +28,7 @@ export class DocumentService {
     });
 
     if (application.status === ApplicationStatus.DRAFT || application.status === ApplicationStatus.DOCUMENTS_COMPLETE) {
-      const uploadedTypes = new Set(application.documents.map((document) => document.type));
+      const uploadedTypes = new Set(application.documents.map((document: any) => document.type));
       uploadedTypes.add(data.type);
 
       if (uploadedTypes.has(DocumentType.FLOOR_PLAN) && uploadedTypes.has(DocumentType.RUC_RECORD)) {

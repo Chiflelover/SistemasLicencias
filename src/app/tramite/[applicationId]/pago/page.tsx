@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import MercadoPagoCardBrick from "@/components/MercadoPagoCardBrick";
+import PaymentTabs from "@/components/PaymentTabs";
 import {
   ArrowLeft,
   Building2,
+  CalendarDays,
   CheckCircle2,
   CreditCard,
   FileText,
   ShieldCheck,
+  User,
   WalletCards,
 } from "lucide-react";
 
@@ -60,6 +62,14 @@ export default async function PublicPaymentPage({
           fileName: true,
         },
       },
+      inspections: {
+        orderBy: { scheduledAt: "asc" },
+        include: {
+          inspector: {
+            select: { id: true, fullName: true, email: true },
+          },
+        },
+      },
     },
   });
 
@@ -78,6 +88,18 @@ export default async function PublicPaymentPage({
   const documentsComplete = hasFloorPlan && hasRucRecord;
   const paymentAllowed = documentsComplete && canPay(application.status);
   const paymentCompleted = application.status === "PAYMENT_COMPLETED";
+  const inspectionScheduled =
+    application.status === "INSPECTION_SCHEDULED" ||
+    application.status === "SECOND_INSPECTION_SCHEDULED" ||
+    application.status === "LICENSE_ISSUED" ||
+    application.status === "FIRST_INSPECTION_REJECTED" ||
+    application.status === "DEFINITIVELY_REJECTED";
+
+  // Pick the most recent SCHEDULED inspection, or the latest overall
+  const scheduledInspection =
+    application.inspections.find((ins) => ins.status === "SCHEDULED") ??
+    application.inspections.at(-1) ??
+    null;
 
   const payerEmail = buildValidPayerEmail(application.business.ruc);
 
@@ -237,23 +259,10 @@ export default async function PublicPaymentPage({
             )}
 
             {paymentAllowed ? (
-              <div className="rounded-3xl border border-slate-800 bg-white p-6 text-slate-950">
-                <div className="mb-5">
-                  <h2 className="text-xl font-bold text-slate-950">
-                    Pago con Visa / Mastercard
-                  </h2>
-
-                  <p className="mt-2 text-sm text-slate-600">
-                    Ingresa los datos de tu tarjeta. Mercado Pago procesará el
-                    pago de forma segura por S/ 2.00.
-                  </p>
-                </div>
-
-                <MercadoPagoCardBrick
-                  applicationId={application.id}
-                  payerEmail={payerEmail}
-                />
-              </div>
+              <PaymentTabs
+                applicationId={application.id}
+                payerEmail={payerEmail}
+              />
             ) : !paymentCompleted ? (
               <div className="rounded-3xl border border-slate-800 bg-slate-900/40 p-6">
                 <div className="flex items-start gap-3">
@@ -345,12 +354,69 @@ export default async function PublicPaymentPage({
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                  <p className="font-bold text-slate-300">4. Inspección</p>
-
-                  <p className="mt-1 text-sm text-slate-400">
-                    Se programará después del pago aprobado.
+                <div
+                  className={`rounded-2xl border p-4 ${
+                    inspectionScheduled
+                      ? "border-emerald-500/30 bg-emerald-500/10"
+                      : paymentCompleted
+                      ? "border-amber-500/30 bg-amber-500/10"
+                      : "border-slate-800 bg-slate-950/70"
+                  }`}
+                >
+                  <p
+                    className={`font-bold ${
+                      inspectionScheduled
+                        ? "text-emerald-300"
+                        : paymentCompleted
+                        ? "text-amber-300"
+                        : "text-slate-300"
+                    }`}
+                  >
+                    4. Inspección
                   </p>
+
+                  {scheduledInspection ? (
+                    <div className="mt-3 space-y-2.5">
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="h-4 w-4 shrink-0 text-amber-400" />
+                        <div>
+                          <span className="block text-[10px] uppercase tracking-[0.18em] text-slate-500">Inspector asignado</span>
+                          <span className="font-bold text-white">
+                            {scheduledInspection.inspector.fullName}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm">
+                        <CalendarDays className="h-4 w-4 shrink-0 text-amber-400" />
+                        <div>
+                          <span className="block text-[10px] uppercase tracking-[0.18em] text-slate-500">Fecha y hora</span>
+                          <span className="font-bold text-white">
+                            {new Date(scheduledInspection.scheduledAt).toLocaleString("es-PE", {
+                              weekday: "long",
+                              day: "2-digit",
+                              month: "long",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+                        <p className="text-[11px] font-semibold text-emerald-300">
+                          ✓ Inspección agendada
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-slate-400">
+                      {paymentCompleted
+                        ? "Procesando agendamiento..."
+                        : "Se programará después del pago aprobado."}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

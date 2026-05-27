@@ -34,7 +34,7 @@ export default async function SubirDocumentosPage() {
         <div className="rounded-3xl border border-slate-850 bg-slate-950/50 p-6 text-slate-200">
           <p className="text-sm text-amber-300 font-semibold mb-3">Documentos ya subidos</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            {application.documents.map((document) => (
+            {application.documents.map((document: any) => (
               <div key={document.id} className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{document.type.replaceAll("_", " ")}</p>
                 <p className="mt-2 text-sm text-slate-300">{document.name}</p>

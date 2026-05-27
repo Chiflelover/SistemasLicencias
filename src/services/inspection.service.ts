@@ -79,7 +79,7 @@ function formatSlotKey(date: Date) {
 }
 
 export class InspectionService {
-  static async scheduleInspection(applicationId: string) {
+  static async scheduleInspection(applicationId: string, forcedInspectorId?: string) {
     const application = await ApplicationRepository.findById(applicationId);
 
     if (!application) {
@@ -87,11 +87,11 @@ export class InspectionService {
     }
 
     const firstInspection = application.inspections.find(
-      (inspection) => inspection.number === InspectionNumber.FIRST
+      (inspection: any) => inspection.number === InspectionNumber.FIRST
     );
 
     const secondInspection = application.inspections.find(
-      (inspection) => inspection.number === InspectionNumber.SECOND
+      (inspection: any) => inspection.number === InspectionNumber.SECOND
     );
 
     const isSchedulingFirstInspection =
@@ -110,14 +110,18 @@ export class InspectionService {
       );
     }
 
-    const inspectors = await UserRepository.findInspectors();
+    let inspectors = await UserRepository.findInspectors();
+
+    if (forcedInspectorId) {
+      inspectors = inspectors.filter((ins) => ins.id === forcedInspectorId);
+    }
 
     if (inspectors.length === 0) {
       throw new Error("No hay inspectores disponibles en el sistema.");
     }
 
     const currentScheduledInspection = application.inspections.find(
-      (inspection) => inspection.status === InspectionStatus.SCHEDULED
+      (inspection: any) => inspection.status === InspectionStatus.SCHEDULED
     );
 
     if (currentScheduledInspection) {
