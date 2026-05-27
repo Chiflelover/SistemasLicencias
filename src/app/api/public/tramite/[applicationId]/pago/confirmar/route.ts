@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { getCurrentSystemDate } from "@/lib/date";
-import { InspectionService } from "@/services/inspection.service";
-import {
-  ApplicationStatus,
-  InspectionStatus,
-  PaymentType,
-} from "@prisma/client";
+import { ApplicationStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -23,18 +17,6 @@ export async function POST(
         documents: {
           select: {
             type: true,
-          },
-        },
-        payments: {
-          select: {
-            id: true,
-          },
-        },
-        inspections: {
-          select: {
-            id: true,
-            status: true,
-            inspectorId: true,
           },
         },
       },
@@ -69,8 +51,6 @@ export async function POST(
       ApplicationStatus.PENDING_PAYMENT,
       ApplicationStatus.RENEWAL_AVAILABLE,
       ApplicationStatus.PAYMENT_COMPLETED,
-      ApplicationStatus.INSPECTION_SCHEDULED,
-      ApplicationStatus.SECOND_INSPECTION_SCHEDULED,
     ];
 
     if (!allowedStatuses.includes(application.status)) {
@@ -82,63 +62,15 @@ export async function POST(
       );
     }
 
-    const activeInspectors = await prisma.user.count({
-      where: {
-        role: "INSPECTOR",
-        active: true,
-      },
-    });
-
-    if (activeInspectors === 0) {
-      return NextResponse.json(
-        {
-          error:
-            "No hay inspectores activos. Crea o activa un inspector antes de confirmar el pago.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const now = await getCurrentSystemDate();
-
-    if (application.payments.length === 0) {
-      await prisma.payment.create({
-        data: {
-          applicationId: application.id,
-          type: PaymentType.INITIAL_APPLICATION,
-          amount: 2,
-          operationNumber: `MP-${Date.now()}-${application.number}`,
-          paidAt: now,
-        },
-      });
-    }
-
-    const existingScheduledInspection = application.inspections.find(
-      (inspection) => inspection.status === InspectionStatus.SCHEDULED
-    );
-
-    if (existingScheduledInspection) {
-      await prisma.application.update({
-        where: {
-          id: application.id,
-        },
-        data: {
-          status: ApplicationStatus.INSPECTION_SCHEDULED,
-          updatedAt: now,
-        },
-      });
-    } else {
+    if (application.status !== ApplicationStatus.PAYMENT_COMPLETED) {
       await prisma.application.update({
         where: {
           id: application.id,
         },
         data: {
           status: ApplicationStatus.PAYMENT_COMPLETED,
-          updatedAt: now,
         },
       });
-
-      await InspectionService.scheduleInspection(application.id);
     }
 
     const redirectUrl = new URL(
