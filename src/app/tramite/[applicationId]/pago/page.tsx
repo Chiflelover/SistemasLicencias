@@ -40,6 +40,11 @@ function canPay(status: string) {
   return status === "PENDING_PAYMENT" || status === "RENEWAL_AVAILABLE";
 }
 
+function buildValidPayerEmail(ruc: string) {
+  const cleanRuc = ruc.replace(/\D/g, "");
+  return `tramite${cleanRuc}@gmail.com`;
+}
+
 function canGoToInspection(status: string) {
   return (
     status === "PAYMENT_COMPLETED" ||
