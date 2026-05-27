@@ -88,8 +88,8 @@ export default async function PublicPaymentPage({
   const documentsComplete = hasFloorPlan && hasRucRecord;
   const paymentAllowed = documentsComplete && canPay(application.status);
   const paymentCompleted = application.status === "PAYMENT_COMPLETED";
-  const inspectionScheduled =
-    application.status === "INSPECTION_SCHEDULED" ||
+  const inspectionScheduled = "Completado";
+  application.status === "INSPECTION_SCHEDULED" ||
     application.status === "SECOND_INSPECTION_SCHEDULED" ||
     application.status === "LICENSE_ISSUED" ||
     application.status === "FIRST_INSPECTION_REJECTED" ||
@@ -303,16 +303,14 @@ export default async function PublicPaymentPage({
                 </div>
 
                 <div
-                  className={`rounded-2xl border p-4 ${
-                    documentsComplete
-                      ? "border-emerald-500/30 bg-emerald-500/10"
-                      : "border-amber-500/30 bg-amber-500/10"
-                  }`}
+                  className={`rounded-2xl border p-4 ${documentsComplete
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : "border-amber-500/30 bg-amber-500/10"
+                    }`}
                 >
                   <p
-                    className={`font-bold ${
-                      documentsComplete ? "text-emerald-300" : "text-amber-300"
-                    }`}
+                    className={`font-bold ${documentsComplete ? "text-emerald-300" : "text-amber-300"
+                      }`}
                   >
                     2. Documentos
                   </p>
@@ -325,22 +323,20 @@ export default async function PublicPaymentPage({
                 </div>
 
                 <div
-                  className={`rounded-2xl border p-4 ${
-                    paymentCompleted
-                      ? "border-emerald-500/30 bg-emerald-500/10"
-                      : paymentAllowed
+                  className={`rounded-2xl border p-4 ${paymentCompleted
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : paymentAllowed
                       ? "border-amber-500/30 bg-amber-500/10"
                       : "border-slate-800 bg-slate-950/70"
-                  }`}
+                    }`}
                 >
                   <p
-                    className={`font-bold ${
-                      paymentCompleted
-                        ? "text-emerald-300"
-                        : paymentAllowed
+                    className={`font-bold ${paymentCompleted
+                      ? "text-emerald-300"
+                      : paymentAllowed
                         ? "text-amber-300"
                         : "text-slate-300"
-                    }`}
+                      }`}
                   >
                     3. Pago
                   </p>
@@ -349,28 +345,26 @@ export default async function PublicPaymentPage({
                     {paymentCompleted
                       ? "Pago aprobado correctamente."
                       : paymentAllowed
-                      ? "Formulario de pago habilitado."
-                      : "Pendiente de habilitación."}
+                        ? "Formulario de pago habilitado."
+                        : "Pendiente de habilitación."}
                   </p>
                 </div>
 
                 <div
-                  className={`rounded-2xl border p-4 ${
-                    inspectionScheduled
-                      ? "border-emerald-500/30 bg-emerald-500/10"
-                      : paymentCompleted
+                  className={`rounded-2xl border p-4 ${inspectionScheduled
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : paymentCompleted
                       ? "border-amber-500/30 bg-amber-500/10"
                       : "border-slate-800 bg-slate-950/70"
-                  }`}
+                    }`}
                 >
                   <p
-                    className={`font-bold ${
-                      inspectionScheduled
-                        ? "text-emerald-300"
-                        : paymentCompleted
+                    className={`font-bold ${inspectionScheduled
+                      ? "text-emerald-300"
+                      : paymentCompleted
                         ? "text-amber-300"
                         : "text-slate-300"
-                    }`}
+                      }`}
                   >
                     4. Inspección
                   </p>
