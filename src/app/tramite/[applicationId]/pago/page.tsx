@@ -71,22 +71,10 @@ export default async function PublicPaymentPage({
         },
       },
       inspections: {
-
         orderBy: { scheduledAt: "asc" },
         include: {
           inspector: {
             select: { id: true, fullName: true, email: true },
-
-        orderBy: {
-          scheduledAt: "asc",
-        },
-        include: {
-          inspector: {
-            select: {
-              fullName: true,
-              email: true,
-            },
-
           },
         },
       },
@@ -109,17 +97,18 @@ export default async function PublicPaymentPage({
   const paymentAllowed = documentsComplete && canPay(application.status);
 
   const paymentCompleted = application.status === "PAYMENT_COMPLETED";
-  const inspectionScheduled =
-    application.status === "INSPECTION_SCHEDULED" ||
-    application.status === "SECOND_INSPECTION_SCHEDULED" ||
-    application.status === "LICENSE_ISSUED" ||
-    application.status === "FIRST_INSPECTION_REJECTED" ||
-    application.status === "DEFINITIVELY_REJECTED";
+  const inspectionScheduled = [
+    "INSPECTION_SCHEDULED",
+    "SECOND_INSPECTION_SCHEDULED",
+    "LICENSE_ISSUED",
+    "FIRST_INSPECTION_REJECTED",
+    "DEFINITIVELY_REJECTED",
+  ].includes(application.status);
 
   // Pick the most recent SCHEDULED inspection, or the latest overall
   const scheduledInspection =
-    application.inspections.find((ins) => ins.status === "SCHEDULED") ??
-    application.inspections.at(-1) ??
+    application.inspections.find((ins) => ins.status === "SCHEDULED") ||
+    application.inspections[application.inspections.length - 1] ||
     null;
 
   const inspectionEnabled = canGoToInspection(application.status);
@@ -127,6 +116,7 @@ export default async function PublicPaymentPage({
   const assignedInspection = application.inspections.find(
     (inspection) => inspection.status === "SCHEDULED"
   );
+  const payerEmail = buildValidPayerEmail(application.business?.ruc ?? "0");
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -396,16 +386,14 @@ export default async function PublicPaymentPage({
                 </div>
 
                 <div
-                  className={`rounded-2xl border p-4 ${
-                    documentsComplete
-                      ? "border-emerald-500/30 bg-emerald-500/10"
-                      : "border-amber-500/30 bg-amber-500/10"
-                  }`}
+                  className={`rounded-2xl border p-4 ${documentsComplete
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : "border-amber-500/30 bg-amber-500/10"
+                    }`}
                 >
                   <p
-                    className={`font-bold ${
-                      documentsComplete ? "text-emerald-300" : "text-amber-300"
-                    }`}
+                    className={`font-bold ${documentsComplete ? "text-emerald-300" : "text-amber-300"
+                      }`}
                   >
                     2. Documentos
                   </p>
@@ -418,22 +406,20 @@ export default async function PublicPaymentPage({
                 </div>
 
                 <div
-                  className={`rounded-2xl border p-4 ${
-                    inspectionEnabled
-                      ? "border-emerald-500/30 bg-emerald-500/10"
-                      : paymentAllowed
+                  className={`rounded-2xl border p-4 ${paymentCompleted
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : paymentAllowed
                       ? "border-amber-500/30 bg-amber-500/10"
                       : "border-slate-800 bg-slate-950/70"
-                  }`}
+                    }`}
                 >
                   <p
-                    className={`font-bold ${
-                      inspectionEnabled
-                        ? "text-emerald-300"
-                        : paymentAllowed
+                    className={`font-bold ${paymentCompleted
+                      ? "text-emerald-300"
+                      : paymentAllowed
                         ? "text-amber-300"
                         : "text-slate-300"
-                    }`}
+                      }`}
                   >
                     3. Pago
                   </p>
@@ -442,40 +428,26 @@ export default async function PublicPaymentPage({
                     {inspectionEnabled
                       ? "Pago registrado correctamente."
                       : paymentAllowed
-                      ? "Pago habilitado."
-                      : "Pendiente de habilitación."}
+                        ? "Formulario de pago habilitado."
+                        : "Pendiente de habilitación."}
                   </p>
                 </div>
 
                 <div
-                  className={`rounded-2xl border p-4 ${
-
-                    inspectionScheduled
-                      ? "border-emerald-500/30 bg-emerald-500/10"
-                      : paymentCompleted
-
-                    assignedInspection
-                      ? "border-emerald-500/30 bg-emerald-500/10"
-                      : inspectionEnabled
-
+                  className={`rounded-2xl border p-4 ${inspectionScheduled
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : paymentCompleted
                       ? "border-amber-500/30 bg-amber-500/10"
                       : "border-slate-800 bg-slate-950/70"
-                  }`}
+                    }`}
                 >
                   <p
-                    className={`font-bold ${
-
-                      inspectionScheduled
-                        ? "text-emerald-300"
-                        : paymentCompleted
-
-                      assignedInspection
-                        ? "text-emerald-300"
-                        : inspectionEnabled
-
+                    className={`font-bold ${inspectionScheduled
+                      ? "text-emerald-300"
+                      : paymentCompleted
                         ? "text-amber-300"
                         : "text-slate-300"
-                    }`}
+                      }`}
                   >
                     4. Inspección
 
