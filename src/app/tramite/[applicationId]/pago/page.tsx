@@ -8,7 +8,9 @@ import {
   CalendarDays,
   CheckCircle2,
   CreditCard,
+  ExternalLink,
   FileText,
+  Home,
   ShieldCheck,
   User,
   WalletCards,
@@ -38,9 +40,15 @@ function canPay(status: string) {
   return status === "PENDING_PAYMENT" || status === "RENEWAL_AVAILABLE";
 }
 
-function buildValidPayerEmail(ruc: string) {
-  const cleanRuc = ruc.replace(/\D/g, "");
-  return `tramite${cleanRuc}@gmail.com`;
+function canGoToInspection(status: string) {
+  return (
+    status === "PAYMENT_COMPLETED" ||
+    status === "INSPECTION_SCHEDULED" ||
+    status === "FIRST_INSPECTION_REJECTED" ||
+    status === "SECOND_INSPECTION_SCHEDULED" ||
+    status === "LICENSE_ISSUED" ||
+    status === "DEFINITIVELY_REJECTED"
+  );
 }
 
 export default async function PublicPaymentPage({
@@ -63,10 +71,22 @@ export default async function PublicPaymentPage({
         },
       },
       inspections: {
+
         orderBy: { scheduledAt: "asc" },
         include: {
           inspector: {
             select: { id: true, fullName: true, email: true },
+
+        orderBy: {
+          scheduledAt: "asc",
+        },
+        include: {
+          inspector: {
+            select: {
+              fullName: true,
+              email: true,
+            },
+
           },
         },
       },
@@ -87,6 +107,7 @@ export default async function PublicPaymentPage({
 
   const documentsComplete = hasFloorPlan && hasRucRecord;
   const paymentAllowed = documentsComplete && canPay(application.status);
+
   const paymentCompleted = application.status === "PAYMENT_COMPLETED";
   const inspectionScheduled =
     application.status === "INSPECTION_SCHEDULED" ||
@@ -101,12 +122,24 @@ export default async function PublicPaymentPage({
     application.inspections.at(-1) ??
     null;
 
-  const payerEmail = buildValidPayerEmail(application.business.ruc);
+  const inspectionEnabled = canGoToInspection(application.status);
+  const mercadoPagoLink = process.env.NEXT_PUBLIC_MERCADOPAGO_PAYMENT_LINK || "";
+  const assignedInspection = application.inspections.find(
+    (inspection) => inspection.status === "SCHEDULED"
+  );
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 bg-slate-900/40">
-        <div className="mx-auto flex max-w-7xl items-center justify-end px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-amber-500 hover:text-amber-200"
+          >
+            <Home className="h-4 w-4" />
+            Inicio
+          </Link>
+
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
             Trámite público
           </div>
@@ -121,13 +154,12 @@ export default async function PublicPaymentPage({
             </p>
 
             <h1 className="text-3xl font-bold text-white">
-              Pago real con Visa / Mastercard
+              Pago real con Mercado Pago
             </h1>
 
             <p className="mt-2 max-w-3xl text-slate-400">
-              Realiza el pago del derecho de trámite. Mercado Pago procesa la
-              tarjeta de forma segura y el sistema continuará con la
-              programación de inspección cuando el pago sea aprobado.
+              Primero realiza el pago en Mercado Pago. Después vuelve a esta
+              pantalla y confirma el pago para continuar al panel de inspección.
             </p>
           </div>
 
@@ -203,13 +235,12 @@ export default async function PublicPaymentPage({
                 <ShieldCheck className="mt-1 h-6 w-6 text-amber-300" />
 
                 <div>
-                  <h2 className="text-xl font-bold text-white">
-                    Formulario seguro
-                  </h2>
+                  <h2 className="text-xl font-bold text-white">Pago seguro</h2>
 
                   <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Los datos de la tarjeta son procesados por Mercado Pago. El
-                    sistema municipal no almacena número de tarjeta ni CVV.
+                    Los datos de tarjeta, Yape o cuenta se ingresan directamente
+                    en Mercado Pago. El sistema municipal no almacena número de
+                    tarjeta, CVV ni claves del usuario.
                   </p>
                 </div>
               </div>
@@ -222,20 +253,29 @@ export default async function PublicPaymentPage({
               </div>
             )}
 
-            {paymentCompleted && (
+            {inspectionEnabled && (
               <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-emerald-200">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-1 h-6 w-6 shrink-0" />
 
                   <div>
                     <h2 className="text-xl font-bold">
-                      Pago completado correctamente
+                      Pago registrado correctamente
                     </h2>
 
                     <p className="mt-2 text-sm leading-6">
-                      El pago del trámite ya fue aprobado. Ahora puedes
+                      El pago del trámite ya fue registrado. Ahora puedes
                       continuar con la etapa de inspección.
                     </p>
+
+                    {assignedInspection && (
+                      <p className="mt-3 text-sm leading-6 text-emerald-100">
+                        Inspector asignado:{" "}
+                        <span className="font-bold">
+                          {assignedInspection.inspector.fullName}
+                        </span>
+                      </p>
+                    )}
 
                     <Link
                       href={`/tramite/${application.id}/inspecciones`}
@@ -248,7 +288,7 @@ export default async function PublicPaymentPage({
               </div>
             )}
 
-            {documentsComplete && !paymentAllowed && !paymentCompleted && (
+            {documentsComplete && !paymentAllowed && !inspectionEnabled && (
               <div className="rounded-3xl border border-slate-800 bg-slate-900/40 p-5 text-slate-300">
                 Este trámite no se encuentra en estado pendiente de pago. Estado
                 actual:{" "}
@@ -259,11 +299,64 @@ export default async function PublicPaymentPage({
             )}
 
             {paymentAllowed ? (
+
               <PaymentTabs
                 applicationId={application.id}
                 payerEmail={payerEmail}
               />
             ) : !paymentCompleted ? (
+
+              <div className="rounded-3xl border border-slate-800 bg-white p-6 text-slate-950">
+                <div className="mb-5">
+                  <h2 className="text-xl font-bold text-slate-950">
+                    Pagar derecho de trámite
+                  </h2>
+
+                  <p className="mt-2 text-sm text-slate-600">
+                    Serás redirigido a Mercado Pago para realizar el pago real
+                    del trámite por S/ 2.00.
+                  </p>
+                </div>
+
+                {mercadoPagoLink ? (
+                  <a
+                    href={mercadoPagoLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-6 py-4 font-bold text-slate-950 transition hover:bg-amber-400"
+                  >
+                    <ExternalLink className="h-5 w-5" />
+                    Pagar con Mercado Pago
+                  </a>
+                ) : (
+                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700">
+                    Falta configurar NEXT_PUBLIC_MERCADOPAGO_PAYMENT_LINK en el
+                    archivo .env.
+                  </div>
+                )}
+
+                <form
+                  action={`/api/public/tramite/${application.id}/pago/confirmar`}
+                  method="POST"
+                  className="mt-4"
+                >
+                  <button
+                    type="submit"
+                    className="inline-flex w-full items-center justify-center rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-6 py-4 font-bold text-emerald-700 transition hover:bg-emerald-500/20"
+                  >
+                    Ya realicé el pago, continuar a inspección
+                  </button>
+                </form>
+
+                <p className="mt-4 text-xs leading-5 text-slate-500">
+                  Para la demostración académica, después de pagar en Mercado
+                  Pago se confirma el pago y el trámite continúa a inspección.
+                  En producción real, esta confirmación se reemplaza por un
+                  webhook automático de Mercado Pago.
+                </p>
+              </div>
+            ) : !inspectionEnabled ? (
+
               <div className="rounded-3xl border border-slate-800 bg-slate-900/40 p-6">
                 <div className="flex items-start gap-3">
                   <CreditCard className="mt-1 h-6 w-6 text-slate-500" />
@@ -274,8 +367,8 @@ export default async function PublicPaymentPage({
                     </h2>
 
                     <p className="mt-2 text-sm leading-6 text-slate-500">
-                      El formulario de tarjeta aparecerá cuando el trámite tenga
-                      documentos completos y esté en estado PAGO PENDIENTE.
+                      El pago aparecerá cuando el trámite tenga documentos
+                      completos y esté en estado PAGO PENDIENTE.
                     </p>
                   </div>
                 </div>
@@ -342,8 +435,8 @@ export default async function PublicPaymentPage({
                   </p>
 
                   <p className="mt-1 text-sm text-slate-400">
-                    {paymentCompleted
-                      ? "Pago aprobado correctamente."
+                    {inspectionEnabled
+                      ? "Pago registrado correctamente."
                       : paymentAllowed
                         ? "Formulario de pago habilitado."
                         : "Pendiente de habilitación."}
@@ -367,6 +460,17 @@ export default async function PublicPaymentPage({
                       }`}
                   >
                     4. Inspección
+
+
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-400">
+                    {assignedInspection
+                      ? `Asignada a ${assignedInspection.inspector.fullName}`
+                      : inspectionEnabled
+                      ? "Pendiente de programación."
+                      : "Se programará después del pago aprobado."}
+
                   </p>
 
                   {scheduledInspection ? (
