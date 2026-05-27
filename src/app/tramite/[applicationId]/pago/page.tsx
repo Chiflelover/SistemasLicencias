@@ -71,22 +71,10 @@ export default async function PublicPaymentPage({
         },
       },
       inspections: {
-
         orderBy: { scheduledAt: "asc" },
         include: {
           inspector: {
             select: { id: true, fullName: true, email: true },
-
-        orderBy: {
-          scheduledAt: "asc",
-        },
-        include: {
-          inspector: {
-            select: {
-              fullName: true,
-              email: true,
-            },
-
           },
         },
       },
@@ -109,17 +97,18 @@ export default async function PublicPaymentPage({
   const paymentAllowed = documentsComplete && canPay(application.status);
 
   const paymentCompleted = application.status === "PAYMENT_COMPLETED";
-  const inspectionScheduled =
-    application.status === "INSPECTION_SCHEDULED" ||
-    application.status === "SECOND_INSPECTION_SCHEDULED" ||
-    application.status === "LICENSE_ISSUED" ||
-    application.status === "FIRST_INSPECTION_REJECTED" ||
-    application.status === "DEFINITIVELY_REJECTED";
+  const inspectionScheduled = [
+    "INSPECTION_SCHEDULED",
+    "SECOND_INSPECTION_SCHEDULED",
+    "LICENSE_ISSUED",
+    "FIRST_INSPECTION_REJECTED",
+    "DEFINITIVELY_REJECTED",
+  ].includes(application.status);
 
   // Pick the most recent SCHEDULED inspection, or the latest overall
   const scheduledInspection =
-    application.inspections.find((ins) => ins.status === "SCHEDULED") ??
-    application.inspections.at(-1) ??
+    application.inspections.find((ins) => ins.status === "SCHEDULED") ||
+    application.inspections[application.inspections.length - 1] ||
     null;
 
   const inspectionEnabled = canGoToInspection(application.status);
@@ -127,6 +116,7 @@ export default async function PublicPaymentPage({
   const assignedInspection = application.inspections.find(
     (inspection) => inspection.status === "SCHEDULED"
   );
+  const payerEmail = buildValidPayerEmail(application.business?.ruc ?? "0");
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
