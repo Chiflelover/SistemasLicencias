@@ -75,6 +75,7 @@ export default function HomePage() {
 
             <Link
               href="/consulta"
+              prefetch={false}
               className="bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 font-semibold px-8 py-3 rounded-lg flex items-center justify-center gap-2 transition duration-150"
             >
               Consulta Pública
@@ -140,7 +141,7 @@ export default function HomePage() {
               </div>
 
               <span className="text-3xl font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-xl">
-                S/ 2.00
+                S/ 180.00
               </span>
             </div>
           </div>
