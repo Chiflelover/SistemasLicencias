@@ -280,13 +280,25 @@ export function InspectorPanel() {
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {details?.application.documents.length ? (
                   details.application.documents.map((document) => (
-                    <div key={document.id} className="flex items-center gap-3 rounded-2xl border border-slate-850/50 bg-slate-900/70 p-3">
-                      <ClipboardList className="w-4 h-4 text-slate-400" />
-                      <div>
-                        <p className="text-sm text-white">{document.name}</p>
-                        <p className="text-xs text-slate-500">{document.fileName}</p>
+                    <a
+                      key={document.id}
+                      href={`/api/public/documentos/${document.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-850/50 bg-slate-900/70 p-3 hover:border-amber-500/50 hover:bg-slate-900 transition text-left cursor-pointer group"
+                      title="Haga clic para ver el documento"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <ClipboardList className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{document.name}</p>
+                          <p className="text-xs text-slate-500 truncate">{document.fileName}</p>
+                        </div>
                       </div>
-                    </div>
+                      <span className="text-[10px] text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20 shrink-0">
+                        VER
+                      </span>
+                    </a>
                   ))
                 ) : (
                   <p className="text-slate-500 text-sm">No hay documentos adjuntos.</p>
