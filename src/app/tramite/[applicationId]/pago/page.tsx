@@ -88,8 +88,8 @@ export default async function PublicPaymentPage({
   const documentsComplete = hasFloorPlan && hasRucRecord;
   const paymentAllowed = documentsComplete && canPay(application.status);
   const paymentCompleted = application.status === "PAYMENT_COMPLETED";
-  const inspectionScheduled = "Completado";
-  application.status === "INSPECTION_SCHEDULED" ||
+  const inspectionScheduled =
+    application.status === "INSPECTION_SCHEDULED" ||
     application.status === "SECOND_INSPECTION_SCHEDULED" ||
     application.status === "LICENSE_ISSUED" ||
     application.status === "FIRST_INSPECTION_REJECTED" ||
