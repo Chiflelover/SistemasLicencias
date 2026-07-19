@@ -42,7 +42,7 @@ export default function Sidebar({ role, userName }: SidebarProps) {
       icon: FileText,
     },
     {
-      label: "Pago S/2",
+      label: "Pago S/180",
       href: "/solicitante/pago",
       icon: DollarSign,
     },

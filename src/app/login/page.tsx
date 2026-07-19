@@ -89,7 +89,7 @@ export default function LoginPage() {
               <div className="text-sm text-slate-400">Digitalizado</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-amber-400">S/ 2.00</div>
+              <div className="text-2xl font-bold text-amber-400">S/ 180.00</div>
               <div className="text-sm text-slate-400">Costo de Trámite</div>
             </div>
             <div>

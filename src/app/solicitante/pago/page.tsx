@@ -169,7 +169,7 @@ export default async function PagoPage() {
           </h1>
 
           <p className="mt-2 text-slate-400 max-w-2xl">
-            Realiza el pago de S/ 2.00 con Visa o Mastercard desde el
+            Realiza el pago de S/ 180.00 con Visa o Mastercard desde el
             formulario seguro de Mercado Pago integrado en la web. Cuando el
             pago sea aprobado, el sistema programará automáticamente la
             inspección municipal.
@@ -243,7 +243,7 @@ export default async function PagoPage() {
                     </span>
                   </div>
 
-                  <p className="text-sm text-slate-400">S/ 2.00</p>
+                  <p className="text-sm text-slate-400">S/ 180.00</p>
                 </div>
               </div>
 
