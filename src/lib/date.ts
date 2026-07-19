@@ -1,4 +1,5 @@
 import { prisma } from "./db/prisma";
+import { isTimeSimulatorEnabled } from "./simulator";
 
 export function cloneDate(date: Date): Date {
   return new Date(date.getTime());
@@ -19,11 +20,12 @@ export function addYears(date: Date, years: number): Date {
 /**
  * Obtiene la fecha actual del sistema.
  *
- * En producción, usa siempre la fecha real actual.
- * En desarrollo/local, permite usar la fecha simulada del DevPanel.
+ * Con el simulador apagado devuelve siempre la fecha real. Con el simulador
+ * encendido usa la fecha del DevPanel, que es lo que permite demostrar
+ * vencimientos y renovaciones sin esperar.
  */
 export async function getCurrentSystemDate(): Promise<Date> {
-  if (process.env.NODE_ENV === "production") {
+  if (!isTimeSimulatorEnabled()) {
     return new Date();
   }
 
@@ -47,10 +49,7 @@ export async function getCurrentSystemDate(): Promise<Date> {
  * Solo debe afectar al entorno local/desarrollo.
  */
 export async function advanceSystemDateByDays(days: number): Promise<Date> {
-  const current =
-    process.env.NODE_ENV === "production"
-      ? new Date()
-      : await getCurrentSystemDate();
+  const current = await getCurrentSystemDate();
 
   const newDate = addDaysToDate(current, days);
 
@@ -68,10 +67,7 @@ export async function advanceSystemDateByDays(days: number): Promise<Date> {
  * Solo debe afectar al entorno local/desarrollo.
  */
 export async function advanceSystemDateByYears(years: number): Promise<Date> {
-  const current =
-    process.env.NODE_ENV === "production"
-      ? new Date()
-      : await getCurrentSystemDate();
+  const current = await getCurrentSystemDate();
 
   const newDate = addYears(current, years);
 

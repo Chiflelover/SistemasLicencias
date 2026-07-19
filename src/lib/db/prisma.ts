@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { isTimeSimulatorEnabled } from "../simulator";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -67,7 +68,9 @@ function serializar(valor: unknown): unknown {
  * Se hace con un middleware para no tener que instrumentar cada servicio: si
  * mañana se agrega una funcionalidad nueva, queda registrada sola.
  */
-if (!globalForPrisma.prisma) {
+// Solo se registra si el simulador está habilitado: con el interruptor
+// apagado el middleware no hace ninguna consulta extra.
+if (!globalForPrisma.prisma && isTimeSimulatorEnabled()) {
   prisma.$use(async (params, next) => {
     const model = params.model;
     const esEscritura = OPERACIONES_DE_ESCRITURA.has(params.action);

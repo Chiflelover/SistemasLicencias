@@ -7,6 +7,7 @@ export default function DevPanel() {
   const [collapsed, setCollapsed] = useState(true);
   const [simulatedDate, setSimulatedDate] = useState<Date | null>(null);
   const [offsetDays, setOffsetDays] = useState(0);
+  const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -17,6 +18,7 @@ export default function DevPanel() {
       const data = await response.json();
       setSimulatedDate(new Date(data.currentSystemDate));
       setOffsetDays(data.offsetDays ?? 0);
+      setEnabled(Boolean(data.enabled));
     } catch (error) {
       console.error(error);
     }
@@ -85,6 +87,12 @@ export default function DevPanel() {
       year: "numeric"
     });
   };
+
+  // Con el simulador apagado el panel no se muestra: no habría nada que hacer
+  // y los botones responderían 403.
+  if (!enabled) {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-6 right-6 z-50">

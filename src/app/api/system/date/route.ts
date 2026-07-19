@@ -8,6 +8,7 @@ import {
 import { LicenseService } from "@/services/license.service";
 import { SimulationService } from "@/services/simulation.service";
 import { getCurrentUser } from "@/lib/auth";
+import { isTimeSimulatorEnabled } from "@/lib/simulator";
 
 export async function GET() {
   const current = await getCurrentSystemDate();
@@ -22,6 +23,8 @@ export async function GET() {
     currentSystemDate: current.toISOString(),
     realDate: real.toISOString(),
     offsetDays,
+    // El panel se oculta solo cuando el simulador está apagado.
+    enabled: isTimeSimulatorEnabled(),
   });
 }
 
@@ -30,9 +33,9 @@ export async function GET() {
  * ella, para que el sistema quede como si nunca se hubiera simulado nada.
  */
 export async function DELETE() {
-  if (process.env.NODE_ENV === "production") {
+  if (!isTimeSimulatorEnabled()) {
     return NextResponse.json(
-      { error: "El simulador de fechas no está disponible en producción." },
+      { error: "El simulador de fechas está deshabilitado en esta instalación." },
       { status: 403 }
     );
   }
@@ -74,9 +77,9 @@ export async function POST(request: Request) {
   // El simulador es una herramienta de desarrollo. En producción la fecha
   // real manda igual, pero se bloquea la escritura para que nadie altere
   // SystemConfig desde afuera.
-  if (process.env.NODE_ENV === "production") {
+  if (!isTimeSimulatorEnabled()) {
     return NextResponse.json(
-      { error: "El simulador de fechas no está disponible en producción." },
+      { error: "El simulador de fechas está deshabilitado en esta instalación." },
       { status: 403 }
     );
   }
