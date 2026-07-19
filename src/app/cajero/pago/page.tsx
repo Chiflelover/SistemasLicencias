@@ -6,10 +6,22 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
+  Banknote,
   CheckCircle2,
+  CreditCard,
   DollarSign,
   Loader2,
+  Smartphone,
 } from "lucide-react";
+
+const MONTO_TUPA = 180.0;
+
+const METODOS = [
+  { value: "EFECTIVO", label: "Efectivo", icon: Banknote },
+  { value: "TARJETA", label: "Tarjeta", icon: CreditCard },
+  { value: "YAPE", label: "Yape", icon: Smartphone },
+  { value: "PLIN", label: "Plin", icon: Smartphone },
+];
 
 interface ApplicationRow {
   id: string;
@@ -20,22 +32,30 @@ interface ApplicationRow {
   payments: Array<{ id: string; operationNumber: string }>;
 }
 
+interface Comprobante {
+  operationNumber: string;
+  amount: number;
+  method: string;
+  paidAt: string;
+  applicationNumber: string;
+}
+
 export default function CajeroPagoPage() {
   const router = useRouter();
 
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [payingId, setPayingId] = useState<string | null>(null);
+  const [seleccionado, setSeleccionado] = useState<ApplicationRow | null>(null);
+  const [metodo, setMetodo] = useState<string>("EFECTIVO");
+  const [cobrando, setCobrando] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [comprobante, setComprobante] = useState<Comprobante | null>(null);
 
   const cargarSolicitudes = async () => {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/cajero/solicitudes", {
-        cache: "no-store",
-      });
+      const response = await fetch("/api/cajero/solicitudes", { cache: "no-store" });
       const data = await response.json();
 
       if (!response.ok) {
@@ -54,16 +74,17 @@ export default function CajeroPagoPage() {
     cargarSolicitudes();
   }, []);
 
-  const registrarPago = async (applicationId: string) => {
-    setPayingId(applicationId);
+  const confirmarCobro = async () => {
+    if (!seleccionado) return;
+
+    setCobrando(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
 
     try {
       const response = await fetch("/api/cajero/pago", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ applicationId }),
+        body: JSON.stringify({ applicationId: seleccionado.id, method: metodo }),
       });
 
       const data = await response.json();
@@ -72,16 +93,23 @@ export default function CajeroPagoPage() {
         throw new Error(data.error || "No se pudo registrar el pago.");
       }
 
-      setSuccessMessage(
-        `Pago registrado. Operación ${data.operationNumber}. La inspección quedó agendada.`
-      );
+      setComprobante({
+        operationNumber: data.payment.operationNumber,
+        amount: data.payment.amount,
+        method: data.payment.method,
+        paidAt: data.payment.paidAt,
+        applicationNumber: seleccionado.number,
+      });
+
+      setSeleccionado(null);
+      setMetodo("EFECTIVO");
 
       await cargarSolicitudes();
       router.refresh();
     } catch (error: any) {
       setErrorMessage(error.message);
     } finally {
-      setPayingId(null);
+      setCobrando(false);
     }
   };
 
@@ -89,24 +117,49 @@ export default function CajeroPagoPage() {
     (a) => a.status === "PENDING_PAYMENT" || a.status === "RENEWAL_AVAILABLE"
   );
 
+  const formatearFechaHora = (iso: string) => {
+    const fecha = new Date(iso);
+    return {
+      fecha: fecha.toLocaleDateString("es-PE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }),
+      hora: fecha.toLocaleTimeString("es-PE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    };
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn max-w-4xl">
-      <div>
-        <Link
-          href="/cajero"
-          className="text-sm text-slate-400 hover:text-white inline-flex items-center gap-1.5"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver al panel
-        </Link>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link
+            href="/cajero"
+            className="text-sm text-slate-400 hover:text-white inline-flex items-center gap-1.5"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Volver al panel
+          </Link>
 
-        <h1 className="mt-4 text-2xl font-bold text-white">
-          Registrar pago presencial
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Confirma el cobro de S/ 180.00 en ventanilla. Al registrarlo, el
-          sistema agenda automáticamente la inspección.
-        </p>
+          <h1 className="mt-4 text-2xl font-bold text-white">
+            Registrar pago en caja
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Confirma el cobro recibido en ventanilla. No interviene ninguna
+            pasarela de pago.
+          </p>
+        </div>
+
+        <Link
+          href="/cajero/arqueo"
+          className="border border-slate-700 hover:border-slate-500 text-slate-200 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition"
+        >
+          Ver arqueo
+        </Link>
       </div>
 
       {errorMessage && (
@@ -116,10 +169,133 @@ export default function CajeroPagoPage() {
         </div>
       )}
 
-      {successMessage && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-200 text-sm flex gap-2">
-          <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
-          <span>{successMessage}</span>
+      {comprobante && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6">
+          <div className="flex items-center gap-2 text-emerald-300 font-bold">
+            <CheckCircle2 className="w-5 h-5" />
+            Pago registrado
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
+            <div>
+              <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
+                N° de operación
+              </p>
+              <p className="text-white font-mono">{comprobante.operationNumber}</p>
+            </div>
+            <div>
+              <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
+                Trámite
+              </p>
+              <p className="text-white font-mono">{comprobante.applicationNumber}</p>
+            </div>
+            <div>
+              <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
+                Monto
+              </p>
+              <p className="text-white font-bold">
+                S/ {comprobante.amount.toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
+                Método
+              </p>
+              <p className="text-white">{comprobante.method}</p>
+            </div>
+            <div>
+              <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
+                Fecha
+              </p>
+              <p className="text-white">
+                {formatearFechaHora(comprobante.paidAt).fecha}
+              </p>
+            </div>
+            <div>
+              <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
+                Hora
+              </p>
+              <p className="text-white font-mono">
+                {formatearFechaHora(comprobante.paidAt).hora}
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs text-emerald-400/80">
+            El trámite quedó en estado PAGADO y la inspección fue agendada.
+          </p>
+        </div>
+      )}
+
+      {seleccionado && (
+        <div className="rounded-2xl border border-amber-500/40 bg-slate-900/60 p-6 space-y-5">
+          <div>
+            <h2 className="text-lg font-bold text-white">Confirmar cobro</h2>
+            <p className="text-sm text-slate-400 mt-1">
+              {seleccionado.business.legalName} · {seleccionado.number}
+            </p>
+          </div>
+
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs uppercase tracking-wider font-bold text-slate-500">
+              Monto a cobrar
+            </span>
+            <span className="text-3xl font-black text-amber-300">
+              S/ {MONTO_TUPA.toFixed(2)}
+            </span>
+          </div>
+
+          <div>
+            <p className="text-xs uppercase tracking-wider font-bold text-slate-500 mb-3">
+              Método de pago
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {METODOS.map((m) => {
+                const Icono = m.icon;
+                const activo = metodo === m.value;
+
+                return (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setMetodo(m.value)}
+                    className={`py-3 px-3 rounded-xl text-sm font-bold flex flex-col items-center gap-2 border transition ${
+                      activo
+                        ? "bg-amber-500 text-slate-950 border-amber-400"
+                        : "bg-slate-950/50 text-slate-300 border-slate-800 hover:border-slate-600"
+                    }`}
+                  >
+                    <Icono className="w-5 h-5" />
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={confirmarCobro}
+              disabled={cobrando}
+              className="flex-grow bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 px-5 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
+            >
+              {cobrando ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              Confirmar pago recibido
+            </button>
+
+            <button
+              onClick={() => setSeleccionado(null)}
+              disabled={cobrando}
+              className="border border-slate-700 hover:border-slate-500 text-slate-300 px-5 py-3 rounded-lg text-sm font-bold transition"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
@@ -129,14 +305,13 @@ export default function CajeroPagoPage() {
             Trámites pendientes de cobro
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Solo aparecen los que registraste vos y ya tienen sus documentos
-            completos.
+            Solo los que registraste vos y ya tienen la documentación completa.
           </p>
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-slate-500 text-sm">
-            <Loader2 className="w-5 h-5 mx-auto animate-spin" />
+          <div className="p-8 text-center">
+            <Loader2 className="w-5 h-5 mx-auto animate-spin text-slate-500" />
           </div>
         ) : cobrables.length === 0 ? (
           <div className="p-8 text-center text-slate-500 text-sm">
@@ -169,22 +344,22 @@ export default function CajeroPagoPage() {
                     {!tieneDocumentos && (
                       <p className="text-amber-400 text-xs mt-2 flex items-center gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5" />
-                        Faltan el plano del local o la ficha RUC
+                        Faltan el plano del local o los certificados
                       </p>
                     )}
                   </div>
 
                   <button
-                    onClick={() => registrarPago(application.id)}
-                    disabled={!tieneDocumentos || payingId === application.id}
+                    onClick={() => {
+                      setSeleccionado(application);
+                      setComprobante(null);
+                      setErrorMessage(null);
+                    }}
+                    disabled={!tieneDocumentos}
                     className="bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 px-5 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition whitespace-nowrap"
                   >
-                    {payingId === application.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <DollarSign className="w-4 h-4" />
-                    )}
-                    Cobrar S/ 180.00
+                    <DollarSign className="w-4 h-4" />
+                    Cobrar S/ {MONTO_TUPA.toFixed(2)}
                   </button>
                 </div>
               );

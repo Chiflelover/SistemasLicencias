@@ -92,6 +92,11 @@ export default function Sidebar({ role, userName }: SidebarProps) {
       href: "/cajero/pago",
       icon: DollarSign,
     },
+    {
+      label: "Arqueo de Caja",
+      href: "/cajero/arqueo",
+      icon: FolderSearch,
+    },
   ];
 
   const linksByRole = {

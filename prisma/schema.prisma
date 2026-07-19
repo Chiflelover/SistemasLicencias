@@ -50,6 +50,14 @@ enum PaymentStatus {
   COMPLETED
 }
 
+// Medios aceptados en caja (pago presencial, sin pasarela externa)
+enum PaymentMethod {
+  EFECTIVO
+  TARJETA
+  YAPE
+  PLIN
+}
+
 enum InspectionNumber {
   FIRST
   SECOND
@@ -88,6 +96,8 @@ model User {
   inspections  Inspection[]  @relation("InspectorInspections")
   fines        Fine[]        @relation("InspectorFines")
   registrations Application[] @relation("CashierRegistrations")
+  cashPayments  Payment[]     @relation("CashierPayments")
+  auditLogs     AuditLog[]    @relation("UserAuditLogs")
 
   @@index([role])
   @@index([active])
@@ -179,10 +189,36 @@ model Payment {
   paidAt          DateTime
   createdAt       DateTime      @default(now())
 
-  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  // Cobro en ventanilla: medio de pago y cajero que lo recibió.
+  // Nulos en los pagos que no pasaron por caja.
+  method         PaymentMethod?
+  registeredById String?
+
+  application  Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  registeredBy User?       @relation("CashierPayments", fields: [registeredById], references: [id], onDelete: SetNull)
 
   @@index([applicationId])
   @@index([type])
+  @@index([registeredById])
+  @@index([paidAt])
+}
+
+// ─── Auditoría de acciones ─────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String
+  userId     String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }
 
 // ─── Inspección ────────────────────────────────────────────────────────────────

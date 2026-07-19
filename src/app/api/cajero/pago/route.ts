@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/db/prisma";
-import { PaymentRepository } from "@/repositories/payment.repository";
-import { InspectionService } from "@/services/inspection.service";
-import { LicenseService } from "@/services/license.service";
-import { getCurrentSystemDate } from "@/lib/date";
-import { ApplicationStatus, PaymentType } from "@prisma/client";
+import { CashService, isPaymentMethod } from "@/services/cash.service";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Registra un pago hecho en ventanilla.
+ * Registra un pago recibido en ventanilla.
  *
- * El cajero solo puede cobrar trámites que él mismo registró; no puede aprobar
- * ni intervenir en las inspecciones, que siguen a cargo del inspector.
+ * Sin pasarelas ni servicios externos: el cajero declara el cobro y el sistema
+ * lo asienta, cambia el estado del trámite y deja la traza de auditoría.
  */
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -24,7 +19,9 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
+
     const applicationId = String(body.applicationId || "").trim();
+    const method = String(body.method || "").trim().toUpperCase();
 
     if (!applicationId) {
       return NextResponse.json(
@@ -33,88 +30,37 @@ export async function POST(request: Request) {
       );
     }
 
-    const application = await prisma.application.findUnique({
-      where: { id: applicationId },
-      include: { documents: { select: { type: true } } },
-    });
-
-    if (!application) {
+    if (!isPaymentMethod(method)) {
       return NextResponse.json(
-        { error: "No se encontró el trámite." },
-        { status: 404 }
-      );
-    }
-
-    if (application.registeredById !== user.id) {
-      return NextResponse.json(
-        { error: "Solo puedes cobrar trámites que registraste tú." },
-        { status: 403 }
-      );
-    }
-
-    const hasFloorPlan = application.documents.some(
-      (document) => document.type === "FLOOR_PLAN"
-    );
-    const hasRucRecord = application.documents.some(
-      (document) => document.type === "RUC_RECORD"
-    );
-
-    if (!hasFloorPlan || !hasRucRecord) {
-      return NextResponse.json(
-        {
-          error:
-            "Faltan documentos obligatorios: el plano del local y la ficha RUC.",
-        },
+        { error: "Selecciona un método de pago válido: Efectivo, Tarjeta, Yape o Plin." },
         { status: 400 }
       );
     }
 
-    const isRenewal = application.status === ApplicationStatus.RENEWAL_AVAILABLE;
-
-    if (application.status !== ApplicationStatus.PENDING_PAYMENT && !isRenewal) {
-      return NextResponse.json(
-        {
-          error: `El trámite no está pendiente de pago. Estado actual: ${application.status}`,
-        },
-        { status: 400 }
-      );
-    }
-
-    const now = await getCurrentSystemDate();
-    const operationNumber = await PaymentRepository.generateOperationNumber();
-
-    const payment = await PaymentRepository.create({
-      applicationId: application.id,
-      type: isRenewal ? PaymentType.RENEWAL : PaymentType.INITIAL_APPLICATION,
-      amount: 180.0, // Tarifa TUPA
-      operationNumber,
-      paidAt: now,
-    });
-
-    if (isRenewal) {
-      await LicenseService.renewLicense(application.id);
-    } else {
-      await prisma.application.update({
-        where: { id: application.id },
-        data: { status: ApplicationStatus.PAYMENT_COMPLETED, updatedAt: now },
+    const { payment, operationNumber, paidAt } =
+      await CashService.registerCounterPayment({
+        cashierId: user.id,
+        applicationId,
+        method,
       });
-
-      // La inspección la agenda el sistema y la resuelve el inspector.
-      await InspectionService.scheduleInspection(application.id);
-    }
 
     return NextResponse.json({
       success: true,
-      message: "Pago presencial registrado correctamente.",
-      operationNumber,
-      paymentId: payment.id,
+      message: "Pago registrado en caja correctamente.",
+      payment: {
+        id: payment.id,
+        operationNumber,
+        amount: Number(payment.amount),
+        method: payment.method,
+        paidAt,
+      },
     });
   } catch (error: any) {
     console.error("Error registrando pago presencial:", error);
 
     return NextResponse.json(
       { error: error?.message || "Error interno al registrar el pago." },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }
