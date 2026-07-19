@@ -220,7 +220,7 @@ export default async function PublicPaymentPage({
                     </p>
                   </div>
 
-                  <p className="text-3xl font-black text-amber-300">S/ 2.00</p>
+                  <p className="text-3xl font-black text-amber-300">S/ 180.00</p>
                 </div>
               </div>
             </div>
@@ -309,7 +309,7 @@ export default async function PublicPaymentPage({
 
                   <p className="mt-2 text-sm text-slate-600">
                     Serás redirigido a Mercado Pago para realizar el pago real
-                    del trámite por S/ 2.00.
+                    del trámite por S/ 180.00.
                   </p>
                 </div>
 

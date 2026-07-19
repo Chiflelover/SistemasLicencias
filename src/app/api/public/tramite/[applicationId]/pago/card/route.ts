@@ -106,7 +106,7 @@ export async function POST(
         data: {
           applicationId: application.id,
           type: PaymentType.INITIAL_APPLICATION,
-          amount: 2,
+          amount: 180, // Monto oficial del trámite TUPA (el cobro real en Mercado Pago es S/ 2.00)
           operationNumber: `MP-${Date.now()}-${application.number}`,
           paidAt: now,
         },

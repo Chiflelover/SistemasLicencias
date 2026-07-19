@@ -37,7 +37,7 @@ export class PaymentService {
     const payment = await PaymentRepository.create({
       applicationId,
       type: paymentType,
-      amount: 2.0,
+      amount: 180.0, // Monto oficial del trámite TUPA (el cobro real en Mercado Pago es S/ 2.00)
       operationNumber,
       paidAt: await getCurrentSystemDate(),
     });

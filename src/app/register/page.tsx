@@ -106,7 +106,7 @@ export default function RegisterPage() {
             </li>
             <li className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              Realiza el pago de la tasa única de S/ 2
+              Realiza el pago de la tasa única de S/ 180
             </li>
           </ul>
         </div>

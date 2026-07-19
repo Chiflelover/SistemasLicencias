@@ -14,20 +14,6 @@ async function main() {
       dni: "00000000",
       phone: "999999999",
     },
-    {
-      email: "pepe.inspector@muni.pe",
-      password: "Pepe2026!",
-      fullName: "Pepe Martínez",
-      dni: "14876543",
-      phone: "987651234",
-    },
-    {
-      email: "juan.inspector@muni.pe",
-      password: "Juan2026!",
-      fullName: "Juan Rojas",
-      dni: "17543268",
-      phone: "987654321",
-    },
   ];
 
   for (const userData of users) {

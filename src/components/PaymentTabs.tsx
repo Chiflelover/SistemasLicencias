@@ -51,7 +51,7 @@ export default function PaymentTabs({ applicationId, payerEmail }: PaymentTabsPr
 
             <p className="mt-2 text-sm text-slate-600">
               Ingresa los datos de tu tarjeta. Mercado Pago procesará el
-              pago de forma segura por S/ 2.00.
+              pago de forma segura por S/ 180.00.
             </p>
           </div>
 
