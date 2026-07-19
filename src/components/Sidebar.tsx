@@ -18,7 +18,7 @@ import {
 import { useState } from "react";
 
 interface SidebarProps {
-  role: "APPLICANT" | "INSPECTOR" | "CAJERO" | "ADMIN";
+  role: "APPLICANT" | "INSPECTOR" | "CAJERO" | "ADMIN" | "DEVELOPER";
   userName: string;
 }
 
@@ -118,11 +118,20 @@ export default function Sidebar({ role, userName }: SidebarProps) {
     },
   ];
 
+  const developerLinks = [
+    {
+      label: "Simulaciones",
+      href: "/dev",
+      icon: LayoutDashboard,
+    },
+  ];
+
   const linksByRole = {
     INSPECTOR: inspectorLinks,
     CAJERO: cajeroLinks,
     APPLICANT: applicantLinks,
     ADMIN: adminLinks,
+    DEVELOPER: developerLinks,
   };
 
   const links = linksByRole[role] ?? applicantLinks;
@@ -168,6 +177,8 @@ export default function Sidebar({ role, userName }: SidebarProps) {
                   ? "Portal Cajero"
                   : role === "ADMIN"
                   ? "Portal Administrador"
+                  : role === "DEVELOPER"
+                  ? "Portal Desarrollo"
                   : "Portal Solicitante"}
               </span>
             </div>
@@ -212,6 +223,8 @@ export default function Sidebar({ role, userName }: SidebarProps) {
                   ? "Cajero MPT"
                   : role === "ADMIN"
                   ? "Administrador"
+                  : role === "DEVELOPER"
+                  ? "Desarrollador"
                   : "Solicitante"}
               </p>
             </div>

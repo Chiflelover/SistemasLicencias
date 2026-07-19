@@ -14,6 +14,7 @@ enum Role {
   INSPECTOR
   CAJERO
   ADMIN
+  DEVELOPER
 }
 
 enum ApplicationStatus {
@@ -330,6 +331,62 @@ model Fine {
 model SystemConfig {
   id            String   @id @default("singleton")
   simulatedDate DateTime @default(now())
+}
+
+// ─── Simulación de tiempo (demostración académica) ─────────────────────────────
+
+enum SimulationStatus {
+  RUNNING
+  RESTORED
+}
+
+enum SimulationOperation {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+//
+// Una corrida de simulación de tiempo.
+//
+// Empieza al adelantar el reloj y termina al restablecerlo. Mientras corre,
+// cada escritura en la base queda anotada en SimulationChange.
+model SimulationRun {
+  id               String           @id @default(cuid())
+  status           SimulationStatus @default(RUNNING)
+  realStartedAt    DateTime         @default(now())
+  simulatedStartAt DateTime
+  simulatedEndAt   DateTime?
+  restoredAt       DateTime?
+  startedByEmail   String?
+
+  changes SimulationChange[]
+
+  @@index([status])
+  @@index([realStartedAt])
+}
+
+//
+// Una escritura ocurrida durante la simulación.
+//
+// `before` guarda el estado previo de la fila, lo que permite deshacer el
+// cambio al restablecer: borrar lo creado y devolver lo modificado.
+model SimulationChange {
+  id          String              @id @default(cuid())
+  runId       String
+  model       String
+  operation   SimulationOperation
+  recordId    String?
+  before      Json?
+  after       Json?
+  description String?
+  createdAt   DateTime            @default(now())
+
+  run SimulationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([model])
+  @@index([createdAt])
 }
 
 // ─── Caché de consultas de RUC (ahorro de cuota en APIPERU) ────────────────────

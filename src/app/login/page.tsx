@@ -52,6 +52,8 @@ export default function LoginPage() {
         router.push("/cajero");
       } else if (result.user.role === "ADMIN") {
         router.push("/admin");
+      } else if (result.user.role === "DEVELOPER") {
+        router.push("/dev");
       } else {
         router.push("/solicitante");
       }

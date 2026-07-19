@@ -85,6 +85,24 @@ export async function advanceSystemDateByYears(years: number): Promise<Date> {
 }
 
 /**
+ * Devuelve el reloj del sistema a la fecha real.
+ *
+ * Se usa para cerrar una demostración: al volver al presente, los estados que
+ * dependen de la fecha (vencimientos, agenda del día) se recalculan solos.
+ */
+export async function resetSystemDate(): Promise<Date> {
+  const now = new Date();
+
+  await prisma.systemConfig.upsert({
+    where: { id: "singleton" },
+    update: { simulatedDate: now },
+    create: { id: "singleton", simulatedDate: now },
+  });
+
+  return now;
+}
+
+/**
  * Calcula si dos fechas caen en el mismo día.
  */
 export function isSameDay(a: Date, b: Date): boolean {

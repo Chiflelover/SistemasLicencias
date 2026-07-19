@@ -39,6 +39,14 @@ async function main() {
       phone: "999999996",
       role: "ADMIN",
     },
+    {
+      email: "dev@muni.pe",
+      password: "12345678",
+      fullName: "Cuenta de Desarrollo",
+      dni: "00000004",
+      phone: "999999995",
+      role: "DEVELOPER",
+    },
   ];
 
   for (const userData of users) {

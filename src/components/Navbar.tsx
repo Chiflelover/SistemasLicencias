@@ -9,7 +9,7 @@ import NotificationBell from "./NotificationBell";
 interface NavbarProps {
   userName: string;
   email: string;
-  role: "APPLICANT" | "INSPECTOR" | "CAJERO" | "ADMIN";
+  role: "APPLICANT" | "INSPECTOR" | "CAJERO" | "ADMIN" | "DEVELOPER";
 }
 
 export default function Navbar({ userName, email, role }: NavbarProps) {
@@ -123,6 +123,8 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
                       ? "Cajero"
                       : role === "ADMIN"
                       ? "Administrador"
+                      : role === "DEVELOPER"
+                      ? "Desarrollador"
                       : "Solicitante"}
                     )
                   </div>

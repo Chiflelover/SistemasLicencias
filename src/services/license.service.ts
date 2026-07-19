@@ -107,7 +107,14 @@ export class LicenseService {
     if (license.status !== LicenseStatus.ACTIVE) {
       await LicenseRepository.updateStatus(license.id, LicenseStatus.ACTIVE);
     }
-    if (application.status === ApplicationStatus.RENEWAL_AVAILABLE) {
+
+    // Se revierten tanto RENEWAL_AVAILABLE como EXPIRED: si el reloj vuelve
+    // atrás (al cerrar una demostración), el trámite tiene que recuperar su
+    // estado real y no quedar vencido para siempre.
+    if (
+      application.status === ApplicationStatus.RENEWAL_AVAILABLE ||
+      application.status === ApplicationStatus.EXPIRED
+    ) {
       await ApplicationRepository.updateStatus(application.id, ApplicationStatus.LICENSE_ISSUED);
     }
   }
@@ -192,5 +199,24 @@ export class LicenseService {
     }
 
     return vencidas.length;
+  }
+
+  /**
+   * Recalcula el estado de todas las licencias contra la fecha actual.
+   *
+   * A diferencia de syncExpiredLicenses, que solo procesa las ya vencidas,
+   * esta recorre todas: sirve para restablecer el sistema cuando el reloj
+   * vuelve al presente después de una simulación.
+   */
+  static async resyncAllLicenseStates() {
+    const licencias = await prisma.license.findMany({
+      select: { applicationId: true },
+    });
+
+    for (const licencia of licencias) {
+      await this.ensureRenewalState(licencia.applicationId);
+    }
+
+    return licencias.length;
   }
 }

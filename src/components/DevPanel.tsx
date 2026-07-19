@@ -1,21 +1,50 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles, CalendarDays, Zap, Info } from "lucide-react";
+import { Sparkles, CalendarDays, Zap, Info, RotateCcw } from "lucide-react";
 
 export default function DevPanel() {
   const [collapsed, setCollapsed] = useState(true);
   const [simulatedDate, setSimulatedDate] = useState<Date | null>(null);
+  const [offsetDays, setOffsetDays] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchCurrentSystemDate = async () => {
     try {
-      const response = await fetch("/api/system/date");
+      const response = await fetch("/api/system/date", { cache: "no-store" });
       if (!response.ok) throw new Error("Error al obtener fecha del sistema");
       const data = await response.json();
       setSimulatedDate(new Date(data.currentSystemDate));
+      setOffsetDays(data.offsetDays ?? 0);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  /** Devuelve el reloj al presente y recalcula los estados dependientes. */
+  const handleReset = async () => {
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/system/date", { method: "DELETE" });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error?.error || "No se pudo restablecer la fecha.");
+      }
+
+      const data = await response.json();
+      setSimulatedDate(new Date(data.currentSystemDate));
+      setOffsetDays(0);
+
+      // Los paneles leen la fecha en el servidor: hay que recargar para que
+      // la agenda y los vencimientos se vuelvan a calcular.
+      window.location.reload();
+    } catch (error: any) {
+      setErrorMessage(error.message);
+      setLoading(false);
     }
   };
 
@@ -25,6 +54,8 @@ export default function DevPanel() {
 
   const handleAdvanceTime = async (amount: number, unit: "days" | "years") => {
     setLoading(true);
+    setErrorMessage(null);
+
     try {
       const response = await fetch("/api/system/date", {
         method: "POST",
@@ -37,9 +68,12 @@ export default function DevPanel() {
       }
       const data = await response.json();
       setSimulatedDate(new Date(data.currentSystemDate));
-    } catch (error) {
-      console.error(error);
-    } finally {
+
+      // Igual que en el reset: los datos se calculan en el servidor contra la
+      // fecha del sistema, así que sin recargar la pantalla no se actualiza.
+      window.location.reload();
+    } catch (error: any) {
+      setErrorMessage(error.message);
       setLoading(false);
     }
   };
@@ -90,10 +124,24 @@ export default function DevPanel() {
                 </span>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded text-[8px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold uppercase">
-              ACTIVO
-            </span>
+            {offsetDays === 0 ? (
+              <span className="px-2 py-0.5 rounded text-[8px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold uppercase">
+                EN VIVO
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-extrabold uppercase">
+                {offsetDays > 0 ? `+${offsetDays}d` : `${offsetDays}d`}
+              </span>
+            )}
           </div>
+
+          {offsetDays !== 0 && (
+            <p className="text-[10px] leading-relaxed text-amber-400/80">
+              El reloj está desplazado {Math.abs(offsetDays)} día(s){" "}
+              {offsetDays > 0 ? "hacia adelante" : "hacia atrás"} respecto de la
+              fecha real.
+            </p>
+          )}
 
           {/* Botones de Control de Tiempo */}
           <div className="space-y-2">
@@ -121,6 +169,21 @@ export default function DevPanel() {
                 +1 Año
               </button>
             </div>
+
+            <button
+              onClick={handleReset}
+              disabled={loading}
+              className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold py-2 px-1 rounded-lg border border-slate-750 transition hover:border-emerald-600 hover:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Restablecer a la fecha real
+            </button>
+
+            {errorMessage && (
+              <p className="text-[10px] leading-relaxed text-rose-400">
+                {errorMessage}
+              </p>
+            )}
           </div>
 
           {/* Caja Informativa */}
