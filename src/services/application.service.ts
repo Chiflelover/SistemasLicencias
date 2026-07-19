@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { Application, ApplicationStatus, Business, Role } from "@prisma/client";
 
 /** Estados en los que un trámite sigue vigente y no corresponde crear otro. */
-const OPEN_APPLICATION_STATUSES = [
+export const OPEN_APPLICATION_STATUSES = [
   ApplicationStatus.DRAFT,
   ApplicationStatus.DOCUMENTS_COMPLETE,
   ApplicationStatus.PENDING_PAYMENT,
@@ -15,7 +15,51 @@ const OPEN_APPLICATION_STATUSES = [
   ApplicationStatus.SECOND_INSPECTION_SCHEDULED,
 ];
 
+/**
+ * Estados en los que el negocio ya cuenta con licencia y tampoco corresponde
+ * iniciar un trámite nuevo. Una licencia vencida o un rechazo definitivo sí
+ * habilitan empezar de cero.
+ */
+const LICENSED_STATUSES: ApplicationStatus[] = [
+  ApplicationStatus.LICENSE_ISSUED,
+  ApplicationStatus.RENEWAL_AVAILABLE,
+];
+
 export class ApplicationService {
+  /**
+   * Busca por RUC un trámite que impida iniciar uno nuevo.
+   *
+   * Devuelve null si el negocio no existe, si nunca tramitó, o si su último
+   * trámite terminó vencido o rechazado en forma definitiva.
+   */
+  static async findBlockingApplicationByRuc(ruc: string) {
+    const application = await prisma.application.findFirst({
+      where: {
+        business: { ruc },
+        status: { in: [...OPEN_APPLICATION_STATUSES, ...LICENSED_STATUSES] },
+      },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        createdAt: true,
+        business: { select: { legalName: true, ruc: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!application) {
+      return null;
+    }
+
+    return {
+      ...application,
+      motivo: LICENSED_STATUSES.includes(application.status)
+        ? ("YA_TIENE_LICENCIA" as const)
+        : ("EN_PROCESO" as const),
+    };
+  }
+
   /** Devuelve el trámite vigente de ese solicitante y negocio, si lo hay. */
   private static async findOpenApplication(
     applicantId: string,

@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { RucService } from "@/services/ruc.service";
+import { ApplicationService } from "@/services/application.service";
 
+/**
+ * Datos del RUC en SUNAT, más el trámite que ya exista para ese RUC.
+ *
+ * Así la pantalla puede avisar antes de que el ciudadano intente iniciar un
+ * trámite duplicado.
+ */
 export async function GET(
   request: Request,
   { params }: { params: { ruc: string } }
@@ -15,9 +22,15 @@ export async function GET(
       );
     }
 
-    const data = await RucService.getBusinessData(ruc);
+    const [data, tramiteExistente] = await Promise.all([
+      RucService.getBusinessData(ruc),
+      ApplicationService.findBlockingApplicationByRuc(ruc),
+    ]);
 
-    return NextResponse.json(data, { status: 200 });
+    return NextResponse.json(
+      { ...data, tramiteExistente },
+      { status: 200 }
+    );
   } catch (error: any) {
     console.error("Error en /api/ruc/[ruc]:", error);
 

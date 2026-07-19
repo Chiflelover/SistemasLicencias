@@ -16,6 +16,13 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+type TramiteExistente = {
+  id: string;
+  number: string;
+  status: string;
+  motivo: "EN_PROCESO" | "YA_TIENE_LICENCIA";
+};
+
 type RucData = {
   ruc: string;
   legalName: string;
@@ -25,6 +32,19 @@ type RucData = {
   departamento?: string;
   estado?: string;
   condicion?: string;
+  tramiteExistente?: TramiteExistente | null;
+};
+
+const ETIQUETAS_ESTADO: Record<string, string> = {
+  DRAFT: "BORRADOR",
+  DOCUMENTS_COMPLETE: "DOCUMENTOS COMPLETOS",
+  PENDING_PAYMENT: "PAGO PENDIENTE",
+  PAYMENT_COMPLETED: "PAGO COMPLETADO",
+  INSPECTION_SCHEDULED: "INSPECCIÓN PROGRAMADA",
+  FIRST_INSPECTION_REJECTED: "OBSERVADO",
+  SECOND_INSPECTION_SCHEDULED: "OBSERVADO · 2DA INSPECCIÓN PROGRAMADA",
+  LICENSE_ISSUED: "LICENCIA EMITIDA",
+  RENEWAL_AVAILABLE: "RENOVACIÓN DISPONIBLE",
 };
 
 function normalizeText(value: string) {
@@ -59,6 +79,10 @@ export default function IniciarTramitePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const allowed = isAllowedForTrujillo(rucData);
+  const tramiteExistente = rucData?.tramiteExistente ?? null;
+
+  // Con un trámite en curso o una licencia vigente no corresponde iniciar otro.
+  const puedeIniciar = Boolean(rucData) && allowed && !tramiteExistente;
 
   const handleRucChange = (value: string) => {
     const cleanValue = value.replace(/\D/g, "").slice(0, 11);
@@ -376,6 +400,48 @@ export default function IniciarTramitePage() {
                 </div>
               )}
 
+              {tramiteExistente && (
+                <div className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-5">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-400" />
+
+                    <div>
+                      <p className="font-bold text-amber-200">
+                        {tramiteExistente.motivo === "EN_PROCESO"
+                          ? "Este RUC ya tiene un trámite en proceso"
+                          : "Este RUC ya cuenta con una licencia vigente"}
+                      </p>
+
+                      <p className="mt-2 text-sm leading-relaxed text-amber-100/80">
+                        Trámite{" "}
+                        <span className="font-mono font-bold text-amber-200">
+                          {tramiteExistente.number}
+                        </span>{" "}
+                        · Estado:{" "}
+                        <span className="font-bold text-amber-200">
+                          {ETIQUETAS_ESTADO[tramiteExistente.status] ??
+                            tramiteExistente.status.replaceAll("_", " ")}
+                        </span>
+                      </p>
+
+                      <p className="mt-2 text-sm text-amber-100/70">
+                        {tramiteExistente.motivo === "EN_PROCESO"
+                          ? "No podés iniciar otro trámite para el mismo RUC hasta que este finalice."
+                          : "No corresponde iniciar un trámite nuevo mientras la licencia esté vigente."}
+                      </p>
+
+                      <Link
+                        href={`/tramite/${tramiteExistente.id}/subir-documentos`}
+                        className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/20 px-4 py-2.5 text-sm font-semibold text-amber-100 transition hover:bg-amber-500/30"
+                      >
+                        Ver mi trámite
+                        <ArrowLeft className="h-4 w-4 rotate-180" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-slate-500">
                   Solo se permite iniciar trámites para establecimientos cuyo
@@ -386,11 +452,13 @@ export default function IniciarTramitePage() {
                 <button
                   type="button"
                   onClick={handleStartApplication}
-                  disabled={!rucData || !allowed || creatingApplication}
+                  disabled={!puedeIniciar || creatingApplication}
                   className="inline-flex items-center justify-center rounded-2xl bg-amber-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {creatingApplication
                     ? "Iniciando trámite..."
+                    : tramiteExistente
+                    ? "Trámite ya iniciado"
                     : "Iniciar trámite y subir documentos"}
                 </button>
               </div>

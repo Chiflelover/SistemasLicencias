@@ -34,6 +34,25 @@ export async function POST(request: Request) {
       );
     }
 
+    // No se permite abrir un segundo trámite para el mismo RUC mientras haya
+    // uno en curso o una licencia vigente. Se valida acá y no solo en la
+    // pantalla, para que no dependa del navegador.
+    const tramiteExistente =
+      await ApplicationService.findBlockingApplicationByRuc(rucData.ruc);
+
+    if (tramiteExistente) {
+      return NextResponse.json(
+        {
+          error:
+            tramiteExistente.motivo === "EN_PROCESO"
+              ? `El RUC ${rucData.ruc} ya tiene el trámite ${tramiteExistente.number} en proceso. No podés iniciar otro hasta que finalice.`
+              : `El RUC ${rucData.ruc} ya cuenta con una licencia vigente (trámite ${tramiteExistente.number}). No corresponde iniciar un trámite nuevo.`,
+          tramiteExistente,
+        },
+        { status: 409 }
+      );
+    }
+
     const { application, business } =
       await ApplicationService.startPublicApplication({
         ruc: rucData.ruc,
