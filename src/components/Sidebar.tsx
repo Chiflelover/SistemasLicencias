@@ -11,13 +11,14 @@ import {
   ShieldAlert, 
   DollarSign, 
   LayoutDashboard,
+  Users,
   Menu,
   X
 } from "lucide-react";
 import { useState } from "react";
 
 interface SidebarProps {
-  role: "APPLICANT" | "INSPECTOR" | "CAJERO";
+  role: "APPLICANT" | "INSPECTOR" | "CAJERO" | "ADMIN";
   userName: string;
 }
 
@@ -99,10 +100,29 @@ export default function Sidebar({ role, userName }: SidebarProps) {
     },
   ];
 
+  const adminLinks = [
+    {
+      label: "Vista General",
+      href: "/admin",
+      icon: LayoutDashboard,
+    },
+    {
+      label: "Personal",
+      href: "/admin/usuarios",
+      icon: Users,
+    },
+    {
+      label: "Recaudación por Caja",
+      href: "/admin/cajas",
+      icon: DollarSign,
+    },
+  ];
+
   const linksByRole = {
     INSPECTOR: inspectorLinks,
     CAJERO: cajeroLinks,
     APPLICANT: applicantLinks,
+    ADMIN: adminLinks,
   };
 
   const links = linksByRole[role] ?? applicantLinks;
@@ -146,6 +166,8 @@ export default function Sidebar({ role, userName }: SidebarProps) {
                   ? "Portal Inspector"
                   : role === "CAJERO"
                   ? "Portal Cajero"
+                  : role === "ADMIN"
+                  ? "Portal Administrador"
                   : "Portal Solicitante"}
               </span>
             </div>
@@ -188,6 +210,8 @@ export default function Sidebar({ role, userName }: SidebarProps) {
                   ? "Inspector MPT"
                   : role === "CAJERO"
                   ? "Cajero MPT"
+                  : role === "ADMIN"
+                  ? "Administrador"
                   : "Solicitante"}
               </p>
             </div>

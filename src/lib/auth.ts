@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 const JWT_SECRET = process.env.JWT_SECRET || "trujillo_super_secret_jwt_key_2026_muni_provincial";
 const COOKIE_NAME = "auth-token";
 
-export type AppRole = "APPLICANT" | "INSPECTOR" | "CAJERO";
+export type AppRole = "APPLICANT" | "INSPECTOR" | "CAJERO" | "ADMIN";
 
 export interface SessionPayload {
   userId: string;

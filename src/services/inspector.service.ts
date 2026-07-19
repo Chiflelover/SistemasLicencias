@@ -4,6 +4,7 @@ import { LicenseService } from "@/services/license.service";
 import { InspectionService } from "@/services/inspection.service";
 import { getCurrentSystemDate } from "@/lib/date";
 import { AuditService } from "@/services/audit.service";
+import { NotificationService } from "@/services/notification.service";
 import {
   ApplicationStatus,
   InspectionNumber,
@@ -124,6 +125,26 @@ export class InspectorService {
           segundaInspeccion: secondInspection?.scheduledAt ?? null,
         },
       });
+
+      // Avisos al administrado: qué corregir y cuándo es la nueva visita.
+      const applicantId = inspection.application.applicant.id;
+      const applicationNumber = inspection.application.number;
+
+      await NotificationService.notifyDocumentsToFix({
+        applicantId,
+        applicationId: inspection.applicationId,
+        applicationNumber,
+        observations: observations?.trim() || "",
+      });
+
+      if (secondInspection?.scheduledAt) {
+        await NotificationService.notifyRescheduled({
+          applicantId,
+          applicationId: inspection.applicationId,
+          applicationNumber,
+          scheduledAt: secondInspection.scheduledAt,
+        });
+      }
 
       return updatedInspection;
     }

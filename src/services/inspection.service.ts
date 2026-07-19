@@ -2,6 +2,7 @@ import { InspectionRepository } from "@/repositories/inspection.repository";
 import { ApplicationRepository } from "@/repositories/application.repository";
 import { UserRepository } from "@/repositories/user.repository";
 import { cloneDate, getCurrentSystemDate, addWorkDays } from "@/lib/date";
+import { NotificationService } from "@/services/notification.service";
 import {
   InspectionNumber,
   ApplicationStatus,
@@ -201,6 +202,16 @@ export class InspectionService {
         });
 
         await ApplicationRepository.updateStatus(applicationId, targetStatus);
+
+        // Aviso al inspector de su nueva asignación. Si falla, no revierte
+        // la programación: la inspección ya quedó agendada.
+        await NotificationService.notifyNewAssignment({
+          inspectorId: bestSchedule.inspectorId,
+          applicationId,
+          applicationNumber: application.number,
+          legalName: application.business.legalName,
+          scheduledAt: bestSchedule.scheduledAt,
+        });
 
         return inspection;
       } catch (error: any) {

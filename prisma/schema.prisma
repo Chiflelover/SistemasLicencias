@@ -13,6 +13,7 @@ enum Role {
   APPLICANT
   INSPECTOR
   CAJERO
+  ADMIN
 }
 
 enum ApplicationStatus {
@@ -98,6 +99,7 @@ model User {
   registrations Application[] @relation("CashierRegistrations")
   cashPayments  Payment[]     @relation("CashierPayments")
   auditLogs     AuditLog[]    @relation("UserAuditLogs")
+  notifications Notification[] @relation("UserNotifications")
 
   @@index([role])
   @@index([active])
@@ -203,6 +205,37 @@ model Payment {
   @@index([type])
   @@index([registeredById])
   @@index([paidAt])
+}
+
+// ─── Notificaciones internas ───────────────────────────────────────────────────
+
+enum NotificationType {
+  // Dirigidas al administrado
+  INSPECTION_TODAY
+  INSPECTION_RESCHEDULED
+  DOCUMENTS_TO_FIX
+  LICENSE_EXPIRED
+  // Dirigidas al inspector
+  INSPECTOR_TODAY_AGENDA
+  INSPECTOR_NEW_ASSIGNMENT
+}
+
+model Notification {
+  id            String           @id @default(cuid())
+  userId        String
+  type          NotificationType
+  title         String
+  message       String
+  applicationId String?
+  // Clave de deduplicación: evita repetir el mismo aviso el mismo día.
+  dedupeKey     String?          @unique
+  readAt        DateTime?
+  createdAt     DateTime         @default(now())
+
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 // ─── Auditoría de acciones ─────────────────────────────────────────────────────

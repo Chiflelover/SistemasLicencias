@@ -18,10 +18,26 @@ async function main() {
     {
       email: "cajero@muni.pe",
       password: "12345678",
-      fullName: "Cajero Municipal de Trujillo",
+      fullName: "Caja 1 - Cajero Municipal",
       dni: "00000001",
       phone: "999999998",
       role: "CAJERO",
+    },
+    {
+      email: "cajero2@muni.pe",
+      password: "12345678",
+      fullName: "Caja 2 - Cajero Municipal",
+      dni: "00000002",
+      phone: "999999997",
+      role: "CAJERO",
+    },
+    {
+      email: "admin@muni.pe",
+      password: "12345678",
+      fullName: "Administrador del Sistema",
+      dni: "00000003",
+      phone: "999999996",
+      role: "ADMIN",
     },
   ];
 

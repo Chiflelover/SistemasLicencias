@@ -4,11 +4,12 @@ import { Shield, Calendar, Clock, ChevronDown, User, LogOut, Home } from "lucide
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import NotificationBell from "./NotificationBell";
 
 interface NavbarProps {
   userName: string;
   email: string;
-  role: "APPLICANT" | "INSPECTOR" | "CAJERO";
+  role: "APPLICANT" | "INSPECTOR" | "CAJERO" | "ADMIN";
 }
 
 export default function Navbar({ userName, email, role }: NavbarProps) {
@@ -78,6 +79,11 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
         </div>
         <div className="h-6 w-px bg-slate-800 hidden sm:block" />
 
+        {/* Campana de Notificaciones */}
+        <NotificationBell />
+
+        <div className="h-6 w-px bg-slate-800 hidden sm:block" />
+
         {/* Dropdown de Usuario */}
         <div className="relative">
           <button
@@ -115,6 +121,8 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
                       ? "Inspector"
                       : role === "CAJERO"
                       ? "Cajero"
+                      : role === "ADMIN"
+                      ? "Administrador"
                       : "Solicitante"}
                     )
                   </div>
