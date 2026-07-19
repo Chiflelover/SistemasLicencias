@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import PaymentTabs from "@/components/PaymentTabs";
+import ManualPaymentForm from "@/components/ManualPaymentForm";
 import {
   ArrowLeft,
   Building2,
   CalendarDays,
   CheckCircle2,
   CreditCard,
-  ExternalLink,
   FileText,
   Home,
   ShieldCheck,
@@ -117,7 +116,6 @@ export default async function PublicPaymentPage({
     null;
 
   const inspectionEnabled = canGoToInspection(application.status);
-  const mercadoPagoLink = process.env.NEXT_PUBLIC_MERCADOPAGO_PAYMENT_LINK || "";
   const assignedInspection = application.inspections.find(
     (inspection) => inspection.status === "SCHEDULED"
   );
@@ -149,12 +147,12 @@ export default async function PublicPaymentPage({
             </p>
 
             <h1 className="text-3xl font-bold text-white">
-              Pago real con Mercado Pago
+              Pago del derecho de trámite
             </h1>
 
             <p className="mt-2 max-w-3xl text-slate-400">
-              Primero realiza el pago en Mercado Pago. Después vuelve a esta
-              pantalla y confirma el pago para continuar al panel de inspección.
+              Registra el comprobante de tu pago para continuar al panel de
+              inspección.
             </p>
           </div>
 
@@ -233,9 +231,8 @@ export default async function PublicPaymentPage({
                   <h2 className="text-xl font-bold text-white">Pago seguro</h2>
 
                   <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Los datos de tarjeta, Yape o cuenta se ingresan directamente
-                    en Mercado Pago. El sistema municipal no almacena número de
-                    tarjeta, CVV ni claves del usuario.
+                    El sistema municipal no almacena números de tarjeta, CVV ni
+                    claves del usuario. Solo se guarda el comprobante del pago.
                   </p>
                 </div>
               </div>
@@ -294,61 +291,20 @@ export default async function PublicPaymentPage({
             )}
 
             {paymentAllowed ? (
-
-              <PaymentTabs
-                applicationId={application.id}
-                payerEmail={payerEmail}
-              />
-            ) : !paymentCompleted ? (
-
-              <div className="rounded-3xl border border-slate-800 bg-white p-6 text-slate-950">
+              <div className="rounded-3xl border border-slate-800 bg-slate-900/40 p-6">
                 <div className="mb-5">
-                  <h2 className="text-xl font-bold text-slate-950">
-                    Pagar derecho de trámite
+                  <h2 className="text-xl font-bold text-white">
+                    Registrar el pago del derecho de trámite
                   </h2>
 
-                  <p className="mt-2 text-sm text-slate-600">
-                    Serás redirigido a Mercado Pago para realizar el pago real
-                    del trámite por S/ 180.00.
+                  <p className="mt-2 text-sm text-slate-400">
+                    Sube la imagen del comprobante de tu transferencia por{" "}
+                    <strong className="text-amber-300">S/ 180.00</strong>. Al
+                    registrarlo, el sistema agenda la inspección municipal.
                   </p>
                 </div>
 
-                {mercadoPagoLink ? (
-                  <a
-                    href={mercadoPagoLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-6 py-4 font-bold text-slate-950 transition hover:bg-amber-400"
-                  >
-                    <ExternalLink className="h-5 w-5" />
-                    Pagar con Mercado Pago
-                  </a>
-                ) : (
-                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700">
-                    Falta configurar NEXT_PUBLIC_MERCADOPAGO_PAYMENT_LINK en el
-                    archivo .env.
-                  </div>
-                )}
-
-                <form
-                  action={`/api/public/tramite/${application.id}/pago/confirmar`}
-                  method="POST"
-                  className="mt-4"
-                >
-                  <button
-                    type="submit"
-                    className="inline-flex w-full items-center justify-center rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-6 py-4 font-bold text-emerald-700 transition hover:bg-emerald-500/20"
-                  >
-                    Ya realicé el pago, continuar a inspección
-                  </button>
-                </form>
-
-                <p className="mt-4 text-xs leading-5 text-slate-500">
-                  Para la demostración académica, después de pagar en Mercado
-                  Pago se confirma el pago y el trámite continúa a inspección.
-                  En producción real, esta confirmación se reemplaza por un
-                  webhook automático de Mercado Pago.
-                </p>
+                <ManualPaymentForm applicationId={application.id} />
               </div>
             ) : !inspectionEnabled ? (
 

@@ -19,12 +19,10 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
-    "@mercadopago/sdk-react": "^1.0.7",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.16.0",
-    "mercadopago": "^3.0.0",
     "next": "^14.2.18",
     "pdf-lib": "^1.17.1",
     "react": "^18.3.1",

@@ -2,7 +2,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentSystemDate } from "@/lib/date";
-import PayButton from "@/components/PayButton";
 import { AlertTriangle, CheckCircle2, Clock3, CreditCard } from "lucide-react";
 import { ApplicationStatus } from "@prisma/client";
 
@@ -152,10 +151,6 @@ export default async function PagoPage() {
     ].filter(Boolean) as string[];
   }
 
-  const mercadoPagoLink =
-    process.env.NEXT_PUBLIC_MERCADOPAGO_PAYMENT_LINK ||
-    "https://mpago.la/1qGsg5R";
-
   return (
     <div className="space-y-8 animate-fadeIn">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-900/40 p-6 rounded-3xl border border-slate-850">
@@ -165,13 +160,12 @@ export default async function PagoPage() {
           </p>
 
           <h1 className="text-3xl font-bold text-white">
-            Pago real del derecho de trámite
+            Pago del derecho de trámite
           </h1>
 
           <p className="mt-2 text-slate-400 max-w-2xl">
-            Realiza el pago de S/ 180.00 con Visa o Mastercard desde el
-            formulario seguro de Mercado Pago integrado en la web. Cuando el
-            pago sea aprobado, el sistema programará automáticamente la
+            Registra el pago del derecho de trámite por S/ 180.00. Cuando el
+            pago quede registrado, el sistema programará automáticamente la
             inspección municipal.
           </p>
         </div>
@@ -272,21 +266,31 @@ export default async function PagoPage() {
                 )}
 
                 <p className="text-sm mt-3 text-slate-400">
-                  El sistema no guarda número de tarjeta ni CVV. Mercado Pago
-                  procesa el pago y devuelve la respuesta de aprobación.
+                  El sistema no almacena datos de tarjeta ni claves. El pago se
+                  acredita al registrar el comprobante.
                 </p>
               </div>
             </div>
           )}
         </section>
 
-        <PayButton
-          applicationId={application?.id ?? null}
-          applicationStatus={application?.status ?? null}
-          mercadoPagoLink={mercadoPagoLink}
-          missingDocuments={missingDocuments}
-          payerEmail={user.email}
-        />
+        <section className="rounded-3xl border border-slate-850 bg-slate-900/40 p-6 lg:p-8">
+          <h2 className="text-xl font-bold text-white">
+            Registrar el pago
+          </h2>
+
+          <p className="mt-2 text-sm text-slate-400">
+            El derecho de trámite se abona en ventanilla municipal o mediante
+            transferencia, adjuntando el comprobante desde la página pública de
+            tu trámite.
+          </p>
+
+          {missingDocuments.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+              Antes de pagar debés completar la documentación pendiente.
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
