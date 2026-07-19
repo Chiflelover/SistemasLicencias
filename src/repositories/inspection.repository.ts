@@ -65,6 +65,66 @@ export class InspectionRepository {
     return scheduled.map((s) => s.scheduledAt);
   }
 
+  /**
+   * Ocupación de varios inspectores desde una fecha dada, en una sola consulta.
+   *
+   * Incluye las inspecciones COMPLETED además de las SCHEDULED: aunque ya se
+   * hayan resuelto, el inspector estuvo ocupado en ese horario y la restricción
+   * única de la base lo rechazaría igual.
+   */
+  static async findOccupiedSlots(
+    inspectorIds: string[],
+    from: Date
+  ): Promise<Map<string, Set<number>>> {
+    const inspections = await prisma.inspection.findMany({
+      where: {
+        inspectorId: { in: inspectorIds },
+        scheduledAt: { gte: from },
+      },
+      select: { inspectorId: true, scheduledAt: true },
+    });
+
+    const occupied = new Map<string, Set<number>>();
+
+    for (const inspectorId of inspectorIds) {
+      occupied.set(inspectorId, new Set<number>());
+    }
+
+    for (const inspection of inspections) {
+      // Se normaliza a la hora en punto para que un registro con minutos
+      // distintos de cero igual colisione con su franja.
+      const slot = new Date(inspection.scheduledAt);
+      slot.setMinutes(0, 0, 0);
+
+      occupied.get(inspection.inspectorId)?.add(slot.getTime());
+    }
+
+    return occupied;
+  }
+
+  /** Cantidad de inspecciones pendientes por inspector, para repartir carga. */
+  static async countScheduledByInspector(
+    inspectorIds: string[]
+  ): Promise<Map<string, number>> {
+    const grouped = await prisma.inspection.groupBy({
+      by: ["inspectorId"],
+      where: { inspectorId: { in: inspectorIds }, status: "SCHEDULED" },
+      _count: { _all: true },
+    });
+
+    const loads = new Map<string, number>();
+
+    for (const inspectorId of inspectorIds) {
+      loads.set(inspectorId, 0);
+    }
+
+    for (const row of grouped) {
+      loads.set(row.inspectorId, row._count._all);
+    }
+
+    return loads;
+  }
+
   static async complete(
     id: string,
     result: InspectionResult,

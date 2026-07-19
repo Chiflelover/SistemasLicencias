@@ -238,6 +238,9 @@ model Inspection {
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   inspector   User        @relation("InspectorInspections", fields: [inspectorId], references: [id], onDelete: Restrict)
 
+  // Un inspector no puede tener dos inspecciones en el mismo horario.
+  // Se garantiza en la base, no solo en el código.
+  @@unique([inspectorId, scheduledAt])
   @@index([applicationId])
   @@index([inspectorId])
   @@index([scheduledAt])

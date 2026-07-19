@@ -13,6 +13,12 @@ const WORK_START_HOUR = 8;
 const WORK_END_HOUR = 17;
 const MAX_LOOKAHEAD_DAYS = 30;
 
+/** Franjas horarias a explorar por inspector (9 por día hábil). */
+const MAX_LOOKAHEAD_SLOTS = MAX_LOOKAHEAD_DAYS * 10;
+
+/** Reintentos ante colisión con otro proceso que tomó el mismo horario. */
+const MAX_SCHEDULING_ATTEMPTS = 5;
+
 function isWeekend(date: Date) {
   const day = date.getDay();
   return day === 0 || day === 6;
@@ -74,8 +80,16 @@ function addOneHour(date: Date): Date {
   return next;
 }
 
+/**
+ * Clave de la franja horaria, normalizada a la hora en punto.
+ *
+ * Sin normalizar, un registro guardado con minutos distintos de cero nunca
+ * colisionaría con su franja y se podría sobreasignar al inspector.
+ */
 function formatSlotKey(date: Date) {
-  return date.getTime();
+  const slot = cloneDate(date);
+  slot.setMinutes(0, 0, 0);
+  return slot.getTime();
 }
 
 export class InspectionService {
@@ -147,57 +161,124 @@ export class InspectionService {
       baseDate = addWorkDays(rejectionDate, 30);
     }
 
-    let bestSchedule: { inspectorId: string; scheduledAt: Date } | null = null;
+    const inspectorIds = inspectors.map((inspector) => inspector.id);
+    const searchStart = normalizeToNextSlot(baseDate);
 
-    for (const inspector of inspectors) {
-      const scheduledSlots = await InspectionRepository.findScheduledSlots(
-        inspector.id
-      );
+    // Una sola consulta para la ocupación de todos los inspectores, y otra
+    // para su carga pendiente. Antes era una consulta por inspector.
+    const occupiedByInspector = await InspectionRepository.findOccupiedSlots(
+      inspectorIds,
+      searchStart
+    );
+    const loadByInspector = await InspectionRepository.countScheduledByInspector(
+      inspectorIds
+    );
 
-      const occupied = new Set(
-        scheduledSlots.map((slot) => formatSlotKey(cloneDate(slot)))
-      );
+    // Slots que ya se intentaron y la base rechazó por colisión.
+    const rejectedSlots = new Set<string>();
 
-      let candidate = normalizeToNextSlot(baseDate);
-      let tries = 0;
+    for (let attempt = 0; attempt < MAX_SCHEDULING_ATTEMPTS; attempt += 1) {
+      const bestSchedule = findEarliestSlot({
+        inspectorIds,
+        searchStart,
+        occupiedByInspector,
+        loadByInspector,
+        rejectedSlots,
+      });
 
-      while (tries < MAX_LOOKAHEAD_DAYS * 10) {
-        const key = formatSlotKey(candidate);
+      if (!bestSchedule) {
+        throw new Error(
+          "No fue posible programar la inspección en los próximos días hábiles."
+        );
+      }
 
-        if (!occupied.has(key)) {
-          if (
-            !bestSchedule ||
-            candidate.getTime() < bestSchedule.scheduledAt.getTime()
-          ) {
-            bestSchedule = {
-              inspectorId: inspector.id,
-              scheduledAt: cloneDate(candidate),
-            };
-          }
+      try {
+        const inspection = await InspectionRepository.create({
+          applicationId,
+          inspectorId: bestSchedule.inspectorId,
+          number: inspectionNumber,
+          scheduledAt: bestSchedule.scheduledAt,
+        });
 
-          break;
+        await ApplicationRepository.updateStatus(applicationId, targetStatus);
+
+        return inspection;
+      } catch (error: any) {
+        // P2002 = otro proceso tomó ese horario entre el cálculo y el insert.
+        // Se marca como ocupado y se busca el siguiente disponible.
+        if (error?.code !== "P2002") {
+          throw error;
         }
 
-        candidate = addOneHour(candidate);
-        tries += 1;
+        const slotTime = bestSchedule.scheduledAt.getTime();
+
+        occupiedByInspector.get(bestSchedule.inspectorId)?.add(slotTime);
+        rejectedSlots.add(`${bestSchedule.inspectorId}:${slotTime}`);
       }
     }
 
-    if (!bestSchedule) {
-      throw new Error(
-        "No fue posible programar la inspección en los próximos días hábiles."
-      );
-    }
-
-    const inspection = await InspectionRepository.create({
-      applicationId,
-      inspectorId: bestSchedule.inspectorId,
-      number: inspectionNumber,
-      scheduledAt: bestSchedule.scheduledAt,
-    });
-
-    await ApplicationRepository.updateStatus(applicationId, targetStatus);
-
-    return inspection;
+    throw new Error(
+      "No fue posible reservar un horario de inspección. Intenta nuevamente."
+    );
   }
+}
+
+/**
+ * Elige el horario disponible más próximo entre todos los inspectores.
+ *
+ * Ante empate en la fecha más temprana gana el inspector con menos
+ * inspecciones pendientes; si persiste, se desempata por id para que el
+ * resultado sea determinista.
+ */
+function findEarliestSlot(params: {
+  inspectorIds: string[];
+  searchStart: Date;
+  occupiedByInspector: Map<string, Set<number>>;
+  loadByInspector: Map<string, number>;
+  rejectedSlots: Set<string>;
+}): { inspectorId: string; scheduledAt: Date } | null {
+  let best: {
+    inspectorId: string;
+    scheduledAt: Date;
+    load: number;
+  } | null = null;
+
+  for (const inspectorId of params.inspectorIds) {
+    const occupied =
+      params.occupiedByInspector.get(inspectorId) ?? new Set<number>();
+
+    let candidate = cloneDate(params.searchStart);
+    let tries = 0;
+
+    while (tries < MAX_LOOKAHEAD_SLOTS) {
+      const slotTime = formatSlotKey(candidate);
+      const isRejected = params.rejectedSlots.has(`${inspectorId}:${slotTime}`);
+
+      if (!occupied.has(slotTime) && !isRejected) {
+        const load = params.loadByInspector.get(inspectorId) ?? 0;
+
+        const isBetter =
+          !best ||
+          slotTime < best.scheduledAt.getTime() ||
+          (slotTime === best.scheduledAt.getTime() &&
+            (load < best.load ||
+              (load === best.load && inspectorId < best.inspectorId)));
+
+        if (isBetter) {
+          best = { inspectorId, scheduledAt: cloneDate(candidate), load };
+        }
+
+        break;
+      }
+
+      candidate = addOneHour(candidate);
+      tries += 1;
+    }
+  }
+
+  if (!best) {
+    return null;
+  }
+
+  return { inspectorId: best.inspectorId, scheduledAt: best.scheduledAt };
 }
