@@ -277,10 +277,16 @@ export class ApplicationRepository {
     });
   }
 
+  /**
+   * Consulta pública por RUC o razón social.
+   *
+   * Devuelve el trámite en cualquier estado, no solo con licencia emitida:
+   * el ciudadano necesita saber si su expediente está en curso, y antes el
+   * sistema respondía "no encontrado" aunque el trámite existiera.
+   */
   static async searchPublic(query: string) {
     return prisma.application.findMany({
       where: {
-        status: ApplicationStatus.LICENSE_ISSUED,
         business: {
           OR: [
             {
@@ -309,6 +315,7 @@ export class ApplicationRepository {
           },
         },
       },
+      orderBy: { createdAt: "desc" },
       take: 20,
     });
   }

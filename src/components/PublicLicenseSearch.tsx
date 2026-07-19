@@ -4,17 +4,23 @@ import { FormEvent, useState } from "react";
 
 type SearchResult = {
   id: string;
+  number: string;
+  status: string;
   business: {
+    ruc: string;
     legalName: string;
     commercialAddress: string | null;
     activityType: string | null;
   };
   license: {
+    licenseNumber: string;
     status: string;
+    expiresAt: string;
   } | null;
 };
 
-function formatStatus(status: string) {
+/** Estado de la licencia emitida. */
+function formatLicenseStatus(status: string) {
   switch (status) {
     case "ACTIVE":
       return "Activa";
@@ -25,6 +31,33 @@ function formatStatus(status: string) {
     default:
       return status;
   }
+}
+
+/** Estado del trámite cuando todavía no hay licencia emitida. */
+const ESTADO_TRAMITE: Record<string, string> = {
+  DRAFT: "En borrador",
+  DOCUMENTS_COMPLETE: "Documentos completos",
+  PENDING_PAYMENT: "Pendiente de pago",
+  PAYMENT_COMPLETED: "Pagado, esperando inspección",
+  INSPECTION_SCHEDULED: "Inspección programada",
+  FIRST_INSPECTION_REJECTED: "Observado",
+  SECOND_INSPECTION_SCHEDULED: "Observado · 2da inspección programada",
+  LICENSE_ISSUED: "Licencia emitida",
+  DEFINITIVELY_REJECTED: "Rechazado definitivo",
+  RENEWAL_AVAILABLE: "Renovación disponible",
+  EXPIRED: "Licencia vencida",
+};
+
+function formatApplicationStatus(status: string) {
+  return ESTADO_TRAMITE[status] ?? status.replaceAll("_", " ");
+}
+
+/** Color según si el trámite está resuelto, en curso o rechazado. */
+function estadoColor(status: string) {
+  if (status === "LICENSE_ISSUED") return "text-emerald-300";
+  if (status === "DEFINITIVELY_REJECTED" || status === "EXPIRED")
+    return "text-rose-300";
+  return "text-amber-300";
 }
 
 export default function PublicLicenseSearch() {
@@ -122,30 +155,59 @@ export default function PublicLicenseSearch() {
                 <thead className="bg-slate-950/90 text-xs uppercase tracking-[0.18em] text-slate-400">
                   <tr>
                     <th className="px-4 py-4">Razón social</th>
-                    <th className="px-4 py-4">Dirección</th>
-                    <th className="px-4 py-4">Rubro</th>
-                    <th className="px-4 py-4">Estado licencia</th>
+                    <th className="px-4 py-4">Trámite</th>
+                    <th className="px-4 py-4">Estado del trámite</th>
+                    <th className="px-4 py-4">Licencia</th>
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-slate-800">
                   {results.map((application) => (
                     <tr key={application.id} className="hover:bg-slate-900/60">
-                      <td className="px-4 py-4 text-white">
-                        {application.business.legalName}
+                      <td className="px-4 py-4">
+                        <p className="text-white">
+                          {application.business.legalName}
+                        </p>
+                        <p className="mt-0.5 font-mono text-xs text-slate-500">
+                          RUC {application.business.ruc}
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {application.business.commercialAddress ||
+                            "Dirección no registrada"}
+                        </p>
                       </td>
 
-                      <td className="px-4 py-4 text-slate-300">
-                        {application.business.commercialAddress ||
-                          "No registrada"}
+                      <td className="px-4 py-4 font-mono text-slate-300">
+                        {application.number}
                       </td>
 
-                      <td className="px-4 py-4 text-slate-300">
-                        {application.business.activityType || "No especificado"}
+                      <td
+                        className={`px-4 py-4 font-semibold ${estadoColor(
+                          application.status
+                        )}`}
+                      >
+                        {formatApplicationStatus(application.status)}
                       </td>
 
-                      <td className="px-4 py-4 text-amber-300">
-                        {formatStatus(application.license?.status || "-")}
+                      <td className="px-4 py-4">
+                        {application.license ? (
+                          <>
+                            <p className="font-mono text-xs text-slate-300">
+                              {application.license.licenseNumber}
+                            </p>
+                            <p className="mt-0.5 text-xs text-slate-400">
+                              {formatLicenseStatus(application.license.status)}
+                              {" · vence "}
+                              {new Date(
+                                application.license.expiresAt
+                              ).toLocaleDateString("es-PE")}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-500">
+                            Aún no emitida
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
