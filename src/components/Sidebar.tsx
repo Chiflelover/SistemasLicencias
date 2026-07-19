@@ -17,7 +17,7 @@ import {
 import { useState } from "react";
 
 interface SidebarProps {
-  role: "APPLICANT" | "INSPECTOR";
+  role: "APPLICANT" | "INSPECTOR" | "CAJERO";
   userName: string;
 }
 
@@ -76,7 +76,31 @@ export default function Sidebar({ role, userName }: SidebarProps) {
     },
   ];
 
-  const links = role === "INSPECTOR" ? inspectorLinks : applicantLinks;
+  const cajeroLinks = [
+    {
+      label: "Vista General",
+      href: "/cajero",
+      icon: LayoutDashboard,
+    },
+    {
+      label: "Registrar Solicitud",
+      href: "/cajero/nueva-solicitud",
+      icon: Building2,
+    },
+    {
+      label: "Registrar Pago",
+      href: "/cajero/pago",
+      icon: DollarSign,
+    },
+  ];
+
+  const linksByRole = {
+    INSPECTOR: inspectorLinks,
+    CAJERO: cajeroLinks,
+    APPLICANT: applicantLinks,
+  };
+
+  const links = linksByRole[role] ?? applicantLinks;
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -113,7 +137,11 @@ export default function Sidebar({ role, userName }: SidebarProps) {
             <div>
               <span className="font-bold text-white tracking-wide text-sm block">TRUJILLO DIGITAL</span>
               <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">
-                {role === "INSPECTOR" ? "Portal Inspector" : "Portal Solicitante"}
+                {role === "INSPECTOR"
+                  ? "Portal Inspector"
+                  : role === "CAJERO"
+                  ? "Portal Cajero"
+                  : "Portal Solicitante"}
               </span>
             </div>
           </div>
@@ -151,7 +179,11 @@ export default function Sidebar({ role, userName }: SidebarProps) {
             <div className="min-w-0 flex-grow">
               <p className="text-xs font-semibold text-slate-200 truncate">{userName}</p>
               <p className="text-[10px] text-slate-500 truncate">
-                {role === "INSPECTOR" ? "Inspector MPT" : "Solicitante"}
+                {role === "INSPECTOR"
+                  ? "Inspector MPT"
+                  : role === "CAJERO"
+                  ? "Cajero MPT"
+                  : "Solicitante"}
               </p>
             </div>
           </div>

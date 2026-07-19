@@ -12,6 +12,7 @@ datasource db {
 enum Role {
   APPLICANT
   INSPECTOR
+  CAJERO
 }
 
 enum ApplicationStatus {
@@ -86,6 +87,7 @@ model User {
   applications Application[] @relation("ApplicantApplications")
   inspections  Inspection[]  @relation("InspectorInspections")
   fines        Fine[]        @relation("InspectorFines")
+  registrations Application[] @relation("CashierRegistrations")
 
   @@index([role])
   @@index([active])
@@ -125,10 +127,14 @@ model Application {
   applicantId String
   businessId  String
 
+  // Cajero que registró el trámite de forma presencial (null si fue autogestión)
+  registeredById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   applicant   User         @relation("ApplicantApplications", fields: [applicantId], references: [id], onDelete: Restrict)
+  registeredBy User?       @relation("CashierRegistrations", fields: [registeredById], references: [id], onDelete: SetNull)
   business    Business     @relation(fields: [businessId], references: [id], onDelete: Restrict)
   documents   Document[]
   payments    Payment[]
@@ -138,6 +144,7 @@ model Application {
   @@index([applicantId])
   @@index([businessId])
   @@index([status])
+  @@index([registeredById])
 }
 
 // ─── Documento (binario en BD) ───────────────────────────────────────────────
@@ -249,4 +256,14 @@ model Fine {
 model SystemConfig {
   id            String   @id @default("singleton")
   simulatedDate DateTime @default(now())
+}
+
+// ─── Caché de consultas de RUC (ahorro de cuota en APIPERU) ────────────────────
+
+model RucCache {
+  ruc       String   @id
+  payload   Json
+  fetchedAt DateTime @default(now())
+
+  @@index([fetchedAt])
 }

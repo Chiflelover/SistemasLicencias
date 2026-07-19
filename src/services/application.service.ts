@@ -106,4 +106,30 @@ export class ApplicationService {
 
     return { application, business };
   }
+
+  /**
+   * Registro presencial hecho por un cajero en ventanilla.
+   *
+   * Reutiliza el flujo público (el ciudadano no tiene cuenta) y solo agrega la
+   * trazabilidad de qué cajero atendió el trámite.
+   */
+  static async startCashierApplication(params: {
+    cashierId: string;
+    legalName: string;
+    ruc: string;
+    fiscalAddress: string;
+  }): Promise<{ application: Application; business: Business }> {
+    const { application, business } = await this.startPublicApplication({
+      legalName: params.legalName,
+      ruc: params.ruc,
+      fiscalAddress: params.fiscalAddress,
+    });
+
+    const trackedApplication = await prisma.application.update({
+      where: { id: application.id },
+      data: { registeredById: params.cashierId },
+    });
+
+    return { application: trackedApplication, business };
+  }
 }

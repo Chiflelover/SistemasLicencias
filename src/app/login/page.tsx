@@ -48,6 +48,8 @@ export default function LoginPage() {
       // Redireccionar según el rol del usuario
       if (result.user.role === "INSPECTOR") {
         router.push("/inspector");
+      } else if (result.user.role === "CAJERO") {
+        router.push("/cajero");
       } else {
         router.push("/solicitante");
       }

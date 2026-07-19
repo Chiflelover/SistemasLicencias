@@ -6,10 +6,12 @@ import bcrypt from "bcryptjs";
 const JWT_SECRET = process.env.JWT_SECRET || "trujillo_super_secret_jwt_key_2026_muni_provincial";
 const COOKIE_NAME = "auth-token";
 
+export type AppRole = "APPLICANT" | "INSPECTOR" | "CAJERO";
+
 export interface SessionPayload {
   userId: string;
   email: string;
-  role: "APPLICANT" | "INSPECTOR";
+  role: AppRole;
 }
 
 export function signToken(payload: SessionPayload): string {

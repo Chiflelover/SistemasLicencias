@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 interface NavbarProps {
   userName: string;
   email: string;
-  role: "APPLICANT" | "INSPECTOR";
+  role: "APPLICANT" | "INSPECTOR" | "CAJERO";
 }
 
 export default function Navbar({ userName, email, role }: NavbarProps) {
@@ -110,7 +110,13 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
                   </div>
                   <div className="px-3 py-1 text-xs text-slate-300 font-medium flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    Sesión Activa ({role === "INSPECTOR" ? "Inspector" : "Solicitante"})
+                    Sesión Activa (
+                    {role === "INSPECTOR"
+                      ? "Inspector"
+                      : role === "CAJERO"
+                      ? "Cajero"
+                      : "Solicitante"}
+                    )
                   </div>
                 </div>
 

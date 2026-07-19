@@ -13,6 +13,15 @@ async function main() {
       fullName: "Inspector Municipal de Trujillo",
       dni: "00000000",
       phone: "999999999",
+      role: "INSPECTOR",
+    },
+    {
+      email: "cajero@muni.pe",
+      password: "12345678",
+      fullName: "Cajero Municipal de Trujillo",
+      dni: "00000001",
+      phone: "999999998",
+      role: "CAJERO",
     },
   ];
 
@@ -26,7 +35,7 @@ async function main() {
         fullName: userData.fullName,
         dni: userData.dni,
         phone: userData.phone,
-        role: "INSPECTOR",
+        role: userData.role,
         active: true,
       },
       create: {
@@ -35,12 +44,12 @@ async function main() {
         fullName: userData.fullName,
         dni: userData.dni,
         phone: userData.phone,
-        role: "INSPECTOR",
+        role: userData.role,
         active: true,
       },
     });
 
-    console.log(`Inspector creado/actualizado: ${user.email} (contraseña: ${userData.password})`);
+    console.log(`${user.role} creado/actualizado: ${user.email} (contraseña: ${userData.password})`);
   }
 
   console.log("Siembra completada con éxito.");

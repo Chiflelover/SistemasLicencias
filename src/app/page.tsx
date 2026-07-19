@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Shield,
+  ShieldCheck,
   ArrowRight,
   ClipboardCheck,
   Sparkles,
@@ -33,6 +34,14 @@ export default function HomePage() {
               className="text-sm font-medium text-slate-300 hover:text-white transition duration-150"
             >
               Iniciar Sesión
+            </Link>
+
+            <Link
+              href="/login"
+              className="text-sm font-semibold text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 px-4 py-2 rounded-lg flex items-center gap-1.5 transition duration-150"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Portal del trabajador
             </Link>
 
             <Link
