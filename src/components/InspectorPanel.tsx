@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, XCircle, FileSearch, AlertCircle, ClipboardList, MessageSquare, Loader2 } from "lucide-react";
+import { CheckCircle2, FileSearch, AlertCircle, ClipboardList, MessageSquare, Loader2 } from "lucide-react";
 
 interface InspectionSummary {
   id: string;

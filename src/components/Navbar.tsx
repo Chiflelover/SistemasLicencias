@@ -1,6 +1,6 @@
 "use client";
 
-import { Shield, Calendar, Clock, ChevronDown, User, LogOut, Home } from "lucide-react";
+import { Shield, Calendar, ChevronDown, LogOut, Home } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

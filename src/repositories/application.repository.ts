@@ -18,7 +18,22 @@ export class ApplicationRepository {
             role: true,
           },
         },
-        documents: true,
+        // Sin el campo `content`: traer el binario de cada documento en cada
+        // lectura del trámite cargaba megabytes que nadie usa acá. Las
+        // descargas van por /api/public/documentos/[id], que sí lo pide.
+        documents: {
+          select: {
+            id: true,
+            applicationId: true,
+            type: true,
+            name: true,
+            fileName: true,
+            mimeType: true,
+            size: true,
+            additionalDocumentName: true,
+            createdAt: true,
+          },
+        },
         payments: true,
         inspections: {
           include: {
@@ -45,7 +60,22 @@ export class ApplicationRepository {
       },
       include: {
         business: true,
-        documents: true,
+        // Sin el campo `content`: traer el binario de cada documento en cada
+        // lectura del trámite cargaba megabytes que nadie usa acá. Las
+        // descargas van por /api/public/documentos/[id], que sí lo pide.
+        documents: {
+          select: {
+            id: true,
+            applicationId: true,
+            type: true,
+            name: true,
+            fileName: true,
+            mimeType: true,
+            size: true,
+            additionalDocumentName: true,
+            createdAt: true,
+          },
+        },
         payments: true,
         inspections: {
           orderBy: {
@@ -74,7 +104,22 @@ export class ApplicationRepository {
       },
       include: {
         business: true,
-        documents: true,
+        // Sin el campo `content`: traer el binario de cada documento en cada
+        // lectura del trámite cargaba megabytes que nadie usa acá. Las
+        // descargas van por /api/public/documentos/[id], que sí lo pide.
+        documents: {
+          select: {
+            id: true,
+            applicationId: true,
+            type: true,
+            name: true,
+            fileName: true,
+            mimeType: true,
+            size: true,
+            additionalDocumentName: true,
+            createdAt: true,
+          },
+        },
         payments: true,
         inspections: {
           orderBy: {

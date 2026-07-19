@@ -2,17 +2,6 @@ import { prisma } from "../lib/db/prisma";
 import { getCurrentSystemDate } from "@/lib/date";
 import { License, LicenseStatus } from "@prisma/client";
 
-interface LicenseWithApplication extends License {
-  application: {
-    id: string;
-    number: string;
-    business: {
-      legalName: string;
-      ruc: string;
-    };
-  };
-}
-
 export class LicenseRepository {
   static async create(data: {
     applicationId: string;
@@ -63,13 +52,27 @@ export class LicenseRepository {
     });
   }
 
-  static async findAllActive(): Promise<LicenseWithApplication[]> {
+  /**
+   * Licencias vigentes para el listado del inspector.
+   *
+   * Se seleccionan campos explícitos: sin `select`, Prisma traía además el
+   * `pdfContent` de cada licencia, que este listado nunca usa.
+   */
+  static async findAllActive() {
     return prisma.license.findMany({
       where: { status: { in: ["ACTIVE", "RENEWAL_AVAILABLE"] } },
-      include: {
+      select: {
+        id: true,
+        applicationId: true,
+        licenseNumber: true,
+        status: true,
+        issuedAt: true,
+        expiresAt: true,
         application: {
-          include: {
-            business: true,
+          select: {
+            id: true,
+            number: true,
+            business: { select: { legalName: true, ruc: true } },
           },
         },
       },

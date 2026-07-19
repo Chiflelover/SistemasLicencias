@@ -8,19 +8,7 @@ import {
   InspectionStatus,
   Role,
 } from "@prisma/client";
-import {
-  ArrowLeft,
-  BadgeCheck,
-  Building2,
-  CalendarDays,
-  CheckCircle2,
-  ClipboardCheck,
-  FileCheck2,
-  Home,
-  MapPin,
-  ShieldCheck,
-  UserCheck,
-} from "lucide-react";
+import { ArrowLeft, BadgeCheck, Building2, CalendarDays, ClipboardCheck, FileCheck2, Home, MapPin, ShieldCheck, UserCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 

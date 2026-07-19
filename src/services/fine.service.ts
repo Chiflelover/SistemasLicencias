@@ -1,7 +1,7 @@
 import { FineRepository } from "@/repositories/fine.repository";
 import { LicenseRepository } from "@/repositories/license.repository";
 import { getCurrentSystemDate } from "@/lib/date";
-import { FineStatus } from "@prisma/client";
+
 
 export class FineService {
   static async createFine(

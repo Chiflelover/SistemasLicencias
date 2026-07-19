@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -44,34 +44,37 @@ export default function ArqueoPage() {
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
 
-  const cargar = async (conRango = false) => {
-    setLoading(true);
-    setErrorMessage(null);
+  const cargar = useCallback(
+    async (conRango = false) => {
+      setLoading(true);
+      setErrorMessage(null);
 
-    try {
-      const query =
-        conRango && desde && hasta ? `?desde=${desde}&hasta=${hasta}` : "";
+      try {
+        const query =
+          conRango && desde && hasta ? `?desde=${desde}&hasta=${hasta}` : "";
 
-      const response = await fetch(`/api/cajero/arqueo${query}`, {
-        cache: "no-store",
-      });
-      const data = await response.json();
+        const response = await fetch(`/api/cajero/arqueo${query}`, {
+          cache: "no-store",
+        });
+        const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "No se pudo generar el arqueo.");
+        if (!response.ok) {
+          throw new Error(data.error || "No se pudo generar el arqueo.");
+        }
+
+        setArqueo(data.arqueo);
+      } catch (error: any) {
+        setErrorMessage(error.message);
+      } finally {
+        setLoading(false);
       }
-
-      setArqueo(data.arqueo);
-    } catch (error: any) {
-      setErrorMessage(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [desde, hasta]
+  );
 
   useEffect(() => {
     cargar();
-  }, []);
+  }, [cargar]);
 
   const formatearHora = (iso: string) =>
     new Date(iso).toLocaleTimeString("es-PE", {

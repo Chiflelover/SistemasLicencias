@@ -2,16 +2,7 @@ import { getCurrentUser } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ApplicationRepository } from "@/repositories/application.repository";
-import {
-  Building2,
-  FileText,
-  DollarSign,
-  CalendarDays,
-  Award,
-  Plus,
-  ArrowRight,
-  AlertTriangle,
-} from "lucide-react";
+import { Plus, ArrowRight, AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 

@@ -3,32 +3,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { ApplicationService } from "@/services/application.service";
 import { BusinessSchema } from "@/lib/validation/business";
 import { RucService } from "@/services/ruc.service";
+import { belongsToDistrictTrujillo } from "@/lib/territory";
 
 export const dynamic = "force-dynamic";
-
-function normalizeText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toUpperCase();
-}
-
-function belongsToDistrictTrujillo(data: {
-  distrito?: string;
-  provincia?: string;
-  departamento?: string;
-}) {
-  const distrito = normalizeText(data.distrito || "");
-  const provincia = normalizeText(data.provincia || "");
-  const departamento = normalizeText(data.departamento || "");
-
-  return (
-    distrito === "TRUJILLO" &&
-    provincia === "TRUJILLO" &&
-    departamento === "LA LIBERTAD"
-  );
-}
 
 export async function POST(request: Request) {
   try {

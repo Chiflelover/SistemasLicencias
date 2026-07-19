@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { DocumentUploadSchema, type DocumentUploadValues } from "@/lib/validation/document";
-import { UploadCloud, FileText, AlertTriangle, CheckCircle2, Shield, Info } from "lucide-react";
+import { UploadCloud, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 
 type UploadFormValues = DocumentUploadValues & {
   file?: FileList;

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 import { DocumentService } from "@/services/document.service";
 import { ApplicationRepository } from "@/repositories/application.repository";
 import { DocumentUploadSchema } from "@/lib/validation/document";
@@ -13,6 +14,24 @@ type UploadedDocumentForCheck = {
 
 export async function POST(request: Request) {
   try {
+    // Esta ruta vive en el espacio autenticado del solicitante: exige sesión
+    // y, más abajo, que el trámite sea suyo.
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "No autorizado. Iniciá sesión para subir documentos." },
+        { status: 401 }
+      );
+    }
+
+    if (user.role !== "APPLICANT") {
+      return NextResponse.json(
+        { error: "Solo el solicitante puede subir documentos de su trámite." },
+        { status: 403 }
+      );
+    }
+
     const formData = await request.formData();
 
     const rawApplicationId = formData.get("applicationId");
@@ -54,6 +73,23 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "El archivo no puede ser mayor a 5MB." },
         { status: 400 }
+      );
+    }
+
+    // El trámite debe pertenecer a quien está subiendo el documento.
+    const target = await ApplicationRepository.findById(parsed.data.applicationId);
+
+    if (!target) {
+      return NextResponse.json(
+        { error: "No se encontró el trámite." },
+        { status: 404 }
+      );
+    }
+
+    if (target.applicantId !== user.id) {
+      return NextResponse.json(
+        { error: "No podés subir documentos a un trámite que no es tuyo." },
+        { status: 403 }
       );
     }
 

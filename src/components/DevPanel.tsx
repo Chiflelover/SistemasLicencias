@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles, CalendarDays, ChevronRight, ChevronLeft, Zap, Info } from "lucide-react";
+import { Sparkles, CalendarDays, Zap, Info } from "lucide-react";
 
 export default function DevPanel() {
   const [collapsed, setCollapsed] = useState(true);

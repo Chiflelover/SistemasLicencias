@@ -7,6 +7,16 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  // El simulador es una herramienta de desarrollo. En producción la fecha
+  // real manda igual, pero se bloquea la escritura para que nadie altere
+  // SystemConfig desde afuera.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "El simulador de fechas no está disponible en producción." },
+      { status: 403 }
+    );
+  }
+
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Payload inválido." }, { status: 400 });
