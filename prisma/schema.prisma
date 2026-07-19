@@ -110,13 +110,15 @@ model Business {
   legalName         String
   ruc               String   @unique
   fiscalAddress     String
-  commercialAddress String?
-  activityType      String?
+  // Obligatorios: la base los tiene NOT NULL y todos los caminos de alta los
+  // completan (con "No registrado" cuando el dato no se releva).
+  commercialAddress String
+  activityType      String
 
-  representativeName  String?
-  representativeDni   String?
-  representativeRole  String?
-  representativePhone String?
+  representativeName  String
+  representativeDni   String
+  representativeRole  String
+  representativePhone String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -11,6 +11,10 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:status": "prisma migrate status",
+    "db:seed": "node prisma/seed.js",
+    "db:setup": "prisma migrate deploy && node prisma/seed.js",
     "db:studio": "prisma studio"
   },
   "dependencies": {
