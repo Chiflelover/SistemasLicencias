@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import PublicDocumentUploadForm from "@/components/PublicDocumentUploadForm";
+import { canUploadDocuments, isUnderObservation } from "@/lib/documents";
 import {
   ArrowLeft,
   Building2,
@@ -19,10 +20,10 @@ function formatStatus(status: string) {
     PENDING_PAYMENT: "PAGO PENDIENTE",
     PAYMENT_COMPLETED: "PAGO COMPLETADO",
     INSPECTION_SCHEDULED: "INSPECCIÓN PROGRAMADA",
-    FIRST_INSPECTION_REJECTED: "PRIMERA INSPECCIÓN RECHAZADA",
-    SECOND_INSPECTION_SCHEDULED: "SEGUNDA INSPECCIÓN PROGRAMADA",
+    FIRST_INSPECTION_REJECTED: "OBSERVADO",
+    SECOND_INSPECTION_SCHEDULED: "OBSERVADO · 2DA INSPECCIÓN PROGRAMADA",
     LICENSE_ISSUED: "LICENCIA EMITIDA",
-    DEFINITIVELY_REJECTED: "RECHAZADA DEFINITIVAMENTE",
+    DEFINITIVELY_REJECTED: "RECHAZADO DEFINITIVO",
     RENEWAL_AVAILABLE: "RENOVACIÓN DISPONIBLE",
     EXPIRED: "VENCIDA",
   };
@@ -70,6 +71,9 @@ export default async function PublicUploadDocumentsPage({
 
   const documentsComplete = hasFloorPlan && hasRucRecord;
 
+  const cargaHabilitada = canUploadDocuments(application.status);
+  const enSubsanacion = isUnderObservation(application.status);
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 bg-slate-900/40">
@@ -105,6 +109,38 @@ export default async function PublicUploadDocumentsPage({
             Nuevo RUC
           </Link>
         </div>
+
+        {enSubsanacion && (
+          <div className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
+              Trámite observado
+            </p>
+            <h2 className="mt-2 text-xl font-bold text-white">
+              La carga de documentos fue habilitada nuevamente
+            </h2>
+            <p className="mt-2 text-sm text-amber-100/80">
+              El inspector registró observaciones en la primera inspección.
+              Podés volver a adjuntar el plano del local y los certificados
+              antes de la segunda inspección, que ya está programada.
+            </p>
+          </div>
+        )}
+
+        {!cargaHabilitada && (
+          <div className="rounded-3xl border border-slate-700 bg-slate-900/60 p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+              Carga cerrada
+            </p>
+            <h2 className="mt-2 text-xl font-bold text-white">
+              Este trámite ya no admite documentos
+            </h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Estado actual: {formatStatus(application.status)}. La carga solo
+              está habilitada mientras se arma el expediente o durante una
+              subsanación por observación.
+            </p>
+          </div>
+        )}
 
         <section className="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
           <div className="space-y-6">

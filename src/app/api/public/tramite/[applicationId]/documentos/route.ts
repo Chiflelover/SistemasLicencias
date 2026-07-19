@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { assertDocumentUploadAllowed } from "@/lib/documents";
 import { ApplicationStatus, DocumentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,17 @@ export async function POST(
     if (!isValidDocumentType(type)) {
       return NextResponse.json(
         { error: "Tipo de documento inválido." },
+        { status: 400 }
+      );
+    }
+
+    // Misma política que el resto del sistema: la carga solo está abierta
+    // mientras se arma el expediente o durante una subsanación.
+    try {
+      assertDocumentUploadAllowed(application.status, type);
+    } catch (policyError: any) {
+      return NextResponse.json(
+        { error: policyError.message },
         { status: 400 }
       );
     }

@@ -3,6 +3,7 @@ import { ApplicationRepository } from "@/repositories/application.repository";
 import { LicenseService } from "@/services/license.service";
 import { InspectionService } from "@/services/inspection.service";
 import { getCurrentSystemDate } from "@/lib/date";
+import { AuditService } from "@/services/audit.service";
 import {
   ApplicationStatus,
   InspectionNumber,
@@ -96,22 +97,57 @@ export class InspectorService {
       return updatedInspection;
     }
 
+    // Primera observación: el trámite queda observado y se reabre la carga de
+    // documentos para que el administrado subsane antes de la segunda visita.
     if (action === "reject" && inspection.number === InspectionNumber.FIRST) {
       await ApplicationRepository.updateStatus(
         inspection.applicationId,
         ApplicationStatus.FIRST_INSPECTION_REJECTED
       );
 
-      await InspectionService.scheduleInspection(inspection.applicationId);
+      // Agenda la segunda exactamente 30 días hábiles después del resultado.
+      const secondInspection = await InspectionService.scheduleInspection(
+        inspection.applicationId
+      );
+
+      await AuditService.log({
+        action: "INSPECCION_OBSERVADA",
+        entityType: "Inspection",
+        entityId: inspection.id,
+        userId: inspection.inspectorId,
+        details: {
+          applicationId: inspection.applicationId,
+          numero: "PRIMERA",
+          observaciones: observations?.trim() || "",
+          nuevoEstado: ApplicationStatus.SECOND_INSPECTION_SCHEDULED,
+          cargaDeDocumentos: "reabierta para subsanación",
+          segundaInspeccion: secondInspection?.scheduledAt ?? null,
+        },
+      });
 
       return updatedInspection;
     }
 
+    // Segunda observación: no hay tercera oportunidad.
     if (action === "reject" && inspection.number === InspectionNumber.SECOND) {
       await ApplicationRepository.updateStatus(
         inspection.applicationId,
         ApplicationStatus.DEFINITIVELY_REJECTED
       );
+
+      await AuditService.log({
+        action: "TRAMITE_RECHAZADO_DEFINITIVO",
+        entityType: "Inspection",
+        entityId: inspection.id,
+        userId: inspection.inspectorId,
+        details: {
+          applicationId: inspection.applicationId,
+          numero: "SEGUNDA",
+          observaciones: observations?.trim() || "",
+          nuevoEstado: ApplicationStatus.DEFINITIVELY_REJECTED,
+          motivo: "Segunda inspección observada: no corresponde una tercera.",
+        },
+      });
 
       return updatedInspection;
     }

@@ -1,5 +1,6 @@
 import { DocumentRepository } from "@/repositories/document.repository";
 import { ApplicationRepository } from "@/repositories/application.repository";
+import { assertDocumentUploadAllowed } from "@/lib/documents";
 import { Document, DocumentType, ApplicationStatus } from "@prisma/client";
 
 export class DocumentService {
@@ -16,6 +17,10 @@ export class DocumentService {
     if (!application) {
       throw new Error("Trámite no encontrado para el documento.");
     }
+
+    // La carga solo está abierta durante el armado del expediente y durante
+    // la subsanación posterior a una observación.
+    assertDocumentUploadAllowed(application.status, data.type);
 
     const createdDocument = await DocumentRepository.create({
       applicationId: data.applicationId,
