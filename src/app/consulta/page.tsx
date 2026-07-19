@@ -1,4 +1,3 @@
-import Link from "next/link";
 import PublicLicenseSearch from "@/components/PublicLicenseSearch";
 
 export const dynamic = "force-static";
@@ -50,14 +49,6 @@ export default function ConsultaPage() {
                 mostrará hasta 20 resultados coincidentes.
               </p>
             </div>
-
-            <Link
-              href="/"
-              prefetch={false}
-              className="mt-8 inline-flex text-sm font-semibold text-amber-400 hover:text-amber-300"
-            >
-              Volver a portada
-            </Link>
           </div>
         </div>
       </div>

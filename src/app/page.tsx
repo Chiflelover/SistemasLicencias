@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   Sparkles,
   SearchCheck,
+  FileText,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -29,21 +30,6 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-slate-300 hover:text-white transition duration-150"
-            >
-              Iniciar Sesión
-            </Link>
-
-            <Link
-              href="/login"
-              className="text-sm font-semibold text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 px-4 py-2 rounded-lg flex items-center gap-1.5 transition duration-150"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              Portal del trabajador
-            </Link>
-
             <Link
               href="/iniciar-tramite"
               className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition duration-150"
@@ -164,16 +150,28 @@ export default function HomePage() {
             Todos los derechos reservados.
           </p>
 
-          <div className="flex gap-4 text-xs">
-            <span className="hover:text-slate-300 transition cursor-help">
-              Términos
-            </span>
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
             <span className="hover:text-slate-300 transition cursor-help">
               Privacidad
             </span>
-            <span className="hover:text-slate-300 transition cursor-help">
+
+            <a
+              href="https://www.munitrujillo.gob.pe/Archivosvirtual/Transparencia/Adjuntos/9335_portalTransparencia.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 hover:text-slate-300 transition"
+            >
+              <FileText className="w-3.5 h-3.5" />
               Soporte TUPA
-            </span>
+            </a>
+
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 px-3 py-1.5 font-semibold text-slate-400 transition hover:border-slate-600 hover:text-slate-200"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Portal del trabajador
+            </Link>
           </div>
         </div>
       </footer>

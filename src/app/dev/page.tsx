@@ -1,16 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  Database,
-  Loader2,
-  PlayCircle,
-  RotateCcw,
-} from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Database, Loader2, PlayCircle, RotateCcw } from "lucide-react";
 
 interface Corrida {
   id: string;
