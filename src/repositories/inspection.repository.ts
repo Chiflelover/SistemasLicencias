@@ -57,6 +57,41 @@ export class InspectionRepository {
     });
   }
 
+  /** Inspecciones pendientes del inspector para un día concreto, por hora. */
+  static async findPendingForDay(inspectorId: string, from: Date, to: Date) {
+    return prisma.inspection.findMany({
+      where: {
+        inspectorId,
+        status: "SCHEDULED",
+        scheduledAt: { gte: from, lte: to },
+      },
+      include: {
+        application: { include: { business: true } },
+      },
+      orderBy: { scheduledAt: "asc" },
+    });
+  }
+
+  /**
+   * Inspecciones que el inspector resolvió durante el día.
+   *
+   * Se filtra por resultAt (cuándo la terminó) y no por scheduledAt, para que
+   * también cuente una inspección agendada antes y cerrada hoy.
+   */
+  static async findCompletedForDay(inspectorId: string, from: Date, to: Date) {
+    return prisma.inspection.findMany({
+      where: {
+        inspectorId,
+        status: "COMPLETED",
+        resultAt: { gte: from, lte: to },
+      },
+      include: {
+        application: { include: { business: true } },
+      },
+      orderBy: { resultAt: "desc" },
+    });
+  }
+
   static async findScheduledSlots(inspectorId: string): Promise<Date[]> {
     const scheduled = await prisma.inspection.findMany({
       where: { inspectorId, status: "SCHEDULED" },

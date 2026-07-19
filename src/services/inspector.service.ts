@@ -2,6 +2,7 @@ import { InspectionRepository } from "@/repositories/inspection.repository";
 import { ApplicationRepository } from "@/repositories/application.repository";
 import { LicenseService } from "@/services/license.service";
 import { InspectionService } from "@/services/inspection.service";
+import { getCurrentSystemDate } from "@/lib/date";
 import {
   ApplicationStatus,
   InspectionNumber,
@@ -12,6 +13,36 @@ import {
 export class InspectorService {
   static async getAssignedInspections(inspectorId: string) {
     return InspectionRepository.findByInspectorId(inspectorId);
+  }
+
+  /**
+   * Agenda del día para el inspector: lo que le queda por hacer y lo que ya
+   * resolvió. No incluye inspecciones de otras fechas.
+   *
+   * Usa la fecha del sistema (simulada en desarrollo) y no la real, para que
+   * el DevPanel siga sirviendo para demostrar el flujo.
+   */
+  static async getTodayAgenda(inspectorId: string) {
+    const systemDate = await getCurrentSystemDate();
+
+    const from = new Date(systemDate);
+    from.setHours(0, 0, 0, 0);
+
+    const to = new Date(systemDate);
+    to.setHours(23, 59, 59, 999);
+
+    const [pending, completed] = await Promise.all([
+      InspectionRepository.findPendingForDay(inspectorId, from, to),
+      InspectionRepository.findCompletedForDay(inspectorId, from, to),
+    ]);
+
+    return {
+      date: systemDate,
+      pending,
+      completed,
+      pendingCount: pending.length,
+      completedCount: completed.length,
+    };
   }
 
   static async getInspectionDetails(inspectionId: string) {
