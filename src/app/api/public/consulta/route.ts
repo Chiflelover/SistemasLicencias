@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ApplicationRepository } from "@/repositories/application.repository";
+import { LicenseService } from "@/services/license.service";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,10 @@ export async function GET(request: Request) {
         { status: 400 }
       );
     }
+
+    // Sin tareas programadas, el vencimiento se procesa al consultar: así la
+    // búsqueda pública nunca muestra como vigente una licencia ya vencida.
+    await LicenseService.syncExpiredLicenses();
 
     const results = await ApplicationRepository.searchPublic(query);
 

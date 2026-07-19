@@ -2,6 +2,9 @@ import { ApplicationRepository } from "@/repositories/application.repository";
 import { LicenseRepository } from "@/repositories/license.repository";
 import { generateLicensePdf } from "@/lib/pdf";
 import { addYears, getCurrentSystemDate } from "@/lib/date";
+import { NotificationService } from "@/services/notification.service";
+import { AuditService } from "@/services/audit.service";
+import { prisma } from "@/lib/db/prisma";
 import { ApplicationStatus, LicenseStatus } from "@prisma/client";
 
 export class LicenseService {
@@ -57,12 +60,37 @@ export class LicenseService {
     const daysUntilExpiration = (expirationTime - now.getTime()) / (1000 * 60 * 60 * 24);
 
     if (expirationTime <= now.getTime()) {
+      const yaEstabaVencida =
+        license.status === LicenseStatus.EXPIRED &&
+        application.status === ApplicationStatus.EXPIRED;
+
       if (license.status !== LicenseStatus.EXPIRED) {
         await LicenseRepository.updateStatus(license.id, LicenseStatus.EXPIRED);
       }
       if (application.status !== ApplicationStatus.EXPIRED) {
         await ApplicationRepository.updateStatus(application.id, ApplicationStatus.EXPIRED);
       }
+
+      // Se avisa una sola vez por día gracias a la clave de deduplicación.
+      if (!yaEstabaVencida) {
+        await NotificationService.notifyLicenseExpired({
+          applicantId: application.applicantId,
+          applicationId: application.id,
+          licenseNumber: license.licenseNumber,
+        });
+
+        await AuditService.log({
+          action: "LICENCIA_VENCIDA",
+          entityType: "License",
+          entityId: license.id,
+          details: {
+            applicationId: application.id,
+            licenseNumber: license.licenseNumber,
+            expiresAt: license.expiresAt.toISOString(),
+          },
+        });
+      }
+
       return;
     }
 
@@ -91,6 +119,15 @@ export class LicenseService {
     }
 
     const license = application.license;
+
+    // Una licencia vencida ya no se renueva: corresponde un trámite nuevo.
+    if (license.status === LicenseStatus.EXPIRED) {
+      throw new Error(
+        `La licencia ${license.licenseNumber} está vencida y no puede renovarse. ` +
+          "Debés iniciar un nuevo trámite de licencia de funcionamiento."
+      );
+    }
+
     if (license.status !== LicenseStatus.RENEWAL_AVAILABLE) {
       throw new Error("La renovación solo está habilitada cuando falta hasta 30 días para el vencimiento.");
     }
@@ -127,5 +164,33 @@ export class LicenseService {
 
   static async getLicenseByApplication(applicationId: string) {
     return LicenseRepository.findByApplicationId(applicationId);
+  }
+
+  /**
+   * Vence todas las licencias cuya fecha ya pasó.
+   *
+   * El sistema no tiene tareas programadas, así que el vencimiento se procesa
+   * al consultar: esta función se llama desde la búsqueda pública, la campana
+   * de notificaciones y la descarga de licencias. Con eso, cualquier acceso al
+   * sistema mantiene los estados al día.
+   */
+  static async syncExpiredLicenses() {
+    const now = await getCurrentSystemDate();
+
+    const vencidas = await prisma.license.findMany({
+      where: {
+        expiresAt: { lte: now },
+        status: { not: LicenseStatus.EXPIRED },
+      },
+      select: { id: true, applicationId: true },
+    });
+
+    for (const licencia of vencidas) {
+      // ensureRenewalState centraliza la transición, la notificación y la
+      // auditoría, así que se reutiliza en lugar de duplicar la lógica.
+      await this.ensureRenewalState(licencia.applicationId);
+    }
+
+    return vencidas.length;
   }
 }

@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, degrees } from "pdf-lib";
 
 interface LicenseData {
   licenseNumber: string;
@@ -129,4 +129,52 @@ function formatDate(date: Date): string {
     month: "long",
     year: "numeric",
   });
+}
+
+/**
+ * Estampa una marca de agua diagonal "VENCIDA" sobre un PDF ya emitido.
+ *
+ * Trabaja sobre una copia en memoria y devuelve bytes nuevos: el PDF guardado
+ * en la base no se toca. Así una licencia que vuelve a estar vigente tras una
+ * renovación no queda marcada, y las licencias vigentes nunca se modifican.
+ */
+export async function addExpiredWatermark(
+  originalPdf: Uint8Array | Buffer
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(originalPdf);
+  const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const texto = "VENCIDA";
+  const rojo = rgb(0.75, 0.1, 0.12);
+
+  for (const page of pdfDoc.getPages()) {
+    const { width, height } = page.getSize();
+
+    // Tamaño proporcional al ancho de la hoja, para que cruce la página
+    // completa sin desbordarla.
+    let size = 110;
+    while (font.widthOfTextAtSize(texto, size) > width * 1.15 && size > 20) {
+      size -= 2;
+    }
+
+    const textWidth = font.widthOfTextAtSize(texto, size);
+
+    // Con la rotación de 45°, el texto avanza en diagonal desde (x, y).
+    // Se resta medio ancho proyectado sobre cada eje para centrar el trazo.
+    const radianes = Math.PI / 4;
+    const x = width / 2 - (textWidth / 2) * Math.cos(radianes);
+    const y = height / 2 - (textWidth / 2) * Math.sin(radianes);
+
+    page.drawText(texto, {
+      x,
+      y,
+      size,
+      font,
+      color: rojo,
+      opacity: 0.28,
+      rotate: degrees(45),
+    });
+  }
+
+  return pdfDoc.save();
 }

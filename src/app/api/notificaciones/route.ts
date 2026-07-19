@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { NotificationService } from "@/services/notification.service";
+import { LicenseService } from "@/services/license.service";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+
+  // Vence las licencias que corresponda antes de calcular los avisos.
+  await LicenseService.syncExpiredLicenses();
 
   await NotificationService.syncDailyNotifications(user.id, user.role);
 
