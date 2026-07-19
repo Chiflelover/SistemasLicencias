@@ -66,11 +66,11 @@ export default async function CajeroDashboard() {
 
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
-            href="/cajero/nueva-solicitud"
+            href="/cajero/registro-presencial"
             className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-5 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
-            Nueva Solicitud
+            Registro Presencial
           </Link>
 
           <Link

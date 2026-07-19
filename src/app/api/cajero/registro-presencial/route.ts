@@ -1,0 +1,193 @@
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { ApplicationService } from "@/services/application.service";
+import { DocumentService } from "@/services/document.service";
+import { ApplicationRepository } from "@/repositories/application.repository";
+import { RucService } from "@/services/ruc.service";
+import {
+  belongsToDistrictTrujillo,
+  OUT_OF_DISTRICT_MESSAGE,
+} from "@/lib/territory";
+import { DocumentType } from "@prisma/client";
+
+export const dynamic = "force-dynamic";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ACCEPTED_MIME_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+];
+
+function validateFile(file: unknown, label: string): File {
+  if (!(file instanceof File) || file.size <= 0) {
+    throw new Error(`Adjunta el archivo de ${label}.`);
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`El archivo de ${label} no debe superar los 5MB.`);
+  }
+
+  if (!ACCEPTED_MIME_TYPES.includes(file.type)) {
+    throw new Error(`El archivo de ${label} debe ser PDF, JPG o PNG.`);
+  }
+
+  return file;
+}
+
+/** Registro presencial completo: datos del negocio, contacto y documentos. */
+export async function POST(request: Request) {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== "CAJERO") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  try {
+    const formData = await request.formData();
+
+    const read = (key: string) => String(formData.get(key) || "").trim();
+
+    const ruc = read("ruc");
+    const legalName = read("legalName");
+    const fiscalAddress = read("fiscalAddress");
+    const representativeName = read("representativeName");
+    const representativeDni = read("representativeDni");
+    const representativeRole = read("representativeRole");
+    const email = read("email").toLowerCase();
+    const phone = read("phone");
+
+    if (!/^\d{11}$/.test(ruc)) {
+      return NextResponse.json(
+        { error: "El RUC debe tener 11 dígitos." },
+        { status: 400 }
+      );
+    }
+
+    if (legalName.length < 3) {
+      return NextResponse.json(
+        { error: "La razón social es obligatoria." },
+        { status: 400 }
+      );
+    }
+
+    if (fiscalAddress.length < 5) {
+      return NextResponse.json(
+        { error: "El domicilio fiscal es obligatorio." },
+        { status: 400 }
+      );
+    }
+
+    if (representativeName.length < 3) {
+      return NextResponse.json(
+        { error: "El nombre del representante legal es obligatorio." },
+        { status: 400 }
+      );
+    }
+
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return NextResponse.json(
+        { error: "Ingresa un correo electrónico válido." },
+        { status: 400 }
+      );
+    }
+
+    if (phone.replace(/\D/g, "").length < 6) {
+      return NextResponse.json(
+        { error: "Ingresa un teléfono de contacto válido." },
+        { status: 400 }
+      );
+    }
+
+    // Regla territorial: el cajero no puede saltearse el filtro de distrito.
+    // Sale del caché de RUC, así que normalmente no gasta cuota de APIPERU.
+    const rucData = await RucService.getBusinessData(ruc);
+
+    if (!belongsToDistrictTrujillo(rucData)) {
+      return NextResponse.json(
+        {
+          error: OUT_OF_DISTRICT_MESSAGE,
+          details: {
+            distrito: rucData.distrito || "No registrado",
+            provincia: rucData.provincia || "No registrado",
+            departamento: rucData.departamento || "No registrado",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    let planoFile: File;
+    let certificadoFile: File;
+
+    try {
+      planoFile = validateFile(formData.get("plano"), "el plano del local");
+      certificadoFile = validateFile(formData.get("certificados"), "los certificados");
+    } catch (fileError: any) {
+      return NextResponse.json({ error: fileError.message }, { status: 400 });
+    }
+
+    // 1. Alta del negocio, el solicitante y el trámite (queda en DRAFT).
+    const { application, business } =
+      await ApplicationService.registerInPersonApplication({
+        cashierId: user.id,
+        legalName,
+        ruc,
+        fiscalAddress,
+        representativeName,
+        representativeDni,
+        representativeRole,
+        email,
+        phone,
+      });
+
+    // 2. Documentos. DocumentService pasa el trámite a PENDING_PAYMENT solo
+    //    cuando ya están cargados el plano y la ficha, así que no se duplica
+    //    acá la lógica de transición de estados.
+    await DocumentService.uploadDocument({
+      applicationId: application.id,
+      type: DocumentType.FLOOR_PLAN,
+      name: "Plano del local",
+      fileName: planoFile.name,
+      mimeType: planoFile.type,
+      size: planoFile.size,
+      content: Buffer.from(await planoFile.arrayBuffer()),
+    });
+
+    await DocumentService.uploadDocument({
+      applicationId: application.id,
+      type: DocumentType.RUC_RECORD,
+      name: "Certificados",
+      fileName: certificadoFile.name,
+      mimeType: certificadoFile.type,
+      size: certificadoFile.size,
+      content: Buffer.from(await certificadoFile.arrayBuffer()),
+    });
+
+    const updated = await ApplicationRepository.findById(application.id);
+
+    return NextResponse.json(
+      {
+        success: true,
+        message:
+          "Solicitud presencial registrada. Queda pendiente el cobro para agendar la inspección.",
+        application: {
+          id: application.id,
+          number: application.number,
+          status: updated?.status ?? application.status,
+          createdAt: application.createdAt,
+        },
+        business: { legalName: business.legalName, ruc: business.ruc },
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error("Error en registro presencial:", error);
+
+    return NextResponse.json(
+      { error: error?.message || "Error interno al registrar la solicitud." },
+      { status: 400 }
+    );
+  }
+}

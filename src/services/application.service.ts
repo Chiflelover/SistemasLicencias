@@ -4,7 +4,33 @@ import { getCurrentSystemDate } from "@/lib/date";
 import { prisma } from "@/lib/db/prisma";
 import { Application, ApplicationStatus, Business, Role } from "@prisma/client";
 
+/** Estados en los que un trámite sigue vigente y no corresponde crear otro. */
+const OPEN_APPLICATION_STATUSES = [
+  ApplicationStatus.DRAFT,
+  ApplicationStatus.DOCUMENTS_COMPLETE,
+  ApplicationStatus.PENDING_PAYMENT,
+  ApplicationStatus.PAYMENT_COMPLETED,
+  ApplicationStatus.INSPECTION_SCHEDULED,
+  ApplicationStatus.FIRST_INSPECTION_REJECTED,
+  ApplicationStatus.SECOND_INSPECTION_SCHEDULED,
+];
+
 export class ApplicationService {
+  /** Devuelve el trámite vigente de ese solicitante y negocio, si lo hay. */
+  private static async findOpenApplication(
+    applicantId: string,
+    businessId: string
+  ) {
+    return prisma.application.findFirst({
+      where: {
+        applicantId,
+        businessId,
+        status: { in: OPEN_APPLICATION_STATUSES },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   static async startNewApplication(params: {
     applicantId: string;
     legalName: string;
@@ -65,26 +91,10 @@ export class ApplicationService {
       },
     });
 
-    const existingApplication = await prisma.application.findFirst({
-      where: {
-        applicantId: applicant.id,
-        businessId: business.id,
-        status: {
-          in: [
-            ApplicationStatus.DRAFT,
-            ApplicationStatus.DOCUMENTS_COMPLETE,
-            ApplicationStatus.PENDING_PAYMENT,
-            ApplicationStatus.PAYMENT_COMPLETED,
-            ApplicationStatus.INSPECTION_SCHEDULED,
-            ApplicationStatus.FIRST_INSPECTION_REJECTED,
-            ApplicationStatus.SECOND_INSPECTION_SCHEDULED,
-          ],
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    const existingApplication = await ApplicationService.findOpenApplication(
+      applicant.id,
+      business.id
+    );
 
     if (existingApplication) {
       return {
@@ -131,5 +141,87 @@ export class ApplicationService {
     });
 
     return { application: trackedApplication, business };
+  }
+
+  /**
+   * Registro presencial completo en ventanilla.
+   *
+   * A diferencia del flujo público, acá el cajero releva todos los datos del
+   * contribuyente (representante legal y contacto real), así que el solicitante
+   * se crea con su correo verdadero en lugar de uno sintético.
+   *
+   * Deja el trámite en DRAFT; al subir el plano y los certificados,
+   * DocumentService lo pasa solo a PENDING_PAYMENT.
+   */
+  static async registerInPersonApplication(params: {
+    cashierId: string;
+    legalName: string;
+    ruc: string;
+    fiscalAddress: string;
+    representativeName: string;
+    representativeDni?: string;
+    representativeRole?: string;
+    email: string;
+    phone: string;
+  }): Promise<{ application: Application; business: Business }> {
+    const now = await getCurrentSystemDate();
+
+    const business = await BusinessService.upsertBusinessDetails({
+      legalName: params.legalName,
+      ruc: params.ruc,
+      fiscalAddress: params.fiscalAddress,
+      representativeName: params.representativeName,
+      representativeDni: params.representativeDni,
+      representativeRole: params.representativeRole,
+      representativePhone: params.phone,
+    });
+
+    const applicant = await prisma.user.upsert({
+      where: { email: params.email },
+      update: {
+        fullName: params.representativeName,
+        phone: params.phone,
+        active: true,
+      },
+      create: {
+        email: params.email,
+        // Alta presencial: el contribuyente no elige contraseña en ventanilla.
+        passwordHash: `presencial-sin-acceso-${params.ruc}`,
+        fullName: params.representativeName,
+        dni: params.representativeDni || "00000000",
+        phone: params.phone,
+        role: Role.APPLICANT,
+        active: true,
+      },
+    });
+
+    const existingApplication = await ApplicationService.findOpenApplication(
+      applicant.id,
+      business.id
+    );
+
+    if (existingApplication) {
+      const tracked = await prisma.application.update({
+        where: { id: existingApplication.id },
+        data: { registeredById: params.cashierId },
+      });
+
+      return { application: tracked, business };
+    }
+
+    const applicationNumber = await ApplicationRepository.generateNumber();
+
+    const application = await prisma.application.create({
+      data: {
+        number: applicationNumber,
+        applicantId: applicant.id,
+        businessId: business.id,
+        registeredById: params.cashierId,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    return { application, business };
   }
 }

@@ -83,8 +83,8 @@ export default function Sidebar({ role, userName }: SidebarProps) {
       icon: LayoutDashboard,
     },
     {
-      label: "Registrar Solicitud",
-      href: "/cajero/nueva-solicitud",
+      label: "Registro Presencial",
+      href: "/cajero/registro-presencial",
       icon: Building2,
     },
     {
