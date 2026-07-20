@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { Download } from "lucide-react";
 
 type SearchResult = {
   id: string;
@@ -202,6 +203,14 @@ export default function PublicLicenseSearch() {
                                 application.license.expiresAt
                               ).toLocaleDateString("es-PE")}
                             </p>
+
+                            <a
+                              href={`/api/public/licencia/${application.id}`}
+                              className="mt-2 inline-flex items-center gap-1.5 rounded-2xl bg-amber-500 px-3 py-2 text-xs font-semibold text-slate-950 transition hover:bg-amber-400"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Descargar PDF
+                            </a>
                           </>
                         ) : (
                           <span className="text-xs text-slate-500">

@@ -463,12 +463,15 @@ export default async function PublicInspectionsPage({
                       La inspección fue aprobada y la licencia ya fue emitida.
                     </p>
 
-                    <Link
-                      href={`/tramite/${application.id}/licencia`}
+                    {/* Apunta al endpoint de descarga, no a una página: el
+                        titular del flujo público no puede iniciar sesión, así
+                        que esta es su única vía para obtener el PDF. */}
+                    <a
+                      href={`/api/public/licencia/${application.id}`}
                       className="mt-5 inline-flex rounded-2xl bg-amber-500 px-6 py-3 font-bold text-slate-950 transition hover:bg-amber-400"
                     >
-                      Ver licencia
-                    </Link>
+                      Descargar licencia
+                    </a>
                   </div>
                 </div>
               </div>
