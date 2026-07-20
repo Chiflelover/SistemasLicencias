@@ -7,7 +7,19 @@ import { Home } from "lucide-react";
 export default function GlobalHomeButton() {
   const pathname = usePathname();
 
-  if (pathname.startsWith("/solicitante") || pathname.startsWith("/inspector")) {
+  /**
+   * Las áreas autenticadas ya tienen su propio botón de Inicio en la barra
+   * superior: mostrar además el flotante duplicaba la misma acción.
+   */
+  const AREAS_CON_NAVBAR = [
+    "/solicitante",
+    "/inspector",
+    "/cajero",
+    "/admin",
+    "/dev",
+  ];
+
+  if (AREAS_CON_NAVBAR.some((area) => pathname.startsWith(area))) {
     return null;
   }
 

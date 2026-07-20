@@ -101,9 +101,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (phone.replace(/\D/g, "").length < 6) {
+    if (!/^\d{9}$/.test(phone)) {
       return NextResponse.json(
-        { error: "Ingresa un teléfono de contacto válido." },
+        { error: "El teléfono debe tener exactamente 9 dígitos." },
         { status: 400 }
       );
     }

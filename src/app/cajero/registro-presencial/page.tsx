@@ -251,7 +251,9 @@ export default function RegistroPresencialPage() {
             <div className="flex gap-3">
               <input
                 value={campos.ruc}
-                onChange={(e) => actualizar("ruc", e.target.value)}
+                onChange={(e) =>
+                  actualizar("ruc", e.target.value.replace(/\D/g, "").slice(0, 11))
+                }
                 placeholder="20172557628"
                 maxLength={11}
                 inputMode="numeric"
@@ -439,8 +441,11 @@ export default function RegistroPresencialPage() {
               <label className={labelClass}>Teléfono</label>
               <input
                 value={campos.phone}
-                onChange={(e) => actualizar("phone", e.target.value)}
+                onChange={(e) =>
+                  actualizar("phone", e.target.value.replace(/\D/g, "").slice(0, 9))
+                }
                 required
+                maxLength={9}
                 placeholder="987654321"
                 inputMode="tel"
                 className={inputClass}

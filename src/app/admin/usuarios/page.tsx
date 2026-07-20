@@ -280,7 +280,12 @@ export default function AdminUsuariosPage() {
               <label className={labelClass}>DNI</label>
               <input
                 value={form.dni}
-                onChange={(e) => setForm({ ...form, dni: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    dni: e.target.value.replace(/\D/g, "").slice(0, 8),
+                  })
+                }
                 required
                 maxLength={8}
                 inputMode="numeric"
@@ -292,8 +297,15 @@ export default function AdminUsuariosPage() {
               <label className={labelClass}>Teléfono</label>
               <input
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    phone: e.target.value.replace(/\D/g, "").slice(0, 9),
+                  })
+                }
                 required
+                maxLength={9}
+                placeholder="987654321"
                 inputMode="tel"
                 className={inputClass}
               />

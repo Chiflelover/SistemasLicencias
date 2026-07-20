@@ -1,6 +1,6 @@
 "use client";
 
-import { Shield, Calendar, ChevronDown, LogOut, Home } from "lucide-react";
+import { Calendar, ChevronDown, LogOut, Home } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -63,10 +63,6 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
           <Home className="w-4 h-4" />
           Inicio
         </Link>
-        <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 font-semibold">
-          <Shield className="w-3.5 h-3.5 text-amber-500" />
-          CONEXIÓN CIFRADA (SSL)
-        </span>
       </div>
 
       {/* Lado Derecho: Fecha Simulada + Usuario */}
@@ -79,10 +75,14 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
         </div>
         <div className="h-6 w-px bg-slate-800 hidden sm:block" />
 
-        {/* Campana de Notificaciones */}
-        <NotificationBell />
-
-        <div className="h-6 w-px bg-slate-800 hidden sm:block" />
+        {/* El cajero no recibe notificaciones: ningún aviso del sistema está
+            dirigido a ese rol, así que la campana estaría siempre vacía. */}
+        {role !== "CAJERO" && (
+          <>
+            <NotificationBell />
+            <div className="h-6 w-px bg-slate-800 hidden sm:block" />
+          </>
+        )}
 
         {/* Dropdown de Usuario */}
         <div className="relative">
