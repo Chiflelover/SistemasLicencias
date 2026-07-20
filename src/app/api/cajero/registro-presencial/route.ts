@@ -142,6 +142,24 @@ export async function POST(request: Request) {
       );
     }
 
+    // Un RUC con trámite en curso o licencia vigente no puede abrir otro,
+    // igual que en el flujo público. Se valida acá y no solo en la pantalla.
+    const tramiteExistente =
+      await ApplicationService.findBlockingApplicationByRuc(ruc);
+
+    if (tramiteExistente) {
+      return NextResponse.json(
+        {
+          error:
+            tramiteExistente.motivo === "EN_PROCESO"
+              ? `El RUC ${ruc} ya tiene el trámite ${tramiteExistente.number} en proceso. No corresponde registrar otro hasta que finalice.`
+              : `El RUC ${ruc} ya cuenta con una licencia vigente (trámite ${tramiteExistente.number}).`,
+          tramiteExistente,
+        },
+        { status: 409 }
+      );
+    }
+
     let planoFile: File;
     let certificadoFile: File;
 

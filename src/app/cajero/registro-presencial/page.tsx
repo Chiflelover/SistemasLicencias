@@ -13,6 +13,13 @@ import {
   Search,
 } from "lucide-react";
 
+type TramiteExistente = {
+  id: string;
+  number: string;
+  status: string;
+  motivo: "EN_PROCESO" | "YA_TIENE_LICENCIA";
+};
+
 type SunatData = {
   ruc: string;
   legalName: string;
@@ -22,6 +29,19 @@ type SunatData = {
   distrito?: string;
   provincia?: string;
   departamento?: string;
+  tramiteExistente?: TramiteExistente | null;
+};
+
+const ETIQUETAS_ESTADO: Record<string, string> = {
+  DRAFT: "BORRADOR",
+  DOCUMENTS_COMPLETE: "DOCUMENTOS COMPLETOS",
+  PENDING_PAYMENT: "PAGO PENDIENTE",
+  PAYMENT_COMPLETED: "PAGO COMPLETADO",
+  INSPECTION_SCHEDULED: "INSPECCIÓN PROGRAMADA",
+  FIRST_INSPECTION_REJECTED: "OBSERVADO",
+  SECOND_INSPECTION_SCHEDULED: "OBSERVADO · 2DA INSPECCIÓN PROGRAMADA",
+  LICENSE_ISSUED: "LICENCIA EMITIDA",
+  RENEWAL_AVAILABLE: "RENOVACIÓN DISPONIBLE",
 };
 
 function normalizar(valor: string) {
@@ -72,10 +92,15 @@ export default function RegistroPresencialPage() {
     : { elegible: true as boolean, motivo: undefined };
 
   const enJurisdiccion = sunat ? esDeTrujillo(sunat) : false;
+  const tramiteExistente = sunat?.tramiteExistente ?? null;
 
-  // El cajero no puede registrar lo que el sistema rechazaría igual.
+  // El cajero no puede registrar lo que el sistema rechazaría igual, ni abrir
+  // un segundo trámite para un RUC que ya tiene uno en curso.
   const puedeRegistrar =
-    Boolean(sunat) && elegibilidad.elegible && enJurisdiccion;
+    Boolean(sunat) &&
+    elegibilidad.elegible &&
+    enJurisdiccion &&
+    !tramiteExistente;
 
   const actualizar = (campo: keyof typeof CAMPOS_INICIALES, valor: string) => {
     setCampos((previo) => ({ ...previo, [campo]: valor }));
@@ -354,7 +379,24 @@ export default function RegistroPresencialPage() {
                 </div>
               </div>
 
-              {!elegibilidad.elegible ? (
+              {tramiteExistente ? (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>
+                    {tramiteExistente.motivo === "EN_PROCESO"
+                      ? "Este RUC ya tiene un trámite en proceso"
+                      : "Este RUC ya cuenta con una licencia vigente"}
+                    :{" "}
+                    <strong className="font-mono">
+                      {tramiteExistente.number}
+                    </strong>{" "}
+                    ·{" "}
+                    {ETIQUETAS_ESTADO[tramiteExistente.status] ??
+                      tramiteExistente.status.replaceAll("_", " ")}
+                    . No corresponde registrar otro.
+                  </span>
+                </div>
+              ) : !elegibilidad.elegible ? (
                 <div className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
                   <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                   <span>{elegibilidad.motivo}</span>
