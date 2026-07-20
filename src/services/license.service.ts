@@ -56,19 +56,37 @@ export class LicenseService {
     }
 
     const license = application.license;
+
+    // findById adelanta el vencimiento sobre el objeto que devuelve, sin
+    // escribirlo (ver ApplicationRepository.syncStatusWithSimulatedDate).
+    // Comparar contra ese objeto hacía creer que la transición ya estaba
+    // hecha: no se persistía nunca y el aviso no salía. Los estados se leen
+    // crudos de la base.
+    const persistido = await prisma.application.findUnique({
+      where: { id: applicationId },
+      select: { status: true, license: { select: { status: true } } },
+    });
+
+    if (!persistido?.license) {
+      return;
+    }
+
+    const estadoTramite = persistido.status;
+    const estadoLicencia = persistido.license.status;
+
     const now = await getCurrentSystemDate();
     const expirationTime = license.expiresAt.getTime();
     const daysUntilExpiration = (expirationTime - now.getTime()) / (1000 * 60 * 60 * 24);
 
     if (expirationTime <= now.getTime()) {
       const yaEstabaVencida =
-        license.status === LicenseStatus.EXPIRED &&
-        application.status === ApplicationStatus.EXPIRED;
+        estadoLicencia === LicenseStatus.EXPIRED &&
+        estadoTramite === ApplicationStatus.EXPIRED;
 
-      if (license.status !== LicenseStatus.EXPIRED) {
+      if (estadoLicencia !== LicenseStatus.EXPIRED) {
         await LicenseRepository.updateStatus(license.id, LicenseStatus.EXPIRED);
       }
-      if (application.status !== ApplicationStatus.EXPIRED) {
+      if (estadoTramite !== ApplicationStatus.EXPIRED) {
         await ApplicationRepository.updateStatus(application.id, ApplicationStatus.EXPIRED);
       }
 
@@ -100,16 +118,16 @@ export class LicenseService {
     }
 
     if (daysUntilExpiration <= 30) {
-      if (license.status !== LicenseStatus.RENEWAL_AVAILABLE) {
+      if (estadoLicencia !== LicenseStatus.RENEWAL_AVAILABLE) {
         await LicenseRepository.updateStatus(license.id, LicenseStatus.RENEWAL_AVAILABLE);
       }
-      if (application.status !== ApplicationStatus.RENEWAL_AVAILABLE) {
+      if (estadoTramite !== ApplicationStatus.RENEWAL_AVAILABLE) {
         await ApplicationRepository.updateStatus(application.id, ApplicationStatus.RENEWAL_AVAILABLE);
       }
       return;
     }
 
-    if (license.status !== LicenseStatus.ACTIVE) {
+    if (estadoLicencia !== LicenseStatus.ACTIVE) {
       await LicenseRepository.updateStatus(license.id, LicenseStatus.ACTIVE);
     }
 
@@ -117,8 +135,8 @@ export class LicenseService {
     // atrás (al cerrar una demostración), el trámite tiene que recuperar su
     // estado real y no quedar vencido para siempre.
     if (
-      application.status === ApplicationStatus.RENEWAL_AVAILABLE ||
-      application.status === ApplicationStatus.EXPIRED
+      estadoTramite === ApplicationStatus.RENEWAL_AVAILABLE ||
+      estadoTramite === ApplicationStatus.EXPIRED
     ) {
       await ApplicationRepository.updateStatus(application.id, ApplicationStatus.LICENSE_ISSUED);
     }
