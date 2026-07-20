@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { checkRucEligibility } from "@/lib/ruc-eligibility";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -11,6 +12,33 @@ import {
   Loader2,
   Search,
 } from "lucide-react";
+
+type SunatData = {
+  ruc: string;
+  legalName: string;
+  fiscalAddress: string;
+  estado?: string;
+  condicion?: string;
+  distrito?: string;
+  provincia?: string;
+  departamento?: string;
+};
+
+function normalizar(valor: string) {
+  return valor
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toUpperCase();
+}
+
+function esDeTrujillo(data: SunatData) {
+  return (
+    normalizar(data.distrito || "") === "TRUJILLO" &&
+    normalizar(data.provincia || "") === "TRUJILLO" &&
+    normalizar(data.departamento || "") === "LA LIBERTAD"
+  );
+}
 
 const CAMPOS_INICIALES = {
   ruc: "",
@@ -31,12 +59,61 @@ export default function RegistroPresencialPage() {
   const [certificados, setCertificados] = useState<File | null>(null);
 
   const [buscandoRuc, setBuscandoRuc] = useState(false);
+  const [buscandoDni, setBuscandoDni] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Datos de SUNAT: los mismos que ve el ciudadano en el trámite público.
+  const [sunat, setSunat] = useState<SunatData | null>(null);
+
+  const elegibilidad = sunat
+    ? checkRucEligibility(sunat)
+    : { elegible: true as boolean, motivo: undefined };
+
+  const enJurisdiccion = sunat ? esDeTrujillo(sunat) : false;
+
+  // El cajero no puede registrar lo que el sistema rechazaría igual.
+  const puedeRegistrar =
+    Boolean(sunat) && elegibilidad.elegible && enJurisdiccion;
+
   const actualizar = (campo: keyof typeof CAMPOS_INICIALES, valor: string) => {
     setCampos((previo) => ({ ...previo, [campo]: valor }));
+  };
+
+  /**
+   * Autocompleta el nombre del representante al completar los 8 dígitos.
+   *
+   * El correo y el teléfono no vienen de RENIEC: los releva el cajero, pero
+   * siguen siendo obligatorios.
+   */
+  const buscarDni = async (dni: string) => {
+    const limpio = dni.replace(/\D/g, "");
+
+    if (limpio.length !== 8) {
+      return;
+    }
+
+    setBuscandoDni(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch(`/api/dni/${limpio}`, { cache: "no-store" });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo consultar el DNI.");
+      }
+
+      if (data.fullName) {
+        setCampos((previo) => ({ ...previo, representativeName: data.fullName }));
+      }
+    } catch (error: any) {
+      // No bloquea el registro: el cajero puede escribir el nombre a mano.
+      setErrorMessage(`${error.message} Podés escribir el nombre manualmente.`);
+    } finally {
+      setBuscandoDni(false);
+    }
   };
 
   const buscarRuc = async () => {
@@ -58,6 +135,8 @@ export default function RegistroPresencialPage() {
         throw new Error(data.error || "No se pudo consultar el RUC.");
       }
 
+      setSunat(data);
+
       setCampos((previo) => ({
         ...previo,
         ruc: data.ruc,
@@ -65,6 +144,7 @@ export default function RegistroPresencialPage() {
         fiscalAddress: data.fiscalAddress,
       }));
     } catch (error: any) {
+      setSunat(null);
       setErrorMessage(error.message);
     } finally {
       setBuscandoRuc(false);
@@ -218,6 +298,81 @@ export default function RegistroPresencialPage() {
               className={inputClass}
             />
           </div>
+
+          {/* Datos de SUNAT, los mismos que ve el ciudadano en el flujo
+              público. Se muestran solo lectura: son la fuente de verdad. */}
+          {sunat && (
+            <div className="space-y-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className={labelClass}>Estado tributario</p>
+                  <p
+                    className={`text-sm font-bold ${
+                      normalizar(sunat.estado || "") === "ACTIVO"
+                        ? "text-emerald-400"
+                        : "text-rose-400"
+                    }`}
+                  >
+                    {sunat.estado || "No registrado"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className={labelClass}>Condición de domicilio</p>
+                  <p
+                    className={`text-sm font-bold ${
+                      normalizar(sunat.condicion || "") === "HABIDO"
+                        ? "text-emerald-400"
+                        : "text-rose-400"
+                    }`}
+                  >
+                    {sunat.condicion || "No registrada"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <p className={labelClass}>Distrito</p>
+                  <p className="text-sm text-slate-200">
+                    {sunat.distrito || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className={labelClass}>Provincia</p>
+                  <p className="text-sm text-slate-200">
+                    {sunat.provincia || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className={labelClass}>Departamento</p>
+                  <p className="text-sm text-slate-200">
+                    {sunat.departamento || "—"}
+                  </p>
+                </div>
+              </div>
+
+              {!elegibilidad.elegible ? (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>{elegibilidad.motivo}</span>
+                </div>
+              ) : !enJurisdiccion ? (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>
+                    Fuera de jurisdicción: solo se atienden establecimientos del
+                    distrito de Trujillo, provincia de Trujillo, La Libertad.
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>RUC habilitado para registrar el trámite.</span>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="rounded-2xl border border-slate-850 bg-slate-900/40 p-6 space-y-4">
@@ -226,6 +381,36 @@ export default function RegistroPresencialPage() {
           </h2>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            {/* El DNI va primero: al completarlo se autocompleta el nombre. */}
+            <div>
+              <label className={labelClass}>DNI</label>
+              <div className="relative">
+                <input
+                  value={campos.representativeDni}
+                  onChange={(e) => {
+                    const limpio = e.target.value.replace(/\D/g, "").slice(0, 8);
+                    actualizar("representativeDni", limpio);
+
+                    if (limpio.length === 8) {
+                      buscarDni(limpio);
+                    }
+                  }}
+                  required
+                  maxLength={8}
+                  inputMode="numeric"
+                  placeholder="8 dígitos"
+                  className={`${inputClass} font-mono`}
+                />
+
+                {buscandoDni && (
+                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-amber-400" />
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Al completarlo se trae el nombre desde RENIEC.
+              </p>
+            </div>
+
             <div>
               <label className={labelClass}>Nombre completo</label>
               <input
@@ -233,18 +418,8 @@ export default function RegistroPresencialPage() {
                 onChange={(e) => actualizar("representativeName", e.target.value)}
                 required
                 minLength={3}
+                placeholder="Se completa con el DNI"
                 className={inputClass}
-              />
-            </div>
-
-            <div>
-              <label className={labelClass}>DNI</label>
-              <input
-                value={campos.representativeDni}
-                onChange={(e) => actualizar("representativeDni", e.target.value)}
-                maxLength={8}
-                inputMode="numeric"
-                className={`${inputClass} font-mono`}
               />
             </div>
 
@@ -308,7 +483,7 @@ export default function RegistroPresencialPage() {
 
         <button
           type="submit"
-          disabled={guardando}
+          disabled={guardando || !puedeRegistrar}
           className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 px-5 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
         >
           {guardando ? (

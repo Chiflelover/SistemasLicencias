@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { isValidRuc } from "@/lib/ruc";
 
 interface ApiPeruRucData {
   ruc?: string;
@@ -58,6 +59,14 @@ export class RucService {
   static async getBusinessData(ruc: string) {
     if (!ruc || !/^\d{11}$/.test(ruc)) {
       throw new Error("El RUC debe tener 11 dígitos.");
+    }
+
+    // El dígito de control se calcula localmente: un RUC mal tipeado no
+    // llega a consumir cuota de APIPERU.
+    if (!isValidRuc(ruc)) {
+      throw new Error(
+        "El RUC ingresado no es válido. Verificá los dígitos, especialmente el último."
+      );
     }
 
     const cached = await this.readFromCache(ruc);

@@ -1,6 +1,6 @@
 import { getCurrentUser } from "../../lib/auth";
 import { redirect } from "next/navigation";
-import { Sidebar, Navbar, DevPanel } from "../../components";
+import { Sidebar, Navbar } from "../../components";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +28,6 @@ export default async function CajeroLayout({
 
         <main className="flex-grow p-6 lg:p-8">{children}</main>
       </div>
-
-      <DevPanel />
     </div>
   );
 }

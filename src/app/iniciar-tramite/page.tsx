@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { checkRucEligibility } from "@/lib/ruc-eligibility";
 import { AlertTriangle, ArrowLeft, Building2, BriefcaseBusiness, CheckCircle2, Loader2, MapPin, Search, ShieldCheck } from "lucide-react";
 
 type TramiteExistente = {
@@ -70,8 +71,13 @@ export default function IniciarTramitePage() {
   const allowed = isAllowedForTrujillo(rucData);
   const tramiteExistente = rucData?.tramiteExistente ?? null;
 
-  // Con un trámite en curso o una licencia vigente no corresponde iniciar otro.
-  const puedeIniciar = Boolean(rucData) && allowed && !tramiteExistente;
+  // Estado tributario: un RUC dado de baja o suspendido no puede tramitar.
+  const elegibilidad = rucData
+    ? checkRucEligibility(rucData)
+    : { elegible: true as boolean, motivo: undefined };
+
+  const puedeIniciar =
+    Boolean(rucData) && allowed && !tramiteExistente && elegibilidad.elegible;
 
   const handleRucChange = (value: string) => {
     const cleanValue = value.replace(/\D/g, "").slice(0, 11);
@@ -342,7 +348,30 @@ export default function IniciarTramitePage() {
                 </label>
               </div>
 
-              {rucData && (
+              {/* El estado tributario se evalúa antes que la jurisdicción: si
+                  el RUC está de baja, el distrito es irrelevante. */}
+              {rucData && !elegibilidad.elegible && (
+                <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-5 text-rose-200">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-1 h-5 w-5 shrink-0" />
+
+                    <div>
+                      <p className="font-bold">
+                        RUC no habilitado ante SUNAT
+                      </p>
+
+                      <p className="mt-2 text-sm">{elegibilidad.motivo}</p>
+
+                      <p className="mt-2 text-xs text-rose-300/80">
+                        Estado tributario:{" "}
+                        <strong>{rucData.estado || "No registrado"}</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {rucData && elegibilidad.elegible && (
                 <div
                   className={`rounded-3xl border p-5 ${
                     allowed
@@ -369,6 +398,7 @@ export default function IniciarTramitePage() {
                           ? "El domicilio fiscal pertenece al distrito de Trujillo, provincia de Trujillo, departamento de La Libertad. Puedes continuar con el trámite."
                           : "No se puede iniciar el trámite. Este sistema solo atiende establecimientos con domicilio fiscal en el distrito de Trujillo, provincia de Trujillo, departamento de La Libertad."}
                       </p>
+
                     </div>
                   </div>
                 </div>

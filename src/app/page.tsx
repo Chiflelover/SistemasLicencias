@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   Shield,
   ShieldCheck,
@@ -15,9 +16,21 @@ export default function HomePage() {
       <header className="border-b border-slate-800 bg-slate-900/40 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-bold">
-              T
-            </div>
+            {/* El original pesa 331 KB: acá sí conviene dejar que Next lo
+                redimensione y comprima. quality 90 mantiene nítido el texto
+                fino del escudo. */}
+            <Image
+              src="/escudo_trujillo.png"
+              alt="Escudo de la Municipalidad Provincial de Trujillo"
+              width={870}
+              height={1182}
+              // Sin `sizes`, Next pide la imagen a 1080px de ancho para
+              // mostrarla a ~41px. Declarando el alto real baja a ~64px.
+              sizes="56px"
+              quality={90}
+              priority
+              className="h-14 w-auto rounded-lg bg-white object-contain px-2 py-1.5 shadow-sm ring-1 ring-white/20"
+            />
 
             <div>
               <span className="font-bold text-white tracking-wide block">
@@ -29,15 +42,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <Link
-              href="/iniciar-tramite"
-              className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition duration-150"
-            >
-              Iniciar trámite
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
         </div>
       </header>
 

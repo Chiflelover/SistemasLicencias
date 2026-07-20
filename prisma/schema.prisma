@@ -398,3 +398,12 @@ model RucCache {
 
   @@index([fetchedAt])
 }
+
+// Caché de consultas de DNI a RENIEC (mismo ahorro de cuota que el RUC)
+model DniCache {
+  dni       String   @id
+  payload   Json
+  fetchedAt DateTime @default(now())
+
+  @@index([fetchedAt])
+}

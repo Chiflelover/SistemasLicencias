@@ -8,6 +8,7 @@ import {
   belongsToDistrictTrujillo,
   OUT_OF_DISTRICT_MESSAGE,
 } from "@/lib/territory";
+import { checkRucEligibility } from "@/lib/ruc-eligibility";
 import { DocumentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -86,6 +87,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!/^\d{8}$/.test(representativeDni)) {
+      return NextResponse.json(
+        { error: "El DNI del representante legal debe tener 8 dígitos." },
+        { status: 400 }
+      );
+    }
+
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       return NextResponse.json(
         { error: "Ingresa un correo electrónico válido." },
@@ -103,6 +111,22 @@ export async function POST(request: Request) {
     // Regla territorial: el cajero no puede saltearse el filtro de distrito.
     // Sale del caché de RUC, así que normalmente no gasta cuota de APIPERU.
     const rucData = await RucService.getBusinessData(ruc);
+
+
+    // El RUC debe estar activo ante SUNAT: uno dado de baja, suspendido o
+    // inhabilitado no puede obtener licencia de funcionamiento.
+    const elegibilidad = checkRucEligibility(rucData);
+
+    if (!elegibilidad.elegible) {
+      return NextResponse.json(
+        {
+          error: elegibilidad.motivo,
+          estadoTributario: rucData.estado,
+          condicion: rucData.condicion,
+        },
+        { status: 400 }
+      );
+    }
 
     if (!belongsToDistrictTrujillo(rucData)) {
       return NextResponse.json(

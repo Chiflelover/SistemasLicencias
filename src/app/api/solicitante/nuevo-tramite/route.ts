@@ -4,6 +4,7 @@ import { ApplicationService } from "@/services/application.service";
 import { BusinessSchema } from "@/lib/validation/business";
 import { RucService } from "@/services/ruc.service";
 import { belongsToDistrictTrujillo } from "@/lib/territory";
+import { checkRucEligibility } from "@/lib/ruc-eligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,22 @@ export async function POST(request: Request) {
     }
 
     const rucData = await RucService.getBusinessData(parsed.data.ruc);
+
+
+    // El RUC debe estar activo ante SUNAT: uno dado de baja, suspendido o
+    // inhabilitado no puede obtener licencia de funcionamiento.
+    const elegibilidad = checkRucEligibility(rucData);
+
+    if (!elegibilidad.elegible) {
+      return NextResponse.json(
+        {
+          error: elegibilidad.motivo,
+          estadoTributario: rucData.estado,
+          condicion: rucData.condicion,
+        },
+        { status: 400 }
+      );
+    }
 
     if (!belongsToDistrictTrujillo(rucData)) {
       return NextResponse.json(
