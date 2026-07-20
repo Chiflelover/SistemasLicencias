@@ -87,4 +87,26 @@ export class WhatsAppService {
       `Hoy ${cuando} tienes programada tu inspección para la Licencia`
     );
   }
+
+  /**
+   * Aviso al inspector de su carga del día.
+   *
+   * Lleva prefijo porque en la demostración todos los mensajes caen en el
+   * mismo teléfono: sin él no se distingue del aviso al administrado.
+   */
+  static async notifyInspectorAgenda(pendientes: number, primera: Date) {
+    const hora = primera.toLocaleTimeString("es-PE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const cuantas =
+      pendientes === 1
+        ? "1 inspección programada"
+        : `${pendientes} inspecciones programadas`;
+
+    return this.send(
+      `Inspector: hoy tienes ${cuantas}. La primera a las ${hora}`
+    );
+  }
 }

@@ -56,6 +56,7 @@ export async function POST(request: Request) {
     const representativeName = read("representativeName");
     const representativeDni = read("representativeDni");
     const representativeRole = read("representativeRole");
+    const activityType = read("activityType");
     const email = read("email").toLowerCase();
     const phone = read("phone");
 
@@ -83,6 +84,14 @@ export async function POST(request: Request) {
     if (representativeName.length < 3) {
       return NextResponse.json(
         { error: "El nombre del representante legal es obligatorio." },
+        { status: 400 }
+      );
+    }
+
+    // SUNAT no informa el giro: lo declara el contribuyente en ventanilla.
+    if (activityType.length < 3) {
+      return NextResponse.json(
+        { error: "El rubro o giro del negocio es obligatorio." },
         { status: 400 }
       );
     }
@@ -180,6 +189,7 @@ export async function POST(request: Request) {
         representativeName,
         representativeDni,
         representativeRole,
+        activityType,
         email,
         phone,
       });

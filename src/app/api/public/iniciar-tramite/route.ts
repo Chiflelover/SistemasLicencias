@@ -18,6 +18,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // El rubro no lo devuelve SUNAT: lo declara el ciudadano. Sin él la
+    // licencia se emitiría con "No registrado" en el giro comercial.
+    const activityType = String(body.activityType || "").trim();
+
+    if (activityType.length < 3) {
+      return NextResponse.json(
+        { error: "Indica el rubro o giro del negocio (mínimo 3 caracteres)." },
+        { status: 400 }
+      );
+    }
+
     const rucData = await RucService.getBusinessData(ruc);
 
 
@@ -75,6 +86,7 @@ export async function POST(request: Request) {
         ruc: rucData.ruc,
         legalName: rucData.legalName,
         fiscalAddress: rucData.fiscalAddress,
+        activityType,
       });
 
     return NextResponse.json(

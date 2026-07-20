@@ -167,6 +167,42 @@ export class NotificationService {
    * Se llama al consultar la campana. La clave de deduplicación incluye la
    * fecha, así que se crea uno por día como máximo.
    */
+  /**
+   * Aviso al administrado de que su inspección es hoy, más el WhatsApp.
+   *
+   * La clave de deduplicación es por inspección y por día, así que no importa
+   * quién dispare el sincronizado —el inspector o el propio administrado—:
+   * el aviso sale una sola vez, y una vez por cada inspección de la jornada.
+   */
+  private static async avisarInspeccionDeHoy(params: {
+    applicantId: string;
+    applicationId: string;
+    applicationNumber: string;
+    inspectionId: string;
+    scheduledAt: Date;
+    day: string;
+  }) {
+    const hora = params.scheduledAt.toLocaleTimeString("es-PE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const creada = await this.notify({
+      userId: params.applicantId,
+      type: NotificationType.INSPECTION_TODAY,
+      title: "Hoy tenés inspección",
+      message: `El trámite ${params.applicationNumber} tiene inspección hoy a las ${hora}.`,
+      applicationId: params.applicationId,
+      dedupeKey: `inspeccion-hoy:${params.inspectionId}:${params.day}`,
+    });
+
+    // Solo cuando notify() creó una fila nueva. Sin esta guarda el mensaje
+    // saldría en cada sondeo de la campana, cada pocos segundos.
+    if (creada) {
+      await WhatsAppService.notifyInspectionScheduled(params.scheduledAt);
+    }
+  }
+
   static async syncDailyNotifications(userId: string, role: Role) {
     const systemDate = await getCurrentSystemDate();
     const day = await this.dayKey();
@@ -184,14 +220,22 @@ export class NotificationService {
           status: "SCHEDULED",
           scheduledAt: { gte: from, lte: to },
         },
-        select: { scheduledAt: true },
+        select: {
+          id: true,
+          scheduledAt: true,
+          application: {
+            select: { id: true, number: true, applicantId: true },
+          },
+        },
         orderBy: { scheduledAt: "asc" },
       });
 
       const pendientes = inspeccionesDeHoy.length;
 
       if (pendientes > 0) {
-        const creada = await this.notify({
+        // Resumen para el inspector: uno por día, porque le interesa su carga
+        // de la jornada y no cada inspección por separado.
+        const resumenCreado = await this.notify({
           userId,
           type: NotificationType.INSPECTOR_TODAY_AGENDA,
           title: "Tenés inspecciones pendientes para hoy",
@@ -201,14 +245,29 @@ export class NotificationService {
           dedupeKey: `agenda-inspector:${userId}:${day}`,
         });
 
-        // El aviso por WhatsApp se cuelga de la clave de deduplicación: solo
-        // sale cuando notify() creó una fila nueva, o sea una vez por día.
-        // Sin esto se mandaría en cada sondeo de la campana, cada pocos
-        // segundos.
-        if (creada) {
-          await WhatsAppService.notifyInspectionScheduled(
+        if (resumenCreado) {
+          await WhatsAppService.notifyInspectorAgenda(
+            pendientes,
             inspeccionesDeHoy[0].scheduledAt
           );
+        }
+
+        // El aviso al administrado va aparte y es uno por inspección: el
+        // resumen del inspector se deduplica por día, así que colgarse de él
+        // dejaba sin mensaje a la segunda inspección de la jornada.
+        //
+        // Se emiten desde acá porque el administrado del flujo público no
+        // puede iniciar sesión: si esperáramos a que sincronice su propia
+        // campana, no saldrían nunca.
+        for (const inspeccion of inspeccionesDeHoy) {
+          await this.avisarInspeccionDeHoy({
+            applicantId: inspeccion.application.applicantId,
+            applicationId: inspeccion.application.id,
+            applicationNumber: inspeccion.application.number,
+            inspectionId: inspeccion.id,
+            scheduledAt: inspeccion.scheduledAt,
+            day,
+          });
         }
       }
 
@@ -231,25 +290,14 @@ export class NotificationService {
       });
 
       for (const inspeccion of inspeccionesHoy) {
-        const hora = inspeccion.scheduledAt.toLocaleTimeString("es-PE", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-
-        const creada = await this.notify({
-          userId,
-          type: NotificationType.INSPECTION_TODAY,
-          title: "Hoy tenés inspección",
-          message: `El trámite ${inspeccion.application.number} tiene inspección hoy a las ${hora}.`,
+        await this.avisarInspeccionDeHoy({
+          applicantId: userId,
           applicationId: inspeccion.application.id,
-          dedupeKey: `inspeccion-hoy:${inspeccion.id}:${day}`,
+          applicationNumber: inspeccion.application.number,
+          inspectionId: inspeccion.id,
+          scheduledAt: inspeccion.scheduledAt,
+          day,
         });
-
-        if (creada) {
-          await WhatsAppService.notifyInspectionScheduled(
-            inspeccion.scheduledAt
-          );
-        }
       }
 
       // Licencias vencidas.

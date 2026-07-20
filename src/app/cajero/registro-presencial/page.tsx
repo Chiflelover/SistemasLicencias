@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { checkRucEligibility } from "@/lib/ruc-eligibility";
 import {
   AlertTriangle,
@@ -67,6 +67,7 @@ const CAMPOS_INICIALES = {
   representativeName: "",
   representativeDni: "",
   representativeRole: "Representante Legal",
+  activityType: "",
   email: "",
   phone: "",
 };
@@ -100,11 +101,27 @@ export default function RegistroPresencialPage() {
     Boolean(sunat) &&
     elegibilidad.elegible &&
     enJurisdiccion &&
-    !tramiteExistente;
+    !tramiteExistente &&
+    campos.activityType.trim().length >= 3;
 
   const actualizar = (campo: keyof typeof CAMPOS_INICIALES, valor: string) => {
     setCampos((previo) => ({ ...previo, [campo]: valor }));
   };
+
+  // Llegada desde "Renovación de licencia": el RUC viene en la URL y se
+  // consulta solo, para que el cajero no lo tenga que tipear de nuevo.
+  // Se lee de window y no con useSearchParams para no obligar a envolver la
+  // página en un Suspense.
+  useEffect(() => {
+    const rucDeLaUrl = new URLSearchParams(window.location.search).get("ruc");
+
+    if (rucDeLaUrl && /^\d{11}$/.test(rucDeLaUrl)) {
+      setCampos((previo) => ({ ...previo, ruc: rucDeLaUrl }));
+      buscarRuc(rucDeLaUrl);
+    }
+    // Solo al montar: es la carga inicial desde el enlace.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * Autocompleta el nombre del representante al completar los 8 dígitos.
@@ -141,8 +158,11 @@ export default function RegistroPresencialPage() {
     }
   };
 
-  const buscarRuc = async () => {
-    const cleanRuc = campos.ruc.replace(/\D/g, "");
+  const buscarRuc = async (rucInicial?: string) => {
+    // Acepta el RUC por parámetro porque al llegar desde "Renovación de
+    // licencia" se consulta en el mismo tick en que se llena el campo, y el
+    // estado todavía no se actualizó.
+    const cleanRuc = (rucInicial ?? campos.ruc).replace(/\D/g, "");
 
     if (cleanRuc.length !== 11) {
       setErrorMessage("El RUC debe tener 11 dígitos.");
@@ -287,7 +307,7 @@ export default function RegistroPresencialPage() {
               />
               <button
                 type="button"
-                onClick={buscarRuc}
+                onClick={() => buscarRuc()}
                 disabled={buscandoRuc}
                 className="bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white px-5 rounded-lg text-sm font-bold flex items-center gap-2 transition whitespace-nowrap"
               >
@@ -322,6 +342,21 @@ export default function RegistroPresencialPage() {
               onChange={(e) => actualizar("fiscalAddress", e.target.value)}
               required
               minLength={5}
+              className={inputClass}
+            />
+          </div>
+
+          {/* SUNAT no informa el giro: lo declara el contribuyente y el
+              cajero lo transcribe. Va impreso en la licencia. */}
+          <div>
+            <label className={labelClass}>Rubro o giro del negocio</label>
+            <input
+              value={campos.activityType}
+              onChange={(e) => actualizar("activityType", e.target.value)}
+              required
+              minLength={3}
+              maxLength={80}
+              placeholder="Ej. Bodega, restaurante, ferretería"
               className={inputClass}
             />
           </div>

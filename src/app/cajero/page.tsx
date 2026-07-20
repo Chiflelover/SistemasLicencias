@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
+import RenovacionLicencia from "@/components/RenovacionLicencia";
 import { Building2, DollarSign, Plus, FileText, CheckCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -108,6 +109,8 @@ export default async function CajeroDashboard() {
           <p className="mt-2 text-3xl font-black text-amber-400">{pendientesDePago}</p>
         </div>
       </div>
+
+      <RenovacionLicencia />
 
       <div className="rounded-2xl border border-slate-850 bg-slate-900/40 overflow-hidden">
         <div className="p-5 border-b border-slate-850">

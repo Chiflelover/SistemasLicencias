@@ -64,10 +64,22 @@ export class BusinessService {
     legalName: string;
     ruc: string;
     fiscalAddress: string;
+    activityType?: string;
   }): Promise<Business> {
     const existingBusiness = await BusinessRepository.findByRuc(data.ruc);
 
     if (existingBusiness) {
+      // El negocio puede venir de un trámite anterior a que el rubro se
+      // pidiera, con el relleno "No registrado" guardado. Si ahora el
+      // ciudadano lo declara, se actualiza: si no, la licencia se seguiría
+      // emitiendo con el relleno impreso.
+      if (data.activityType && data.activityType !== existingBusiness.activityType) {
+        return prisma.business.update({
+          where: { id: existingBusiness.id },
+          data: { activityType: data.activityType },
+        });
+      }
+
       return existingBusiness;
     }
 
@@ -76,7 +88,7 @@ export class BusinessService {
       ruc: data.ruc,
       fiscalAddress: data.fiscalAddress,
       commercialAddress: data.fiscalAddress,
-      activityType: "No registrado",
+      activityType: data.activityType || "No registrado",
       representativeName: "No registrado",
       representativeDni: "",
       representativeRole: "Representante Legal",

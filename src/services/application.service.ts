@@ -107,6 +107,7 @@ export class ApplicationService {
     legalName: string;
     ruc: string;
     fiscalAddress: string;
+    activityType?: string;
   }): Promise<{ application: Application; business: Business }> {
     const now = await getCurrentSystemDate();
 
@@ -114,6 +115,7 @@ export class ApplicationService {
       legalName: params.legalName,
       ruc: params.ruc,
       fiscalAddress: params.fiscalAddress,
+      activityType: params.activityType,
     });
 
     const applicant = await prisma.user.upsert({
@@ -205,6 +207,7 @@ export class ApplicationService {
     representativeName: string;
     representativeDni?: string;
     representativeRole?: string;
+    activityType?: string;
     email: string;
     phone: string;
   }): Promise<{ application: Application; business: Business }> {
@@ -214,6 +217,7 @@ export class ApplicationService {
       legalName: params.legalName,
       ruc: params.ruc,
       fiscalAddress: params.fiscalAddress,
+      activityType: params.activityType,
       representativeName: params.representativeName,
       representativeDni: params.representativeDni,
       representativeRole: params.representativeRole,

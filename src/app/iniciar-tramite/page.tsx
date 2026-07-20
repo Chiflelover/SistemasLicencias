@@ -63,6 +63,7 @@ export default function IniciarTramitePage() {
   const router = useRouter();
 
   const [ruc, setRuc] = useState("");
+  const [rubro, setRubro] = useState("");
   const [rucData, setRucData] = useState<RucData | null>(null);
   const [loading, setLoading] = useState(false);
   const [creatingApplication, setCreatingApplication] = useState(false);
@@ -77,7 +78,11 @@ export default function IniciarTramitePage() {
     : { elegible: true as boolean, motivo: undefined };
 
   const puedeIniciar =
-    Boolean(rucData) && allowed && !tramiteExistente && elegibilidad.elegible;
+    Boolean(rucData) &&
+    allowed &&
+    !tramiteExistente &&
+    elegibilidad.elegible &&
+    rubro.trim().length >= 3;
 
   const handleRucChange = (value: string) => {
     const cleanValue = value.replace(/\D/g, "").slice(0, 11);
@@ -144,6 +149,7 @@ export default function IniciarTramitePage() {
         },
         body: JSON.stringify({
           ruc: rucData.ruc,
+          activityType: rubro.trim(),
         }),
       });
 
@@ -347,6 +353,27 @@ export default function IniciarTramitePage() {
                   </div>
                 </label>
               </div>
+
+              {/* SUNAT no devuelve el giro del negocio, así que lo declara el
+                  ciudadano. Va impreso en la licencia. */}
+              <label className="block text-sm text-slate-300">
+                <span className="font-semibold">
+                  Rubro o giro del negocio{" "}
+                  <span className="text-rose-400">*</span>
+                </span>
+
+                <input
+                  value={rubro}
+                  onChange={(event) => setRubro(event.target.value)}
+                  maxLength={80}
+                  placeholder="Ej. Bodega, restaurante, ferretería"
+                  className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20"
+                />
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Obligatorio. Aparecerá en tu licencia como giro comercial.
+                </p>
+              </label>
 
               {/* El estado tributario se evalúa antes que la jurisdicción: si
                   el RUC está de baja, el distrito es irrelevante. */}
