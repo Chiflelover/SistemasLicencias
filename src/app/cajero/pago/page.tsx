@@ -59,6 +59,17 @@ export default function CajeroPagoPage() {
   const [comprobanteTipo, setComprobanteTipo] = useState<"FACTURA" | "BOLETA">(
     "FACTURA"
   );
+
+  // Sin caja abierta el cobro se rechaza en el servidor. Se consulta acá para
+  // avisarlo antes y no que el cajero lo descubra al confirmar.
+  const [cajaAbierta, setCajaAbierta] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/cajero/caja", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => setCajaAbierta(Boolean(data.abierta)))
+      .catch(() => setCajaAbierta(null));
+  }, []);
   const [cobrando, setCobrando] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [comprobante, setComprobante] = useState<Comprobante | null>(null);
@@ -183,6 +194,22 @@ export default function CajeroPagoPage() {
           Ver arqueo
         </Link>
       </div>
+
+      {cajaAbierta === false && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-200 text-sm flex gap-2">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>
+            Tenés la caja cerrada, así que no vas a poder registrar cobros.{" "}
+            <Link
+              href="/cajero/arqueo"
+              className="font-bold underline underline-offset-2 hover:text-amber-100"
+            >
+              Abrila desde Arqueo de caja
+            </Link>
+            .
+          </span>
+        </div>
+      )}
 
       {errorMessage && (
         <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-200 text-sm flex gap-2">
@@ -424,6 +451,7 @@ export default function CajeroPagoPage() {
               onClick={confirmarCobro}
               disabled={
                 cobrando ||
+                cajaAbierta === false ||
                 (metodo === "EFECTIVO" &&
                   (recibido === "" ||
                     Number(recibido) < MONTO_TUPA ||

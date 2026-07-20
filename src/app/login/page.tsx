@@ -188,12 +188,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          <div className="text-center pt-2">
-            <p className="text-sm text-slate-400">
-              Si necesitas una cuenta de solicitante, usa el botón de registro en la página principal.
-            </p>
-          </div>
         </div>
       </div>
     </main>

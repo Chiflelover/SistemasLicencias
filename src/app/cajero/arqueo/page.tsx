@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import EstadoCaja from "@/components/EstadoCaja";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -102,9 +103,14 @@ export default function ArqueoPage() {
 
         <h1 className="mt-4 text-2xl font-bold text-white">Arqueo de caja</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Resumen de lo que cobraste, desglosado por método de pago.
+          Abrí y cerrá tu turno, y consultá lo que cobraste desglosado por
+          método de pago.
         </p>
       </div>
+
+      {/* La apertura y el cierre viven acá y no en el panel: son la misma
+          tarea que el arqueo, contar lo que hay en el cajón. */}
+      <EstadoCaja />
 
       <div className="rounded-2xl border border-slate-850 bg-slate-900/40 p-5 flex flex-col sm:flex-row sm:items-end gap-3">
         <div className="flex-grow">

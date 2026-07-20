@@ -2,9 +2,15 @@ import Link from "next/link";
 import { getCurrentUser } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import EstadoCaja from "@/components/EstadoCaja";
 import RenovacionLicencia from "@/components/RenovacionLicencia";
-import { Building2, DollarSign, Plus, FileText, CheckCircle2 } from "lucide-react";
+import {
+  Building2,
+  DollarSign,
+  Plus,
+  FileText,
+  CheckCircle2,
+  Wallet,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +51,13 @@ export default async function CajeroDashboard() {
       payments: { select: { id: true, amount: true, operationNumber: true } },
     },
     orderBy: { createdAt: "desc" },
+  });
+
+  // El cobro exige turno abierto. Se consulta para avisarlo desde el panel y
+  // que no lo descubra recién al confirmar un pago.
+  const cajaAbierta = await prisma.cashSession.findFirst({
+    where: { cashierId: user.id, status: "OPEN" },
+    select: { id: true },
   });
 
   const totalRegistradas = applications.length;
@@ -111,7 +124,26 @@ export default async function CajeroDashboard() {
         </div>
       </div>
 
-      <EstadoCaja />
+      {!cajaAbierta && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 flex items-start gap-3">
+          <Wallet className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+
+          <div className="text-sm">
+            <p className="font-bold text-white">La caja está cerrada</p>
+
+            <p className="mt-1 text-amber-200">
+              Mientras siga así no vas a poder registrar cobros.{" "}
+              <Link
+                href="/cajero/arqueo"
+                className="font-bold underline underline-offset-2 hover:text-amber-100"
+              >
+                Abrila desde Arqueo de caja
+              </Link>
+              .
+            </p>
+          </div>
+        </div>
+      )}
 
       <RenovacionLicencia />
 
