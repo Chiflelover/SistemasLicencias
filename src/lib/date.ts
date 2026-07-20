@@ -1,6 +1,17 @@
 import { prisma } from "./db/prisma";
 import { isTimeSimulatorEnabled } from "./simulator";
 
+// Vercel ejecuta las funciones en UTC e ignora la variable de entorno TZ, así
+// que setHours(8) guardaba las 08:00 UTC: las 03:00 de la madrugada en Perú.
+// Todo el cálculo de fechas del sistema (franjas de inspección, límites del
+// día en la agenda, días hábiles, bordes del arqueo) usa métodos de hora
+// local, de modo que fijar la zona del proceso los corrige de una sola vez.
+// Perú no tiene horario de verano: es UTC-5 fijo, sin transiciones.
+//
+// Se hace acá porque este módulo está en la cadena de importación de todo lo
+// que opera con fechas, y así queda fijada antes de la primera cuenta.
+process.env.TZ = "America/Lima";
+
 export function cloneDate(date: Date): Date {
   return new Date(date.getTime());
 }
