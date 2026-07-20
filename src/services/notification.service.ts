@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { WhatsAppService } from "@/services/whatsapp.service";
 import { getCurrentSystemDate } from "@/lib/date";
 import { NotificationType, Role } from "@prisma/client";
 
@@ -177,16 +178,20 @@ export class NotificationService {
     to.setHours(23, 59, 59, 999);
 
     if (role === Role.INSPECTOR) {
-      const pendientes = await prisma.inspection.count({
+      const inspeccionesDeHoy = await prisma.inspection.findMany({
         where: {
           inspectorId: userId,
           status: "SCHEDULED",
           scheduledAt: { gte: from, lte: to },
         },
+        select: { scheduledAt: true },
+        orderBy: { scheduledAt: "asc" },
       });
 
+      const pendientes = inspeccionesDeHoy.length;
+
       if (pendientes > 0) {
-        await this.notify({
+        const creada = await this.notify({
           userId,
           type: NotificationType.INSPECTOR_TODAY_AGENDA,
           title: "Tenés inspecciones pendientes para hoy",
@@ -195,6 +200,16 @@ export class NotificationService {
           } para hoy.`,
           dedupeKey: `agenda-inspector:${userId}:${day}`,
         });
+
+        // El aviso por WhatsApp se cuelga de la clave de deduplicación: solo
+        // sale cuando notify() creó una fila nueva, o sea una vez por día.
+        // Sin esto se mandaría en cada sondeo de la campana, cada pocos
+        // segundos.
+        if (creada) {
+          await WhatsAppService.notifyInspectionScheduled(
+            inspeccionesDeHoy[0].scheduledAt
+          );
+        }
       }
 
       return;
@@ -221,7 +236,7 @@ export class NotificationService {
           minute: "2-digit",
         });
 
-        await this.notify({
+        const creada = await this.notify({
           userId,
           type: NotificationType.INSPECTION_TODAY,
           title: "Hoy tenés inspección",
@@ -229,6 +244,12 @@ export class NotificationService {
           applicationId: inspeccion.application.id,
           dedupeKey: `inspeccion-hoy:${inspeccion.id}:${day}`,
         });
+
+        if (creada) {
+          await WhatsAppService.notifyInspectionScheduled(
+            inspeccion.scheduledAt
+          );
+        }
       }
 
       // Licencias vencidas.
