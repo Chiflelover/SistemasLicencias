@@ -168,7 +168,8 @@ export default function EstadoCaja() {
             </p>
 
             <p className="mt-1 text-amber-200">
-              Diferencia de {soles(data.pendiente.diferencia)}. El administrador
+              {data.pendiente.diferencia > 0 ? "Sobran " : "Faltan "}
+              {soles(Math.abs(data.pendiente.diferencia))}. El administrador
               tiene que autorizar el cierre para que puedas abrir una caja nueva.
             </p>
 
@@ -321,7 +322,7 @@ export default function EstadoCaja() {
                   (!cuadra && justificacion.trim().length < 10)
                 }
                 className={`w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed ${
-                  cuadra
+                  cuadra || contado === ""
                     ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950"
                     : "bg-amber-500 hover:bg-amber-400 text-slate-950"
                 }`}
@@ -331,7 +332,14 @@ export default function EstadoCaja() {
                 ) : (
                   <Lock className="w-4 h-4" />
                 )}
-                {cuadra ? "Cerrar caja" : "Solicitar cierre al administrador"}
+                {/* Antes de contar no se sabe si cuadra: anunciar la
+                    solicitud al administrador daría a entender que ya hay un
+                    descuadre. */}
+                {contado === ""
+                  ? "Cerrar caja"
+                  : cuadra
+                  ? "Cerrar caja"
+                  : "Solicitar cierre al administrador"}
               </button>
             </div>
           </div>
