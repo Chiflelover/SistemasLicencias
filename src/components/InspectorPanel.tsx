@@ -33,6 +33,41 @@ interface InspectionDetail {
   };
 }
 
+/**
+ * Etiquetas fijas por tipo de documento.
+ *
+ * Se muestran en lugar del nombre guardado porque cada flujo lo escribió
+ * distinto ("Certificados" en ventanilla, otro texto en el público) y el
+ * inspector necesita ver siempre lo mismo. Los adicionales sí conservan su
+ * nombre: ahí es donde vive el comprobante de pago, que hay que distinguir.
+ *
+ * Se define acá y no se importa de lib/documents para no arrastrar
+ * @prisma/client al bundle del navegador.
+ */
+const ETIQUETAS_DOCUMENTO: Record<string, string> = {
+  FLOOR_PLAN: "Plano",
+  RUC_RECORD: "Ficha RUC",
+};
+
+const ESTADOS_TRAMITE: Record<string, string> = {
+  DRAFT: "Borrador",
+  DOCUMENTS_COMPLETE: "Documentos completos",
+  PENDING_PAYMENT: "Pendiente de pago",
+  PAYMENT_COMPLETED: "Pagado, esperando inspección",
+  INSPECTION_SCHEDULED: "Inspección programada",
+  FIRST_INSPECTION_REJECTED: "Observado",
+  SECOND_INSPECTION_SCHEDULED: "Observado · 2da inspección programada",
+  LICENSE_ISSUED: "Licencia emitida",
+  DEFINITIVELY_REJECTED: "Rechazado definitivo",
+  RENEWAL_AVAILABLE: "Renovación disponible",
+  EXPIRED: "Licencia vencida",
+};
+
+const formatApplicationStatus = (status?: string | null) => {
+  if (!status) return "-";
+  return ESTADOS_TRAMITE[status] ?? status.replaceAll("_", " ");
+};
+
 const formatDateTime = (isoDate: string) => {
   const date = new Date(isoDate);
   return date.toLocaleString("es-PE", {
@@ -340,7 +375,9 @@ export function InspectorPanel() {
                       <div className="flex items-center gap-3 min-w-0">
                         <ClipboardList className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition" />
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-white truncate">{document.name}</p>
+                          <p className="text-sm font-semibold text-white truncate">
+                            {ETIQUETAS_DOCUMENTO[document.type] ?? document.name}
+                          </p>
                           <p className="text-xs text-slate-500 truncate">{document.fileName}</p>
                         </div>
                       </div>
@@ -368,7 +405,9 @@ export function InspectorPanel() {
               </div>
               <div className="rounded-2xl border border-slate-850 bg-slate-950/40 p-4">
                 <p className="text-slate-500 uppercase text-[11px] tracking-[0.2em]">Estado del trámite</p>
-                <p className="mt-2 text-white">{details?.application.status || "-"}</p>
+                <p className="mt-2 text-white">
+                  {formatApplicationStatus(details?.application.status)}
+                </p>
               </div>
             </div>
 

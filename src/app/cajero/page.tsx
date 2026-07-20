@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
+import EstadoCaja from "@/components/EstadoCaja";
 import RenovacionLicencia from "@/components/RenovacionLicencia";
 import { Building2, DollarSign, Plus, FileText, CheckCircle2 } from "lucide-react";
 
@@ -109,6 +110,8 @@ export default async function CajeroDashboard() {
           <p className="mt-2 text-3xl font-black text-amber-400">{pendientesDePago}</p>
         </div>
       </div>
+
+      <EstadoCaja />
 
       <RenovacionLicencia />
 

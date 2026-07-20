@@ -35,8 +35,8 @@ const ALLOWED_DOCUMENT_TYPES: DocumentType[] = [
 ];
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
-  FLOOR_PLAN: "Plano del local",
-  RUC_RECORD: "Certificados / Ficha RUC",
+  FLOOR_PLAN: "Plano",
+  RUC_RECORD: "Ficha RUC",
   ADDITIONAL: "Documento adicional",
 };
 

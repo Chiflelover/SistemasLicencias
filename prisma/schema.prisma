@@ -53,6 +53,13 @@ enum PaymentStatus {
 }
 
 // Medios aceptados en caja (pago presencial, sin pasarela externa)
+// Comprobante de pago. La factura identifica al adquirente por RUC y la
+// boleta por DNI: cambian la serie y el código de documento ante SUNAT.
+enum ReceiptType {
+  BOLETA
+  FACTURA
+}
+
 enum PaymentMethod {
   EFECTIVO
   TARJETA
@@ -101,6 +108,8 @@ model User {
   cashPayments  Payment[]     @relation("CashierPayments")
   auditLogs     AuditLog[]    @relation("UserAuditLogs")
   notifications Notification[] @relation("UserNotifications")
+  cashSessions   CashSession[] @relation("CashierSessions")
+  closedSessions CashSession[] @relation("AdminClosedSessions")
 
   @@index([role])
   @@index([active])
@@ -198,6 +207,16 @@ model Payment {
   // Nulos en los pagos que no pasaron por caja.
   method         PaymentMethod?
   registeredById String?
+
+  // Solo en cobros en efectivo: con cuánto pagó el contribuyente y cuánto se
+  // le devolvió. No alteran el neto de la caja (recibido menos vuelto es
+  // siempre el importe), pero dejan la traza de la operación de ventanilla.
+  receivedAmount Decimal? @db.Decimal(10, 2)
+  changeGiven    Decimal? @db.Decimal(10, 2)
+
+  // Comprobante que pidió el contribuyente. Se elige al cobrar y define la
+  // serie del documento, así que no puede decidirse recién al descargarlo.
+  receiptType ReceiptType?
 
   application  Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   registeredBy User?       @relation("CashierPayments", fields: [registeredById], references: [id], onDelete: SetNull)
@@ -406,4 +425,45 @@ model DniCache {
   fetchedAt DateTime @default(now())
 
   @@index([fetchedAt])
+}
+
+// ─── Caja ────────────────────────────────────────────────────────────────────
+
+enum CashSessionStatus {
+  OPEN
+  PENDING_APPROVAL
+  CLOSED
+}
+
+// Turno de caja de un cajero: se abre con un fondo, se cobra contra él y se
+// cierra contando el efectivo. Sin turno abierto no se puede registrar pagos.
+model CashSession {
+  id            String            @id @default(cuid())
+  cashierId     String
+  openingAmount Decimal           @db.Decimal(10, 2)
+  openedAt      DateTime
+  status        CashSessionStatus @default(OPEN)
+
+  // Se congelan al cerrar: el arqueo posterior no debe cambiar lo que se
+  // declaró en el momento del cierre.
+  cashCollected    Decimal? @db.Decimal(10, 2)
+  digitalCollected Decimal? @db.Decimal(10, 2)
+  expectedAmount   Decimal? @db.Decimal(10, 2)
+  countedAmount    Decimal? @db.Decimal(10, 2)
+  difference       Decimal? @db.Decimal(10, 2)
+
+  // Solo cuando el cierre no cuadró y lo autorizó un administrador.
+  justification String?
+  closedById    String?
+  closedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cashier  User  @relation("CashierSessions", fields: [cashierId], references: [id], onDelete: Restrict)
+  closedBy User? @relation("AdminClosedSessions", fields: [closedById], references: [id], onDelete: SetNull)
+
+  @@index([cashierId])
+  @@index([status])
+  @@index([openedAt])
 }

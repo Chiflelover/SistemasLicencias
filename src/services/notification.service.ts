@@ -20,10 +20,22 @@ import { NotificationType, Role } from "@prisma/client";
  *    deduplicación que evita repetirlos.
  */
 export class NotificationService {
-  /** Fecha del sistema en formato YYYY-MM-DD, para las claves de deduplicación. */
+  /**
+   * Fecha del sistema en formato YYYY-MM-DD, para las claves de deduplicación.
+   *
+   * Se arma con los métodos locales y no con toISOString(), que siempre
+   * devuelve UTC: el resto de syncDailyNotifications delimita el día con
+   * setHours() en hora de Lima, y entre las 19:00 y la medianoche las dos
+   * formas caían en días distintos, liberando la clave y repitiendo el aviso.
+   */
   private static async dayKey(): Promise<string> {
     const date = await getCurrentSystemDate();
-    return date.toISOString().slice(0, 10);
+
+    const anio = date.getFullYear();
+    const mes = String(date.getMonth() + 1).padStart(2, "0");
+    const dia = String(date.getDate()).padStart(2, "0");
+
+    return `${anio}-${mes}-${dia}`;
   }
 
   /**
@@ -45,7 +57,11 @@ export class NotificationService {
         });
 
         if (existing) {
-          return existing;
+          // Devuelve null, no la fila: quien llama necesita distinguir "creé
+          // el aviso" de "ya estaba" para no repetir efectos externos, como
+          // el mensaje de WhatsApp. Devolver la fila existente hacía que se
+          // reenviara en cada sondeo de la campana.
+          return null;
         }
       }
 

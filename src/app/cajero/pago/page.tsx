@@ -10,11 +10,15 @@ import {
   CheckCircle2,
   CreditCard,
   DollarSign,
+  FileText,
   Loader2,
   Smartphone,
 } from "lucide-react";
 
 const MONTO_TUPA = 180.0;
+
+/** Billete de mayor denominación en Perú: nadie puede entregar más que esto. */
+const BILLETE_MAXIMO = 200.0;
 
 const METODOS = [
   { value: "EFECTIVO", label: "Efectivo", icon: Banknote },
@@ -33,11 +37,15 @@ interface ApplicationRow {
 }
 
 interface Comprobante {
+  id: string;
+  receiptType: "FACTURA" | "BOLETA";
   operationNumber: string;
   amount: number;
   method: string;
   paidAt: string;
   applicationNumber: string;
+  receivedAmount: number | null;
+  changeGiven: number | null;
 }
 
 export default function CajeroPagoPage() {
@@ -47,6 +55,10 @@ export default function CajeroPagoPage() {
   const [loading, setLoading] = useState(true);
   const [seleccionado, setSeleccionado] = useState<ApplicationRow | null>(null);
   const [metodo, setMetodo] = useState<string>("EFECTIVO");
+  const [recibido, setRecibido] = useState<string>(String(MONTO_TUPA));
+  const [comprobanteTipo, setComprobanteTipo] = useState<"FACTURA" | "BOLETA">(
+    "FACTURA"
+  );
   const [cobrando, setCobrando] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [comprobante, setComprobante] = useState<Comprobante | null>(null);
@@ -84,7 +96,12 @@ export default function CajeroPagoPage() {
       const response = await fetch("/api/cajero/pago", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ applicationId: seleccionado.id, method: metodo }),
+        body: JSON.stringify({
+          applicationId: seleccionado.id,
+          method: metodo,
+          receivedAmount: metodo === "EFECTIVO" ? Number(recibido) : undefined,
+          receiptType: comprobanteTipo,
+        }),
       });
 
       const data = await response.json();
@@ -94,13 +111,18 @@ export default function CajeroPagoPage() {
       }
 
       setComprobante({
+        id: data.payment.id,
+        receiptType: data.payment.receiptType,
         operationNumber: data.payment.operationNumber,
         amount: data.payment.amount,
         method: data.payment.method,
         paidAt: data.payment.paidAt,
         applicationNumber: seleccionado.number,
+        receivedAmount: data.payment.receivedAmount,
+        changeGiven: data.payment.changeGiven,
       });
 
+      setRecibido(String(MONTO_TUPA));
       setSeleccionado(null);
       setMetodo("EFECTIVO");
 
@@ -219,11 +241,42 @@ export default function CajeroPagoPage() {
                 {formatearFechaHora(comprobante.paidAt).hora}
               </p>
             </div>
+
+            {/* Solo en efectivo: en los demás métodos no hay vuelto. */}
+            {comprobante.receivedAmount !== null && (
+              <>
+                <div>
+                  <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
+                    Pagó con
+                  </p>
+                  <p className="text-white font-bold">
+                    S/ {comprobante.receivedAmount.toFixed(2)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
+                    Vuelto entregado
+                  </p>
+                  <p className="text-white font-bold">
+                    S/ {(comprobante.changeGiven ?? 0).toFixed(2)}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           <p className="mt-4 text-xs text-emerald-400/80">
             El trámite quedó en estado PAGADO y la inspección fue agendada.
           </p>
+
+          <a
+            href={`/api/cajero/pago/${comprobante.id}/comprobante`}
+            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-5 py-2.5 text-sm font-bold transition"
+          >
+            <FileText className="w-4 h-4" />
+            Descargar {comprobante.receiptType === "BOLETA" ? "boleta" : "factura"}
+          </a>
         </div>
       )}
 
@@ -274,10 +327,108 @@ export default function CajeroPagoPage() {
             </div>
           </div>
 
+          <div>
+            <p className="text-xs uppercase tracking-wider font-bold text-slate-500 mb-3">
+              Comprobante a emitir
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {(["FACTURA", "BOLETA"] as const).map((tipo) => {
+                const activo = comprobanteTipo === tipo;
+
+                return (
+                  <button
+                    key={tipo}
+                    type="button"
+                    onClick={() => setComprobanteTipo(tipo)}
+                    className={`py-3 px-3 rounded-xl text-sm font-bold flex flex-col items-center gap-1 border transition ${
+                      activo
+                        ? "bg-amber-500 text-slate-950 border-amber-400"
+                        : "bg-slate-950/50 text-slate-300 border-slate-800 hover:border-slate-600"
+                    }`}
+                  >
+                    <FileText className="w-5 h-5" />
+                    {tipo === "FACTURA" ? "Factura" : "Boleta"}
+                    <span
+                      className={`text-[10px] font-normal ${
+                        activo ? "text-slate-800" : "text-slate-500"
+                      }`}
+                    >
+                      {tipo === "FACTURA" ? "Serie F001 · RUC" : "Serie B001 · DNI"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* El titular siempre tiene RUC, así que la factura es lo que
+                corresponde salvo que el contribuyente pida boleta. */}
+            {comprobanteTipo === "BOLETA" && (
+              <p className="mt-2 text-xs text-amber-300/80">
+                La boleta se emite al representante legal. Si el trámite se
+                inició por la web y no se relevó su DNI, sale como consumidor
+                final.
+              </p>
+            )}
+          </div>
+
+          {/* El vuelto solo aplica en efectivo: los medios digitales cobran
+              el importe exacto. */}
+          {metodo === "EFECTIVO" && (
+            <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4 space-y-3">
+              <label className="block">
+                <span className="text-xs uppercase tracking-wider font-bold text-slate-500">
+                  Con cuánto paga
+                </span>
+
+                <input
+                  value={recibido}
+                  onChange={(e) =>
+                    setRecibido(e.target.value.replace(/[^\d.]/g, ""))
+                  }
+                  inputMode="decimal"
+                  className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-slate-100 outline-none focus:border-amber-400"
+                />
+
+                <span className="mt-1.5 block text-xs text-slate-500">
+                  Entre S/ {MONTO_TUPA.toFixed(2)} y S/{" "}
+                  {BILLETE_MAXIMO.toFixed(2)}, el billete más grande que existe.
+                </span>
+              </label>
+
+              {recibido !== "" && Number(recibido) >= MONTO_TUPA && (
+                <div className="flex items-center justify-between rounded-lg bg-slate-900/60 px-4 py-3">
+                  <span className="text-sm text-slate-400">Vuelto a devolver</span>
+                  <span className="text-xl font-black text-emerald-400">
+                    S/ {(Number(recibido) - MONTO_TUPA).toFixed(2)}
+                  </span>
+                </div>
+              )}
+
+              {recibido !== "" && Number(recibido) < MONTO_TUPA && (
+                <p className="text-sm font-semibold text-rose-300">
+                  No alcanza para cubrir la tasa.
+                </p>
+              )}
+
+              {Number(recibido) > BILLETE_MAXIMO && (
+                <p className="text-sm font-semibold text-rose-300">
+                  No puede superar los S/ {BILLETE_MAXIMO.toFixed(2)}.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-3">
             <button
               onClick={confirmarCobro}
-              disabled={cobrando}
+              disabled={
+                cobrando ||
+                (metodo === "EFECTIVO" &&
+                  (recibido === "" ||
+                    Number(recibido) < MONTO_TUPA ||
+                    Number(recibido) > BILLETE_MAXIMO))
+              }
               className="flex-grow bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 px-5 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
             >
               {cobrando ? (

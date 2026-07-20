@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import SesionesCaja from "@/components/SesionesCaja";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -206,6 +207,10 @@ export default function AdminCajasPage() {
           </div>
         </>
       )}
+
+      {/* Turnos de caja: aperturas, cierres y los descuadres que hay que
+          autorizar. Va debajo de la recaudación, que es lo que más se mira. */}
+      <SesionesCaja />
     </div>
   );
 }

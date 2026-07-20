@@ -37,11 +37,30 @@ export async function POST(request: Request) {
       );
     }
 
+    // Solo se usa en efectivo; el servicio lo ignora en los demás métodos.
+    const receivedAmount =
+      body.receivedAmount === undefined || body.receivedAmount === null
+        ? undefined
+        : Number(body.receivedAmount);
+
+    const receiptType = String(body.receiptType || "FACTURA")
+      .trim()
+      .toUpperCase();
+
+    if (receiptType !== "FACTURA" && receiptType !== "BOLETA") {
+      return NextResponse.json(
+        { error: "El comprobante debe ser Boleta o Factura." },
+        { status: 400 }
+      );
+    }
+
     const { payment, operationNumber, paidAt } =
       await CashService.registerCounterPayment({
         cashierId: user.id,
         applicationId,
         method,
+        receivedAmount,
+        receiptType,
       });
 
     return NextResponse.json({
@@ -52,6 +71,11 @@ export async function POST(request: Request) {
         operationNumber,
         amount: Number(payment.amount),
         method: payment.method,
+        receiptType: payment.receiptType,
+        receivedAmount:
+          payment.receivedAmount === null ? null : Number(payment.receivedAmount),
+        changeGiven:
+          payment.changeGiven === null ? null : Number(payment.changeGiven),
         paidAt,
       },
     });
