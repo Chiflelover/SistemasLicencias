@@ -266,7 +266,11 @@ export default async function PublicUploadDocumentsPage({
               </div>
             </div>
 
-            <PublicDocumentUploadForm applicationId={application.id} />
+            <PublicDocumentUploadForm
+              applicationId={application.id}
+              hasFloorPlan={hasFloorPlan}
+              hasRucRecord={hasRucRecord}
+            />
           </div>
 
           <aside className="space-y-6">
