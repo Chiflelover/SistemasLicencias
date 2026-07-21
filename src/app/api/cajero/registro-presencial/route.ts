@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { ApplicationService } from "@/services/application.service";
-import { DocumentService } from "@/services/document.service";
 import { ApplicationRepository } from "@/repositories/application.repository";
+import { DocumentRepository } from "@/repositories/document.repository";
 import { RucService } from "@/services/ruc.service";
 import {
   belongsToDistrictTrujillo,
   OUT_OF_DISTRICT_MESSAGE,
 } from "@/lib/territory";
 import { checkRucEligibility } from "@/lib/ruc-eligibility";
-import { DocumentType } from "@prisma/client";
+import { ApplicationStatus, DocumentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -194,28 +194,43 @@ export async function POST(request: Request) {
         phone,
       });
 
-    // 2. Documentos. DocumentService pasa el trámite a PENDING_PAYMENT solo
-    //    cuando ya están cargados el plano y la ficha, así que no se duplica
-    //    acá la lógica de transición de estados.
-    await DocumentService.uploadDocument({
-      applicationId: application.id,
-      type: DocumentType.FLOOR_PLAN,
-      name: "Plano del local",
-      fileName: planoFile.name,
-      mimeType: planoFile.type,
-      size: planoFile.size,
-      content: Buffer.from(await planoFile.arrayBuffer()),
-    });
+    // 2. Documentos. Se escriben directo con el repositorio, sin pasar por
+    //    DocumentService.uploadDocument: ese hace un findById pesado (negocio,
+    //    pagos, inspecciones, licencia) por cada archivo, y acá no hace falta
+    //    —el trámite recién se creó en DRAFT y la carga siempre está permitida
+    //    en ese estado—. Buffers y escrituras van en paralelo.
+    const [planoBuffer, certificadoBuffer] = await Promise.all([
+      planoFile.arrayBuffer(),
+      certificadoFile.arrayBuffer(),
+    ]);
 
-    await DocumentService.uploadDocument({
-      applicationId: application.id,
-      type: DocumentType.RUC_RECORD,
-      name: "Certificados",
-      fileName: certificadoFile.name,
-      mimeType: certificadoFile.type,
-      size: certificadoFile.size,
-      content: Buffer.from(await certificadoFile.arrayBuffer()),
-    });
+    await Promise.all([
+      DocumentRepository.create({
+        applicationId: application.id,
+        type: DocumentType.FLOOR_PLAN,
+        name: "Plano del local",
+        fileName: planoFile.name,
+        mimeType: planoFile.type,
+        size: planoFile.size,
+        content: Buffer.from(planoBuffer),
+      }),
+      DocumentRepository.create({
+        applicationId: application.id,
+        type: DocumentType.RUC_RECORD,
+        name: "Certificados",
+        fileName: certificadoFile.name,
+        mimeType: certificadoFile.type,
+        size: certificadoFile.size,
+        content: Buffer.from(certificadoBuffer),
+      }),
+    ]);
+
+    // El trámite tiene los dos documentos obligatorios: queda listo para el
+    // cobro. Es la transición que DocumentService haría sola en el flujo normal.
+    await ApplicationRepository.updateStatus(
+      application.id,
+      ApplicationStatus.PENDING_PAYMENT
+    );
 
     const updated = await ApplicationRepository.findById(application.id);
 

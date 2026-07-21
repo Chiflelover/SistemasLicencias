@@ -9,9 +9,10 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const query = url.searchParams.get("q")?.trim() || "";
 
-    if (query.length < 3) {
+    // La consulta pública es solo por RUC de 11 dígitos.
+    if (!/^\d{11}$/.test(query)) {
       return NextResponse.json(
-        { error: "Ingresa al menos 3 caracteres para buscar." },
+        { error: "Ingresa un RUC válido de 11 dígitos." },
         { status: 400 }
       );
     }

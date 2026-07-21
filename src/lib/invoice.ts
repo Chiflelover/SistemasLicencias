@@ -52,7 +52,8 @@ export interface InvoiceData {
   operationNumber: string;
   paidAt: Date;
   total: number;
-  method: string;
+  // Una o dos formas de pago (pago mixto). Cada una con su etiqueta y monto.
+  formasPago: Array<{ method: string; amount: number }>;
   receivedAmount: number | null;
   changeGiven: number | null;
   applicationNumber: string;
@@ -316,9 +317,22 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   texto(importeEnLetras(total), 40, y, 9, bold, navy);
 
   // ── Forma de pago ─────────────────────────────────────────────────────────
+  // Una sola línea con el método, o el desglose si fue pago mixto.
   y -= 28;
-  texto("FORMA DE PAGO:", 40, y, 8, bold, gris);
-  texto(data.method, 130, y, 8);
+
+  if (data.formasPago.length <= 1) {
+    texto("FORMA DE PAGO:", 40, y, 8, bold, gris);
+    texto(data.formasPago[0]?.method ?? "No especificado", 130, y, 8);
+  } else {
+    texto("FORMA DE PAGO:", 40, y, 8, bold, gris);
+    texto("Pago mixto", 130, y, 8);
+
+    for (const forma of data.formasPago) {
+      y -= 13;
+      texto(`  ${forma.method}`, 40, y, 8, regular, gris);
+      texto(`S/ ${forma.amount.toFixed(2)}`, 130, y, 8);
+    }
+  }
 
   if (data.receivedAmount !== null) {
     y -= 14;

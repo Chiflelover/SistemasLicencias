@@ -167,9 +167,15 @@ export class ApplicationRepository {
     const renewalPeriodStart = new Date(expiresAt);
     renewalPeriodStart.setDate(expiresAt.getDate() - 30);
 
+    // Vencida cuando la fecha llega a la de vencimiento (>=), igual que
+    // LicenseService.ensureRenewalState. Con `>` estricto, avanzar "+1 Año"
+    // caía justo en el instante de vencimiento y no la marcaba como vencida,
+    // dejando la marca de agua sin aplicar.
+    const vencida = simulatedDate.getTime() >= expiresAt.getTime();
+
     let newStatus: ApplicationStatus = application.status;
 
-    if (simulatedDate > expiresAt) {
+    if (vencida) {
       newStatus = ApplicationStatus.EXPIRED;
     } else if (simulatedDate >= renewalPeriodStart) {
       newStatus = ApplicationStatus.RENEWAL_AVAILABLE;
@@ -179,8 +185,7 @@ export class ApplicationRepository {
       application.status = newStatus;
 
       if (application.license) {
-        application.license.status =
-          simulatedDate > expiresAt ? "EXPIRED" : "RENEWAL_AVAILABLE";
+        application.license.status = vencida ? "EXPIRED" : "RENEWAL_AVAILABLE";
       }
     }
 
@@ -285,25 +290,10 @@ export class ApplicationRepository {
    * sistema respondía "no encontrado" aunque el trámite existiera.
    */
   static async searchPublic(query: string) {
+    // La consulta pública es solo por RUC, y exacto: un RUC incompleto no debe
+    // matchear a otro más largo como subcadena.
     return prisma.application.findMany({
-      where: {
-        business: {
-          OR: [
-            {
-              ruc: {
-                contains: query,
-                mode: "insensitive",
-              },
-            },
-            {
-              legalName: {
-                contains: query,
-                mode: "insensitive",
-              },
-            },
-          ],
-        },
-      },
+      where: { business: { ruc: query } },
       include: {
         business: true,
         license: {

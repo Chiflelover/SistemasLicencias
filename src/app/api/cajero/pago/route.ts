@@ -21,7 +21,6 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const applicationId = String(body.applicationId || "").trim();
-    const method = String(body.method || "").trim().toUpperCase();
 
     if (!applicationId) {
       return NextResponse.json(
@@ -30,14 +29,29 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isPaymentMethod(method)) {
-      return NextResponse.json(
-        { error: "Selecciona un método de pago válido: Efectivo, Tarjeta, Yape o Plin." },
-        { status: 400 }
-      );
+    // Formas de pago: una (pago simple) o dos (pago mixto). Compat: si llega
+    // el viejo `method`, se arma una única forma por la tasa completa.
+    const TUPA = 180.0;
+    const formasCrudas = Array.isArray(body.formasPago)
+      ? body.formasPago
+      : [{ method: body.method, amount: TUPA }];
+
+    const formasPago = [] as Array<{ method: any; amount: number }>;
+
+    for (const forma of formasCrudas) {
+      const method = String(forma?.method || "").trim().toUpperCase();
+
+      if (!isPaymentMethod(method)) {
+        return NextResponse.json(
+          { error: "Selecciona un método de pago válido: Efectivo, Tarjeta, Yape o Plin." },
+          { status: 400 }
+        );
+      }
+
+      formasPago.push({ method, amount: Number(forma?.amount) });
     }
 
-    // Solo se usa en efectivo; el servicio lo ignora en los demás métodos.
+    // Solo se usa en un pago único en efectivo; el servicio lo ignora si no.
     const receivedAmount =
       body.receivedAmount === undefined || body.receivedAmount === null
         ? undefined
@@ -54,23 +68,30 @@ export async function POST(request: Request) {
       );
     }
 
-    const { payment, operationNumber, paidAt } =
+    const { payment, pagos, operationNumber, paidAt } =
       await CashService.registerCounterPayment({
         cashierId: user.id,
         applicationId,
-        method,
+        formasPago,
         receivedAmount,
         receiptType,
       });
+
+    const total = pagos.reduce((suma, p) => suma + Number(p.amount), 0);
 
     return NextResponse.json({
       success: true,
       message: "Pago registrado en caja correctamente.",
       payment: {
+        // El id del primer pago; el comprobante agrupa la operación completa.
         id: payment.id,
         operationNumber,
-        amount: Number(payment.amount),
-        method: payment.method,
+        total,
+        // Una o dos formas de pago (pago mixto).
+        formasPago: pagos.map((p) => ({
+          method: p.method,
+          amount: Number(p.amount),
+        })),
         receiptType: payment.receiptType,
         receivedAmount:
           payment.receivedAmount === null ? null : Number(payment.receivedAmount),

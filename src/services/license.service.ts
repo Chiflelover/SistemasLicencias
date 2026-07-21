@@ -79,19 +79,23 @@ export class LicenseService {
     const daysUntilExpiration = (expirationTime - now.getTime()) / (1000 * 60 * 60 * 24);
 
     if (expirationTime <= now.getTime()) {
-      const yaEstabaVencida =
-        estadoLicencia === LicenseStatus.EXPIRED &&
-        estadoTramite === ApplicationStatus.EXPIRED;
+      // Flip atómico: solo la llamada que efectivamente cambia el estado a
+      // EXPIRED sigue con los avisos. Dos llamadas casi simultáneas —la
+      // campana sondea y la consulta sincroniza a la vez— leían la licencia
+      // como no vencida y ambas mandaban el correo. El update condicional lo
+      // serializa en la base: solo una afecta la fila.
+      const flip = await prisma.license.updateMany({
+        where: { id: license.id, status: { not: LicenseStatus.EXPIRED } },
+        data: { status: LicenseStatus.EXPIRED },
+      });
+      const recienVencida = flip.count > 0;
 
-      if (estadoLicencia !== LicenseStatus.EXPIRED) {
-        await LicenseRepository.updateStatus(license.id, LicenseStatus.EXPIRED);
-      }
       if (estadoTramite !== ApplicationStatus.EXPIRED) {
         await ApplicationRepository.updateStatus(application.id, ApplicationStatus.EXPIRED);
       }
 
-      // Se avisa una sola vez por día gracias a la clave de deduplicación.
-      if (!yaEstabaVencida) {
+      // Solo en la transición real a vencida: nunca se repite el aviso.
+      if (recienVencida) {
         await NotificationService.notifyLicenseExpired({
           applicantId: application.applicantId,
           applicationId: application.id,
@@ -241,9 +245,12 @@ export class LicenseService {
       select: { applicationId: true },
     });
 
-    for (const licencia of licencias) {
-      await this.ensureRenewalState(licencia.applicationId);
-    }
+    // En paralelo: cada licencia es una fila distinta y la transición a
+    // vencida es atómica, así que no compiten. Secuencial, con la latencia de
+    // Neon por consulta, era el grueso de la demora al restablecer el reloj.
+    await Promise.all(
+      licencias.map((licencia) => this.ensureRenewalState(licencia.applicationId))
+    );
 
     return licencias.length;
   }

@@ -40,8 +40,8 @@ interface Comprobante {
   id: string;
   receiptType: "FACTURA" | "BOLETA";
   operationNumber: string;
-  amount: number;
-  method: string;
+  total: number;
+  formasPago: Array<{ method: string; amount: number }>;
   paidAt: string;
   applicationNumber: string;
   receivedAmount: number | null;
@@ -59,6 +59,12 @@ export default function CajeroPagoPage() {
   const [comprobanteTipo, setComprobanteTipo] = useState<"FACTURA" | "BOLETA">(
     "FACTURA"
   );
+
+  // Pago mixto: dos métodos cuyos montos suman la tasa. En mixto no hay vuelto.
+  const [mixto, setMixto] = useState(false);
+  const [metodo2, setMetodo2] = useState<string>("YAPE");
+  const [monto1, setMonto1] = useState<string>("90");
+  const [monto2, setMonto2] = useState<string>("90");
 
   // Sin caja abierta el cobro se rechaza en el servidor. Se consulta acá para
   // avisarlo antes y no que el cajero lo descubra al confirmar.
@@ -109,8 +115,14 @@ export default function CajeroPagoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           applicationId: seleccionado.id,
-          method: metodo,
-          receivedAmount: metodo === "EFECTIVO" ? Number(recibido) : undefined,
+          formasPago: mixto
+            ? [
+                { method: metodo, amount: Number(monto1) },
+                { method: metodo2, amount: Number(monto2) },
+              ]
+            : [{ method: metodo, amount: MONTO_TUPA }],
+          receivedAmount:
+            !mixto && metodo === "EFECTIVO" ? Number(recibido) : undefined,
           receiptType: comprobanteTipo,
         }),
       });
@@ -125,8 +137,8 @@ export default function CajeroPagoPage() {
         id: data.payment.id,
         receiptType: data.payment.receiptType,
         operationNumber: data.payment.operationNumber,
-        amount: data.payment.amount,
-        method: data.payment.method,
+        total: data.payment.total,
+        formasPago: data.payment.formasPago,
         paidAt: data.payment.paidAt,
         applicationNumber: seleccionado.number,
         receivedAmount: data.payment.receivedAmount,
@@ -149,6 +161,16 @@ export default function CajeroPagoPage() {
   const cobrables = applications.filter(
     (a) => a.status === "PENDING_PAYMENT" || a.status === "RENEWAL_AVAILABLE"
   );
+
+  // Validación del pago mixto: dos métodos distintos cuyos montos suman la tasa.
+  const sumaMixto = (Number(monto1) || 0) + (Number(monto2) || 0);
+  const sumaMixtoOk = Math.round(sumaMixto * 100) === Math.round(MONTO_TUPA * 100);
+  const metodosDistintos = metodo !== metodo2;
+  const mixtoValido =
+    metodosDistintos &&
+    sumaMixtoOk &&
+    Number(monto1) > 0 &&
+    Number(monto2) > 0;
 
   const formatearFechaHora = (iso: string) => {
     const fecha = new Date(iso);
@@ -240,17 +262,27 @@ export default function CajeroPagoPage() {
             </div>
             <div>
               <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
-                Monto
+                Monto total
               </p>
               <p className="text-white font-bold">
-                S/ {comprobante.amount.toFixed(2)}
+                S/ {comprobante.total.toFixed(2)}
               </p>
             </div>
             <div>
               <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
-                Método
+                {comprobante.formasPago.length > 1 ? "Pago mixto" : "Método"}
               </p>
-              <p className="text-white">{comprobante.method}</p>
+              {comprobante.formasPago.length > 1 ? (
+                <div className="space-y-0.5">
+                  {comprobante.formasPago.map((f, i) => (
+                    <p key={i} className="text-white text-sm">
+                      {f.method} · S/ {f.amount.toFixed(2)}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-white">{comprobante.formasPago[0]?.method}</p>
+              )}
             </div>
             <div>
               <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
@@ -326,9 +358,21 @@ export default function CajeroPagoPage() {
           </div>
 
           <div>
-            <p className="text-xs uppercase tracking-wider font-bold text-slate-500 mb-3">
-              Método de pago
-            </p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs uppercase tracking-wider font-bold text-slate-500">
+                {mixto ? "Método 1" : "Método de pago"}
+              </p>
+
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={mixto}
+                  onChange={(e) => setMixto(e.target.checked)}
+                  className="accent-amber-500"
+                />
+                Pago mixto (2 métodos)
+              </label>
+            </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {METODOS.map((m) => {
@@ -352,6 +396,90 @@ export default function CajeroPagoPage() {
                 );
               })}
             </div>
+
+            {/* Pago mixto: monto del método 1, luego el método 2 y su monto.
+                Los dos deben sumar la tasa exacta; no hay vuelto. */}
+            {mixto && (
+              <div className="mt-4 space-y-4 rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                <label className="block">
+                  <span className="text-xs uppercase tracking-wider font-bold text-slate-500">
+                    Monto en {metodo.toLowerCase()}
+                  </span>
+                  <input
+                    value={monto1}
+                    onChange={(e) =>
+                      setMonto1(e.target.value.replace(/[^\d.]/g, ""))
+                    }
+                    inputMode="decimal"
+                    className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-slate-100 outline-none focus:border-amber-400"
+                  />
+                </label>
+
+                <div>
+                  <p className="text-xs uppercase tracking-wider font-bold text-slate-500 mb-2">
+                    Método 2
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {METODOS.map((m) => {
+                      const Icono = m.icon;
+                      const activo = metodo2 === m.value;
+                      return (
+                        <button
+                          key={m.value}
+                          type="button"
+                          onClick={() => setMetodo2(m.value)}
+                          className={`py-3 px-3 rounded-xl text-sm font-bold flex flex-col items-center gap-2 border transition ${
+                            activo
+                              ? "bg-amber-500 text-slate-950 border-amber-400"
+                              : "bg-slate-950/50 text-slate-300 border-slate-800 hover:border-slate-600"
+                          }`}
+                        >
+                          <Icono className="w-5 h-5" />
+                          {m.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <label className="block">
+                  <span className="text-xs uppercase tracking-wider font-bold text-slate-500">
+                    Monto en {metodo2.toLowerCase()}
+                  </span>
+                  <input
+                    value={monto2}
+                    onChange={(e) =>
+                      setMonto2(e.target.value.replace(/[^\d.]/g, ""))
+                    }
+                    inputMode="decimal"
+                    className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-slate-100 outline-none focus:border-amber-400"
+                  />
+                </label>
+
+                <div className="flex items-center justify-between rounded-lg bg-slate-900/60 px-4 py-3">
+                  <span className="text-sm text-slate-400">Suma</span>
+                  <span
+                    className={`text-lg font-black ${
+                      sumaMixtoOk ? "text-emerald-400" : "text-rose-300"
+                    }`}
+                  >
+                    S/ {sumaMixto.toFixed(2)} / {MONTO_TUPA.toFixed(2)}
+                  </span>
+                </div>
+
+                {!metodosDistintos && (
+                  <p className="text-sm font-semibold text-rose-300">
+                    Los dos métodos deben ser distintos.
+                  </p>
+                )}
+                {metodosDistintos && !sumaMixtoOk && (
+                  <p className="text-sm font-semibold text-rose-300">
+                    Los montos deben sumar exactamente S/{" "}
+                    {MONTO_TUPA.toFixed(2)}.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -376,32 +504,15 @@ export default function CajeroPagoPage() {
                   >
                     <FileText className="w-5 h-5" />
                     {tipo === "FACTURA" ? "Factura" : "Boleta"}
-                    <span
-                      className={`text-[10px] font-normal ${
-                        activo ? "text-slate-800" : "text-slate-500"
-                      }`}
-                    >
-                      {tipo === "FACTURA" ? "Serie F001 · RUC" : "Serie B001 · DNI"}
-                    </span>
                   </button>
                 );
               })}
             </div>
-
-            {/* El titular siempre tiene RUC, así que la factura es lo que
-                corresponde salvo que el contribuyente pida boleta. */}
-            {comprobanteTipo === "BOLETA" && (
-              <p className="mt-2 text-xs text-amber-300/80">
-                La boleta se emite al representante legal. Si el trámite se
-                inició por la web y no se relevó su DNI, sale como consumidor
-                final.
-              </p>
-            )}
           </div>
 
-          {/* El vuelto solo aplica en efectivo: los medios digitales cobran
-              el importe exacto. */}
-          {metodo === "EFECTIVO" && (
+          {/* El vuelto solo aplica en un pago único en efectivo: en mixto los
+              montos son exactos, y los medios digitales cobran el importe. */}
+          {!mixto && metodo === "EFECTIVO" && (
             <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4 space-y-3">
               <label className="block">
                 <span className="text-xs uppercase tracking-wider font-bold text-slate-500">
@@ -410,9 +521,16 @@ export default function CajeroPagoPage() {
 
                 <input
                   value={recibido}
-                  onChange={(e) =>
-                    setRecibido(e.target.value.replace(/[^\d.]/g, ""))
-                  }
+                  onChange={(e) => {
+                    // No se puede pagar con más que el billete de S/200, así
+                    // que el campo se topa ahí: nunca da un vuelto imposible.
+                    const limpio = e.target.value.replace(/[^\d.]/g, "");
+                    setRecibido(
+                      Number(limpio) > BILLETE_MAXIMO
+                        ? String(BILLETE_MAXIMO)
+                        : limpio
+                    );
+                  }}
                   inputMode="decimal"
                   className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-slate-100 outline-none focus:border-amber-400"
                 />
@@ -437,12 +555,6 @@ export default function CajeroPagoPage() {
                   No alcanza para cubrir la tasa.
                 </p>
               )}
-
-              {Number(recibido) > BILLETE_MAXIMO && (
-                <p className="text-sm font-semibold text-rose-300">
-                  No puede superar los S/ {BILLETE_MAXIMO.toFixed(2)}.
-                </p>
-              )}
             </div>
           )}
 
@@ -452,10 +564,12 @@ export default function CajeroPagoPage() {
               disabled={
                 cobrando ||
                 cajaAbierta === false ||
-                (metodo === "EFECTIVO" &&
-                  (recibido === "" ||
-                    Number(recibido) < MONTO_TUPA ||
-                    Number(recibido) > BILLETE_MAXIMO))
+                (mixto
+                  ? !mixtoValido
+                  : metodo === "EFECTIVO" &&
+                    (recibido === "" ||
+                      Number(recibido) < MONTO_TUPA ||
+                      Number(recibido) > BILLETE_MAXIMO))
               }
               className="flex-grow bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 px-5 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
             >
@@ -537,7 +651,7 @@ export default function CajeroPagoPage() {
                     disabled={!tieneDocumentos}
                     className="bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 px-5 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition whitespace-nowrap"
                   >
-                    <DollarSign className="w-4 h-4" />
+                    <Banknote className="w-4 h-4" />
                     Cobrar S/ {MONTO_TUPA.toFixed(2)}
                   </button>
                 </div>

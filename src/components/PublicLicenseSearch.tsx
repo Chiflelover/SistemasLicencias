@@ -85,8 +85,8 @@ export default function PublicLicenseSearch() {
     setResults([]);
     setSearchedQuery(cleanQuery);
 
-    if (cleanQuery.length < 3) {
-      setErrorMessage("Ingresa al menos 3 caracteres para buscar.");
+    if (!/^\d{11}$/.test(cleanQuery)) {
+      setErrorMessage("Ingresa un RUC válido de 11 dígitos.");
       return;
     }
 
@@ -120,14 +120,18 @@ export default function PublicLicenseSearch() {
       <form onSubmit={handleSearch} className="grid gap-4">
         <label className="block">
           <span className="text-sm font-semibold text-slate-200">
-            RUC o razón social
+            RUC del negocio
           </span>
 
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) =>
+              setQuery(event.target.value.replace(/\D/g, "").slice(0, 11))
+            }
             type="text"
-            placeholder="Ej. 12345678901 o COMERCIAL ABC S.A."
+            inputMode="numeric"
+            maxLength={11}
+            placeholder="Ej. 20123456789"
             className="mt-3 w-full rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-4 text-slate-100 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20"
           />
         </label>
@@ -156,7 +160,7 @@ export default function PublicLicenseSearch() {
 
           {results.length === 0 ? (
             <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-rose-200">
-              No se encontraron búsquedas con ese RUC o razón social.
+              No se encontró ningún trámite con ese RUC.
             </div>
           ) : (
             <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900/80 shadow-lg shadow-slate-950/20">

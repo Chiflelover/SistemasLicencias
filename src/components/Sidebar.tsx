@@ -15,7 +15,9 @@ import {
   Menu,
   X,
   Eye,
-  EyeOff
+  EyeOff,
+  RefreshCw,
+  FileUp
 } from "lucide-react";
 import { useState } from "react";
 
@@ -107,6 +109,16 @@ export default function Sidebar({ role, userName }: SidebarProps) {
       label: "Arqueo de Caja",
       href: "/cajero/arqueo",
       icon: FolderSearch,
+    },
+    {
+      label: "Renovación de Licencia",
+      href: "/cajero/renovacion",
+      icon: RefreshCw,
+    },
+    {
+      label: "Subsanar Documentos",
+      href: "/cajero/subsanar",
+      icon: FileUp,
     },
   ];
 

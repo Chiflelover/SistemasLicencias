@@ -83,6 +83,43 @@ export default function ArqueoPage() {
       minute: "2-digit",
     });
 
+  // Un pago mixto son dos filas Payment del mismo trámite en el mismo instante.
+  // Se agrupan como una sola operación para que no parezcan trámites distintos.
+  const agruparOperaciones = (pagos: Arqueo["payments"]) => {
+    const grupos = new Map<
+      string,
+      {
+        key: string;
+        applicationNumber: string;
+        legalName: string;
+        paidAt: string;
+        operationNumbers: string[];
+        formas: Array<{ method: string | null; amount: number }>;
+        total: number;
+      }
+    >();
+
+    for (const pago of pagos) {
+      const key = `${pago.applicationNumber}|${pago.paidAt}`;
+      const grupo = grupos.get(key) ?? {
+        key,
+        applicationNumber: pago.applicationNumber,
+        legalName: pago.legalName,
+        paidAt: pago.paidAt,
+        operationNumbers: [],
+        formas: [],
+        total: 0,
+      };
+
+      grupo.operationNumbers.push(pago.operationNumber);
+      grupo.formas.push({ method: pago.method, amount: pago.amount });
+      grupo.total += pago.amount;
+      grupos.set(key, grupo);
+    }
+
+    return [...grupos.values()];
+  };
+
   const formatearFecha = (iso: string) =>
     new Date(iso).toLocaleDateString("es-PE", {
       day: "2-digit",
@@ -238,25 +275,37 @@ export default function ArqueoPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-850">
-                    {arqueo.payments.map((payment) => (
-                      <tr key={payment.id} className="hover:bg-slate-900/40">
+                    {agruparOperaciones(arqueo.payments).map((op) => (
+                      <tr key={op.key} className="hover:bg-slate-900/40">
                         <td className="px-5 py-3 font-mono text-xs text-slate-400">
-                          {payment.operationNumber}
+                          {op.operationNumbers.map((n) => (
+                            <p key={n}>{n}</p>
+                          ))}
                         </td>
                         <td className="px-5 py-3 font-mono text-amber-300">
-                          {payment.applicationNumber}
+                          {op.applicationNumber}
                         </td>
                         <td className="px-5 py-3 text-slate-200">
-                          {payment.legalName}
+                          {op.legalName}
                         </td>
                         <td className="px-5 py-3 text-slate-300">
-                          {payment.method || "—"}
+                          {op.formas.length > 1 ? (
+                            <div className="space-y-0.5">
+                              {op.formas.map((f, i) => (
+                                <p key={i} className="text-xs">
+                                  {(f.method || "—")} · S/ {f.amount.toFixed(2)}
+                                </p>
+                              ))}
+                            </div>
+                          ) : (
+                            op.formas[0]?.method || "—"
+                          )}
                         </td>
                         <td className="px-5 py-3 text-slate-400 font-mono">
-                          {formatearHora(payment.paidAt)}
+                          {formatearHora(op.paidAt)}
                         </td>
                         <td className="px-5 py-3 text-right text-white font-bold">
-                          S/ {payment.amount.toFixed(2)}
+                          S/ {op.total.toFixed(2)}
                         </td>
                       </tr>
                     ))}

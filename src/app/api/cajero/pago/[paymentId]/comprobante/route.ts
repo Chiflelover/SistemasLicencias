@@ -67,19 +67,39 @@ export async function GET(
 
   const correlativo = anteriores + 1;
 
+  // El pago pudo ser mixto: se agrupan las formas de la misma operación (mismo
+  // trámite y mismo instante). El comprobante es uno solo, con el total y las
+  // formas de pago listadas.
+  const grupo = await prisma.payment.findMany({
+    where: { applicationId: payment.applicationId, paidAt: payment.paidAt },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const total = grupo.reduce((suma, p) => suma + Number(p.amount), 0);
+
+  const formasPago = grupo.map((p) => ({
+    method: p.method ? PAYMENT_METHOD_LABELS[p.method] : "No especificado",
+    amount: Number(p.amount),
+  }));
+
+  // El vuelto vive en la fila de efectivo del grupo, si la hay.
+  const filaEfectivo = grupo.find((p) => p.method === "EFECTIVO");
+
   const pdfBytes = await generateInvoicePdf({
     tipo,
     correlativo,
     operationNumber: payment.operationNumber,
     paidAt: payment.paidAt,
-    total: Number(payment.amount),
-    method: payment.method
-      ? PAYMENT_METHOD_LABELS[payment.method]
-      : "No especificado",
+    total,
+    formasPago,
     receivedAmount:
-      payment.receivedAmount === null ? null : Number(payment.receivedAmount),
+      filaEfectivo?.receivedAmount == null
+        ? null
+        : Number(filaEfectivo.receivedAmount),
     changeGiven:
-      payment.changeGiven === null ? null : Number(payment.changeGiven),
+      filaEfectivo?.changeGiven == null
+        ? null
+        : Number(filaEfectivo.changeGiven),
     applicationNumber: payment.application.number,
     cliente: {
       razonSocial: payment.application.business.legalName,

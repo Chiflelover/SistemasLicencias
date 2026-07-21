@@ -44,7 +44,8 @@ export class CashService {
   static async registerCounterPayment(params: {
     cashierId: string;
     applicationId: string;
-    method: PaymentMethod;
+    // Una o dos formas de pago (pago mixto). Sus montos deben sumar la tasa.
+    formasPago: Array<{ method: PaymentMethod; amount: number }>;
     receivedAmount?: number;
     receiptType?: ReceiptType;
   }) {
@@ -88,13 +89,44 @@ export class CashService {
       );
     }
 
-    // El vuelto solo tiene sentido en efectivo: los medios digitales cobran
-    // el importe exacto. El neto de la caja no cambia —lo recibido menos el
-    // vuelto es siempre TUPA_AMOUNT—, pero queda la traza de la operación.
+    // ── Validación de las formas de pago ──────────────────────────────────
+    const formas = params.formasPago ?? [];
+
+    if (formas.length < 1 || formas.length > 2) {
+      throw new Error("El pago admite uno o dos métodos (pago mixto).");
+    }
+
+    for (const forma of formas) {
+      if (!Number.isFinite(forma.amount) || forma.amount <= 0) {
+        throw new Error("Cada monto del pago debe ser mayor a cero.");
+      }
+    }
+
+    if (formas.length === 2 && formas[0].method === formas[1].method) {
+      throw new Error("En un pago mixto los dos métodos deben ser distintos.");
+    }
+
+    // La suma debe ser exactamente la tasa. Se compara en céntimos para no
+    // arrastrar el error de coma flotante.
+    const totalCentimos = Math.round(
+      formas.reduce((suma, forma) => suma + forma.amount, 0) * 100
+    );
+
+    if (totalCentimos !== Math.round(TUPA_AMOUNT * 100)) {
+      throw new Error(
+        `Los montos deben sumar exactamente S/ ${TUPA_AMOUNT.toFixed(2)}.`
+      );
+    }
+
+    // El vuelto solo aplica cuando es un único pago en efectivo. En un pago
+    // mixto los montos son exactos y no hay vuelto.
+    const esUnicoEfectivo =
+      formas.length === 1 && formas[0].method === PaymentMethod.EFECTIVO;
+
     let receivedAmount: number | null = null;
     let changeGiven: number | null = null;
 
-    if (params.method === PaymentMethod.EFECTIVO) {
+    if (esUnicoEfectivo) {
       const recibido = params.receivedAmount ?? TUPA_AMOUNT;
 
       if (!Number.isFinite(recibido) || recibido < TUPA_AMOUNT) {
@@ -116,24 +148,39 @@ export class CashService {
     }
 
     const paidAt = await getCurrentSystemDate();
-    const operationNumber = await PaymentRepository.generateOperationNumber();
+    const receiptType = params.receiptType ?? ReceiptType.FACTURA;
+    const type = isRenewal
+      ? PaymentType.RENEWAL
+      : PaymentType.INITIAL_APPLICATION;
 
-    const payment = await prisma.payment.create({
-      data: {
-        applicationId: application.id,
-        type: isRenewal ? PaymentType.RENEWAL : PaymentType.INITIAL_APPLICATION,
-        amount: TUPA_AMOUNT,
-        operationNumber,
-        paidAt,
-        method: params.method,
-        registeredById: params.cashierId,
-        receivedAmount,
-        changeGiven,
-        // Por defecto factura: el trámite siempre tiene RUC, que es el caso
-        // que corresponde salvo que el contribuyente pida boleta.
-        receiptType: params.receiptType ?? ReceiptType.FACTURA,
-      },
-    });
+    // ── Asiento: una fila Payment por forma de pago ───────────────────────
+    // Comparten paidAt y receiptType: así el comprobante las agrupa como una
+    // sola operación, y el arqueo cuenta cada monto bajo su método.
+    const pagos = [];
+
+    for (const forma of formas) {
+      const operationNumber = await PaymentRepository.generateOperationNumber();
+
+      const pago = await prisma.payment.create({
+        data: {
+          applicationId: application.id,
+          type,
+          amount: forma.amount,
+          operationNumber,
+          paidAt,
+          method: forma.method,
+          registeredById: params.cashierId,
+          // El vuelto se anota solo en la fila de efectivo del pago único.
+          receivedAmount:
+            forma.method === PaymentMethod.EFECTIVO ? receivedAmount : null,
+          changeGiven:
+            forma.method === PaymentMethod.EFECTIVO ? changeGiven : null,
+          receiptType,
+        },
+      });
+
+      pagos.push(pago);
+    }
 
     if (isRenewal) {
       await LicenseService.renewLicense(application.id);
@@ -151,14 +198,13 @@ export class CashService {
     await AuditService.log({
       action: "PAGO_PRESENCIAL_REGISTRADO",
       entityType: "Payment",
-      entityId: payment.id,
+      entityId: pagos[0].id,
       userId: params.cashierId,
       details: {
         applicationId: application.id,
         applicationNumber: application.number,
-        operationNumber,
-        amount: TUPA_AMOUNT,
-        method: params.method,
+        total: TUPA_AMOUNT,
+        formasPago: formas.map((f) => ({ method: f.method, amount: f.amount })),
         receivedAmount,
         changeGiven,
         paidAt: paidAt.toISOString(),
@@ -169,7 +215,7 @@ export class CashService {
       },
     });
 
-    return { payment, operationNumber, paidAt };
+    return { payment: pagos[0], pagos, operationNumber: pagos[0].operationNumber, paidAt };
   }
 
   /**

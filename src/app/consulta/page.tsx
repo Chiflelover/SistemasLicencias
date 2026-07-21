@@ -14,13 +14,12 @@ export default function ConsultaPage() {
               </span>
 
               <h1 className="mt-6 text-4xl font-bold tracking-tight text-white">
-                Busca tu licencia por RUC o razón social
+                Busca tu licencia por RUC
               </h1>
 
               <p className="mt-4 text-slate-400 leading-relaxed">
-                Ingresa el RUC o la razón social de la empresa para verificar el
-                estado de la licencia de funcionamiento. Solo se muestran los
-                trámites con licencia emitida en el sistema.
+                Ingresa el RUC de la empresa para verificar el estado de la
+                licencia de funcionamiento y el avance de su trámite.
               </p>
             </div>
 
@@ -36,17 +35,15 @@ export default function ConsultaPage() {
               <li>• Estado de la licencia de funcionamiento.</li>
               <li>• Dirección comercial registrada.</li>
               <li>• Rubro o actividad del establecimiento.</li>
-              <li>• Búsqueda por RUC o razón social.</li>
+              <li>• Avance del trámite en curso.</li>
             </ul>
 
             <div className="mt-8 rounded-3xl bg-slate-950/80 border border-slate-800 p-6">
-              <p className="text-sm text-slate-400">
-                ¿No tienes un RUC a la mano?
-              </p>
+              <p className="text-sm text-slate-400">Sobre el RUC</p>
 
               <p className="mt-3 text-slate-200 leading-relaxed">
-                Busca con la razón social completa o parcial. El sistema
-                mostrará hasta 20 resultados coincidentes.
+                Ingresá el RUC completo de 11 dígitos del negocio. La búsqueda
+                es exacta: un RUC incompleto no arroja resultados.
               </p>
             </div>
           </div>

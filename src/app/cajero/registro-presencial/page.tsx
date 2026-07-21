@@ -230,7 +230,7 @@ export default function RegistroPresencialPage() {
       }
 
       setSuccessMessage(
-        `Solicitud ${data.application.number} registrada (estado: ${data.application.status}). Ya podés cobrarla desde Registrar Pago.`
+        `Solicitud ${data.application.number} registrada. Te llevamos al cobro...`
       );
 
       setCampos(CAMPOS_INICIALES);
@@ -238,7 +238,9 @@ export default function RegistroPresencialPage() {
       setCertificados(null);
       (event.target as HTMLFormElement).reset();
 
-      router.refresh();
+      // Al cobro automáticamente. Un instante para que el cajero vea la
+      // confirmación antes de cambiar de pantalla.
+      setTimeout(() => router.push("/cajero/pago"), 1200);
     } catch (error: any) {
       setErrorMessage(error.message);
     } finally {
