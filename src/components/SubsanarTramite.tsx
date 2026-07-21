@@ -7,6 +7,10 @@ type Resultado = {
   id: string;
   number: string;
   status: string;
+  // Lo calcula /api/public/consulta detectando documentos con "(subsanado)"
+  // en el nombre. No se compara por fecha: los documentos usan la hora real y
+  // las inspecciones la simulada.
+  subsanado?: boolean;
   business: { ruc: string; legalName: string };
 };
 
@@ -122,6 +126,10 @@ export default function SubsanarTramite() {
   const sinObservacion = consultado && (!resultado || !observado);
   const hayArchivo = Boolean(plano || fichaRuc);
 
+  // Ya se subieron los documentos corregidos: no corresponde ofrecer la carga
+  // de nuevo, solo avisar que están esperando la revisión del inspector.
+  const yaSubsanado = Boolean(resultado?.subsanado);
+
   return (
     <div className="rounded-2xl border border-slate-850 bg-slate-900/40 overflow-hidden">
       <div className="p-5 border-b border-slate-850">
@@ -187,11 +195,20 @@ export default function SubsanarTramite() {
 
             <p className="mt-1 text-sm text-amber-200">
               Trámite {resultado.number} ·{" "}
-              {ETIQUETA_OBSERVADO[resultado.status] ?? "Observado"}. Podés
-              subir los documentos corregidos.
+              {ETIQUETA_OBSERVADO[resultado.status] ?? "Observado"}.
+              {yaSubsanado ? "" : " Podés subir los documentos corregidos."}
             </p>
 
-            {exito ? (
+            {yaSubsanado ? (
+              <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  Documentos ya subsanados, pendientes de revisión por el
+                  inspector en la segunda inspección. No corresponde cobrar
+                  nada.
+                </span>
+              </div>
+            ) : exito ? (
               <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{exito}</span>
