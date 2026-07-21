@@ -96,6 +96,9 @@ export class ApplicationService {
     activityType?: string;
     contactEmail?: string;
     representativeDni?: string;
+    // Resuelto contra RENIEC en la ruta, no declarado por el ciudadano: va
+    // impreso en la licencia como titular.
+    representativeName?: string;
   }): Promise<{ application: Application; business: Business }> {
     const now = await getCurrentSystemDate();
 
@@ -105,6 +108,7 @@ export class ApplicationService {
       fiscalAddress: params.fiscalAddress,
       activityType: params.activityType,
       representativeDni: params.representativeDni,
+      representativeName: params.representativeName,
     });
 
     const applicant = await prisma.user.upsert({

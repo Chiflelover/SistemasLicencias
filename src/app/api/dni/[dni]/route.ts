@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
 import { DniService } from "@/services/dni.service";
 
 export const dynamic = "force-dynamic";
@@ -7,28 +6,21 @@ export const dynamic = "force-dynamic";
 /**
  * Consulta de DNI en RENIEC.
  *
- * Exige sesión del personal: devuelve el nombre de una persona a partir de su
- * documento, así que no corresponde dejarlo abierto como la consulta de RUC,
- * que es información pública de empresas. Solo lo usa el registro presencial
- * para completar al representante legal.
+ * **Sin sesión.** Antes exigía personal, porque devuelve el nombre de una
+ * persona a partir de su documento y eso no es información pública como los
+ * datos de una empresa. Se abrió para que el ciudadano pueda validar al
+ * representante legal desde el formulario público, igual que valida el RUC: sin
+ * esto, la licencia de un trámite web salía con el número de DNI y sin nombre.
+ *
+ * El costo es real y conviene tenerlo presente: cualquiera puede averiguar el
+ * nombre detrás de un DNI. Se aceptó para la demostración académica, con el
+ * mismo criterio con el que `/api/ruc/[ruc]` ya está abierto. Ver *Pendientes*
+ * en CLAUDE.md.
  */
 export async function GET(
   _request: Request,
   { params }: { params: { dni: string } }
 ) {
-  const user = await getCurrentUser();
-
-  // Se comprueba el rol y no solo que haya sesión: el administrado no tiene
-  // cuenta, así que cualquier sesión que llegue acá es de personal.
-  const PERSONAL = ["CAJERO", "INSPECTOR", "ADMIN", "DEVELOPER"];
-
-  if (!user || !PERSONAL.includes(user.role)) {
-    return NextResponse.json(
-      { error: "No autorizado. Inicia sesión para consultar un DNI." },
-      { status: 401 }
-    );
-  }
-
   try {
     const dni = params.dni?.trim();
 

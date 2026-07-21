@@ -66,6 +66,40 @@ export default function IniciarTramitePage() {
   const [rubro, setRubro] = useState("");
   const [correo, setCorreo] = useState("");
   const [dni, setDni] = useState("");
+
+  // Nombre que devuelve RENIEC al completar los 8 dígitos. Es confirmación
+  // visual: el servidor lo vuelve a consultar y no confía en lo que llegue.
+  const [nombreDni, setNombreDni] = useState<string | null>(null);
+  const [buscandoDni, setBuscandoDni] = useState(false);
+  const [errorDni, setErrorDni] = useState<string | null>(null);
+
+  /**
+   * Consulta el DNI. No bloquea el trámite si falla: el formato ya está
+   * validado y una caída de la API externa no puede frenar un alta.
+   */
+  const buscarDni = async (numero: string) => {
+    setBuscandoDni(true);
+    setErrorDni(null);
+
+    try {
+      const response = await fetch(`/api/dni/${numero}`, { cache: "no-store" });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo consultar el DNI.");
+      }
+
+      if (data.fullName) {
+        setNombreDni(data.fullName);
+      } else {
+        setErrorDni("RENIEC no devolvió un nombre para ese DNI.");
+      }
+    } catch (error: any) {
+      setErrorDni(`${error.message} Puedes continuar igual.`);
+    } finally {
+      setBuscandoDni(false);
+    }
+  };
   const [rucData, setRucData] = useState<RucData | null>(null);
   const [loading, setLoading] = useState(false);
   const [creatingApplication, setCreatingApplication] = useState(false);
@@ -82,7 +116,7 @@ export default function IniciarTramitePage() {
   // Validación de correo pareja a la del servidor: algo@algo.algo.
   const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
 
-  // Solo el formato: el DNI se declara y no se contrasta contra RENIEC.
+  // El formato. El nombre se consulta aparte, al completar los 8 dígitos.
   //
   // Para volverlo OPCIONAL, usar esta línea en lugar de la de abajo. Deja
   // pasar el campo vacío y sigue exigiendo 8 dígitos si escriben algo:
@@ -435,10 +469,11 @@ export default function IniciarTramitePage() {
                 )}
               </label>
 
-              {/* Identifica al titular en la licencia. No se contrasta contra
-                  RENIEC: la consulta de DNI exige sesión y este flujo es
-                  público. Sin este dato la licencia salía a nombre del usuario
-                  sintético del trámite. */}
+              {/* Identifica al titular en la licencia. Al completar los 8
+                  dígitos se consulta RENIEC y se muestra el nombre, igual que
+                  con el RUC. El servidor lo vuelve a resolver por su cuenta:
+                  este nombre es solo para que la persona confirme que es
+                  quien cree. */}
               <label className="block text-sm text-slate-300">
                 <span className="font-semibold">
                   DNI del representante legal{" "}
@@ -447,17 +482,41 @@ export default function IniciarTramitePage() {
 
                 <input
                   value={dni}
-                  onChange={(event) =>
-                    setDni(event.target.value.replace(/\D/g, "").slice(0, 8))
-                  }
+                  onChange={(event) => {
+                    const limpio = event.target.value.replace(/\D/g, "").slice(0, 8);
+                    setDni(limpio);
+                    setNombreDni(null);
+                    setErrorDni(null);
+                    if (limpio.length === 8) buscarDni(limpio);
+                  }}
                   inputMode="numeric"
                   placeholder="8 dígitos"
                   className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20"
                 />
 
+                {buscandoDni && (
+                  <p className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Consultando RENIEC...
+                  </p>
+                )}
+
+                {nombreDni && (
+                  <p className="mt-2 flex items-center gap-2 text-xs text-emerald-300">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                    {nombreDni}
+                  </p>
+                )}
+
+                {/* No bloquea: si RENIEC no responde, el trámite sigue y la
+                    licencia imprime solo el número. */}
+                {errorDni && (
+                  <p className="mt-2 text-xs text-amber-300">{errorDni}</p>
+                )}
+
                 <p className="mt-2 text-xs text-slate-500">
                   Obligatorio. Aparecerá impreso en tu licencia para identificar
-                  al titular.
+                  al titular. Puede ser una persona distinta al titular del RUC.
                 </p>
 
                 {dni.length > 0 && !dniValido && (

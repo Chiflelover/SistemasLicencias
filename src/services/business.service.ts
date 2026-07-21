@@ -47,6 +47,7 @@ export class BusinessService {
     fiscalAddress: string;
     activityType?: string;
     representativeDni?: string;
+    representativeName?: string;
   }): Promise<Business> {
     const existingBusiness = await BusinessRepository.findByRuc(data.ruc);
 
@@ -55,7 +56,11 @@ export class BusinessService {
       // se pidieran, con el relleno guardado. Si ahora el ciudadano los
       // declara, se actualizan: si no, la licencia se seguiría emitiendo con
       // el relleno impreso.
-      const cambios: { activityType?: string; representativeDni?: string } = {};
+      const cambios: {
+        activityType?: string;
+        representativeDni?: string;
+        representativeName?: string;
+      } = {};
 
       if (data.activityType && data.activityType !== existingBusiness.activityType) {
         cambios.activityType = data.activityType;
@@ -66,6 +71,13 @@ export class BusinessService {
         data.representativeDni !== existingBusiness.representativeDni
       ) {
         cambios.representativeDni = data.representativeDni;
+      }
+
+      if (
+        data.representativeName &&
+        data.representativeName !== existingBusiness.representativeName
+      ) {
+        cambios.representativeName = data.representativeName;
       }
 
       if (Object.keys(cambios).length > 0) {
@@ -84,7 +96,9 @@ export class BusinessService {
       fiscalAddress: data.fiscalAddress,
       commercialAddress: data.fiscalAddress,
       activityType: data.activityType || "No registrado",
-      representativeName: "No registrado",
+      // El relleno solo queda si RENIEC no resolvió el nombre; en ese caso la
+      // licencia imprime únicamente el DNI (ver formatRepresentative).
+      representativeName: data.representativeName || "No registrado",
       representativeDni: data.representativeDni || "",
       representativeRole: "Representante Legal",
       representativePhone: "",

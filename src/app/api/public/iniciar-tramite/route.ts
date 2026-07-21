@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ApplicationService } from "@/services/application.service";
 import { RucService } from "@/services/ruc.service";
+import { DniService } from "@/services/dni.service";
 import { belongsToDistrictTrujillo } from "@/lib/territory";
 import { checkRucEligibility } from "@/lib/ruc-eligibility";
 
@@ -47,9 +48,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // DNI del representante legal: se declara, no se verifica. La consulta a
-    // RENIEC exige sesión y el flujo público no la tiene, así que solo se
-    // valida el formato. Sirve para identificar al titular en la licencia,
+    // DNI del representante legal. Se valida el formato acá y el nombre se
+    // resuelve más abajo contra RENIEC: identifica al titular en la licencia,
     // que si no salía impresa con el usuario sintético del trámite.
     const representativeDni = String(body.representativeDni || "").trim();
 
@@ -121,6 +121,23 @@ export async function POST(request: Request) {
       );
     }
 
+    // El nombre del representante lo resuelve el servidor, no se toma del
+    // cuerpo: el formulario ya lo mostró, pero un cliente podría mandar
+    // cualquier cosa y ese nombre termina impreso en la licencia. La consulta
+    // sale del caché, porque el formulario acabó de hacerla.
+    //
+    // Si RENIEC no responde, el trámite sigue: el formato ya está validado y
+    // una caída de la API externa no puede frenar un alta. En ese caso la
+    // licencia imprime solo el DNI, como antes.
+    let representativeName: string | undefined;
+
+    try {
+      const persona = await DniService.getPersonData(representativeDni);
+      representativeName = persona.fullName || undefined;
+    } catch {
+      representativeName = undefined;
+    }
+
     const { application, business } =
       await ApplicationService.startPublicApplication({
         ruc: rucData.ruc,
@@ -129,6 +146,7 @@ export async function POST(request: Request) {
         activityType,
         contactEmail,
         representativeDni,
+        representativeName,
       });
 
     return NextResponse.json(
