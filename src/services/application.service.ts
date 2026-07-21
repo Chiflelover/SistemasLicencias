@@ -75,33 +75,9 @@ export class ApplicationService {
     });
   }
 
-  static async startNewApplication(params: {
-    applicantId: string;
-    legalName: string;
-    ruc: string;
-    fiscalAddress: string;
-  }): Promise<{ application: Application; business: Business }> {
-    const now = await getCurrentSystemDate();
-
-    const business = await BusinessService.registerBusiness({
-      legalName: params.legalName,
-      ruc: params.ruc,
-      fiscalAddress: params.fiscalAddress,
-    });
-
-    const applicationNumber = await ApplicationRepository.generateNumber();
-
-    const application = await prisma.application.create({
-      data: {
-        number: applicationNumber,
-        applicantId: params.applicantId,
-        businessId: business.id,
-        createdAt: now,
-      },
-    });
-
-    return { application, business };
-  }
+  // startNewApplication se eliminó con el área /solicitante: era el alta desde
+  // una cuenta propia del administrado, que ya no existe. Quedan los dos
+  // caminos reales: startPublicApplication y registerInPersonApplication.
 
   static async startPublicApplication(params: {
     legalName: string;
@@ -176,31 +152,9 @@ export class ApplicationService {
     return { application, business };
   }
 
-  /**
-   * Registro presencial hecho por un cajero en ventanilla.
-   *
-   * Reutiliza el flujo público (el ciudadano no tiene cuenta) y solo agrega la
-   * trazabilidad de qué cajero atendió el trámite.
-   */
-  static async startCashierApplication(params: {
-    cashierId: string;
-    legalName: string;
-    ruc: string;
-    fiscalAddress: string;
-  }): Promise<{ application: Application; business: Business }> {
-    const { application, business } = await this.startPublicApplication({
-      legalName: params.legalName,
-      ruc: params.ruc,
-      fiscalAddress: params.fiscalAddress,
-    });
-
-    const trackedApplication = await prisma.application.update({
-      where: { id: application.id },
-      data: { registeredById: params.cashierId },
-    });
-
-    return { application: trackedApplication, business };
-  }
+  // startCashierApplication se eliminó: era una versión reducida del alta en
+  // ventanilla que nunca tuvo llamadores. El registro presencial real es
+  // registerInPersonApplication, que releva además al representante legal.
 
   /**
    * Registro presencial completo en ventanilla.

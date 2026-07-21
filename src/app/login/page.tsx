@@ -45,7 +45,8 @@ export default function LoginPage() {
         throw new Error(result.error || "Algo salió mal.");
       }
 
-      // Redireccionar según el rol del usuario
+      // Redireccionar según el rol del usuario. Solo el personal inicia
+      // sesión: el administrado entra por el flujo público, sin cuenta.
       if (result.user.role === "INSPECTOR") {
         router.push("/inspector");
       } else if (result.user.role === "CAJERO") {
@@ -55,7 +56,7 @@ export default function LoginPage() {
       } else if (result.user.role === "DEVELOPER") {
         router.push("/dev");
       } else {
-        router.push("/solicitante");
+        router.push("/");
       }
       router.refresh();
     } catch (err: any) {

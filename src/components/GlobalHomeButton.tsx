@@ -11,13 +11,7 @@ export default function GlobalHomeButton() {
    * Las áreas autenticadas ya tienen su propio botón de Inicio en la barra
    * superior: mostrar además el flotante duplicaba la misma acción.
    */
-  const AREAS_CON_NAVBAR = [
-    "/solicitante",
-    "/inspector",
-    "/cajero",
-    "/admin",
-    "/dev",
-  ];
+  const AREAS_CON_NAVBAR = ["/inspector", "/cajero", "/admin", "/dev"];
 
   if (AREAS_CON_NAVBAR.some((area) => pathname.startsWith(area))) {
     return null;

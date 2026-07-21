@@ -22,7 +22,8 @@ import {
 import { useState } from "react";
 
 interface SidebarProps {
-  role: "APPLICANT" | "INSPECTOR" | "CAJERO" | "ADMIN" | "DEVELOPER";
+  // Solo el personal: el administrado no tiene cuenta ni área autenticada.
+  role: "INSPECTOR" | "CAJERO" | "ADMIN" | "DEVELOPER";
   userName: string;
 }
 
@@ -35,39 +36,6 @@ export default function Sidebar({ role, userName }: SidebarProps) {
   const [mostrarSecundarios, setMostrarSecundarios] = useState(
     pathname.startsWith("/inspector/")
   );
-
-  const applicantLinks = [
-    {
-      label: "Vista General",
-      href: "/solicitante",
-      icon: LayoutDashboard,
-    },
-    {
-      label: "Registrar Negocio",
-      href: "/solicitante/nuevo-tramite",
-      icon: Building2,
-    },
-    {
-      label: "Subir Documentos",
-      href: "/solicitante/subir-documentos",
-      icon: FileText,
-    },
-    {
-      label: "Pago S/180",
-      href: "/solicitante/pago",
-      icon: DollarSign,
-    },
-    {
-      label: "Mis Inspecciones",
-      href: "/solicitante/inspecciones",
-      icon: CalendarDays,
-    },
-    {
-      label: "Mi Licencia",
-      href: "/solicitante/licencia",
-      icon: Award,
-    },
-  ];
 
   const inspectorLinks = [
     {
@@ -151,12 +119,11 @@ export default function Sidebar({ role, userName }: SidebarProps) {
   const linksByRole = {
     INSPECTOR: inspectorLinks,
     CAJERO: cajeroLinks,
-    APPLICANT: applicantLinks,
     ADMIN: adminLinks,
     DEVELOPER: developerLinks,
   };
 
-  const links = linksByRole[role] ?? applicantLinks;
+  const links = linksByRole[role] ?? [];
 
   // Los secundarios existen pero se muestran solo al desplegarlos con el ojo.
   const principales = links.filter(

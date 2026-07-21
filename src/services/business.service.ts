@@ -3,29 +3,10 @@ import { prisma } from "@/lib/db/prisma";
 import { Business } from "@prisma/client";
 
 export class BusinessService {
-  static async registerBusiness(data: {
-    legalName: string;
-    ruc: string;
-    fiscalAddress: string;
-  }): Promise<Business> {
-    const existingBusiness = await BusinessRepository.findByRuc(data.ruc);
-
-    if (existingBusiness) {
-      throw new Error("Ya existe un negocio registrado con ese RUC.");
-    }
-
-    return BusinessRepository.create({
-      legalName: data.legalName,
-      ruc: data.ruc,
-      fiscalAddress: data.fiscalAddress,
-      commercialAddress: data.fiscalAddress,
-      activityType: "No registrado",
-      representativeName: "No registrado",
-      representativeDni: "",
-      representativeRole: "Representante Legal",
-      representativePhone: "",
-    });
-  }
+  // registerBusiness se eliminó con startNewApplication, su único llamador.
+  // Las altas vivas usan findOrCreateBusiness (público) y upsertBusinessDetails
+  // (ventanilla), que reutilizan el negocio si el RUC ya existe en vez de
+  // rechazarlo.
 
   /**
    * Alta o actualización del negocio con los datos completos que releva el
