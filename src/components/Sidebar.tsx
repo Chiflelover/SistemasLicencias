@@ -14,8 +14,6 @@ import {
   Users,
   Menu,
   X,
-  Eye,
-  EyeOff,
   RefreshCw,
   FileUp
 } from "lucide-react";
@@ -31,12 +29,6 @@ export default function Sidebar({ role, userName }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Arranca desplegado si el inspector entró directo a una página secundaria,
-  // para que se vea cuál está activa y no parezca que la sección no existe.
-  const [mostrarSecundarios, setMostrarSecundarios] = useState(
-    pathname.startsWith("/inspector/")
-  );
-
   const inspectorLinks = [
     {
       label: "Bandeja de Tareas",
@@ -47,13 +39,11 @@ export default function Sidebar({ role, userName }: SidebarProps) {
       label: "Inspecciones Inopinadas",
       href: "/inspector/inopinadas",
       icon: ShieldAlert,
-      secondary: true,
     },
     {
       label: "Multas Registradas",
       href: "/inspector/multas",
       icon: DollarSign,
-      secondary: true,
     },
   ];
 
@@ -130,14 +120,6 @@ export default function Sidebar({ role, userName }: SidebarProps) {
 
   const links = linksByRole[role] ?? [];
 
-  // Los secundarios existen pero se muestran solo al desplegarlos con el ojo.
-  const principales = links.filter(
-    (link) => !("secondary" in link && link.secondary)
-  );
-  const secundarios = links.filter(
-    (link) => "secondary" in link && link.secondary
-  );
-
   const toggleSidebar = () => setIsOpen(!isOpen);
 
   const renderLink = (link: (typeof links)[number]) => {
@@ -209,41 +191,11 @@ export default function Sidebar({ role, userName }: SidebarProps) {
         </div>
 
         {/* Links de Navegación */}
-        <nav className="flex-grow p-4 overflow-y-auto flex flex-col">
-          <div className="space-y-1.5">{principales.map(renderLink)}</div>
-
-          {secundarios.length > 0 && (
-            // Van pegados a los principales, no al fondo del menú: separados
-            // por el alto del panel quedaban como una sección aparte y no se
-            // leían como parte de la misma navegación.
-            <div className="mt-1.5 space-y-1.5">
-              {mostrarSecundarios && (
-                <div className="space-y-1.5 border-l border-slate-800 ml-4 pl-2">
-                  {secundarios.map(renderLink)}
-                </div>
-              )}
-
-              {/* Los secundarios se guardan detrás de este ojo para no saturar
-                  el menú, pero siguen accesibles al desplegarlos. */}
-              <button
-                type="button"
-                onClick={() => setMostrarSecundarios((v) => !v)}
-                title={
-                  mostrarSecundarios ? "Ocultar más opciones" : "Más opciones"
-                }
-                aria-label={
-                  mostrarSecundarios ? "Ocultar más opciones" : "Más opciones"
-                }
-                className="flex items-center justify-center px-4 py-2.5 rounded-lg text-slate-900 hover:bg-slate-800/60 hover:text-slate-400 transition duration-200"
-              >
-                {mostrarSecundarios ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-          )}
+        {/* Todos los enlaces a la vista. El ojo que escondía los secundarios
+            se quitó: el menú es corto y esconder opciones solo las hacía
+            difíciles de encontrar. */}
+        <nav className="flex-grow p-4 overflow-y-auto">
+          <div className="space-y-1.5">{links.map(renderLink)}</div>
         </nav>
 
         {/* Perfil del Usuario al Fondo */}
