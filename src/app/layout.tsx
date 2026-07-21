@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import GlobalHomeButton from "../components/GlobalHomeButton";
+import KeepAlive from "../components/KeepAlive";
 
 export const metadata: Metadata = {
   title: "Licencias Municipales - Trujillo",
@@ -16,6 +17,7 @@ export default function RootLayout({
     <html lang="es">
       <body className="min-h-screen antialiased">
         <GlobalHomeButton />
+        <KeepAlive />
         {children}
       </body>
     </html>
