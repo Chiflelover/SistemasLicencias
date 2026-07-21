@@ -133,6 +133,25 @@ export class MailService {
     });
   }
 
+  /**
+   * Aviso de rechazo definitivo tras la segunda observación.
+   *
+   * Es el aviso más importante de todos: el trámite se cierra para siempre y
+   * el administrado solo se enteraría consultando su RUC por su cuenta.
+   */
+  static async notifyDefinitiveRejection(to: string, observations: string) {
+    return this.send({
+      to,
+      subject: "Tu trámite fue rechazado",
+      text:
+        "La segunda inspección de tu establecimiento también fue observada, " +
+        "así que el trámite quedó rechazado.\n\n" +
+        (observations ? `Observación del inspector:\n${observations}\n\n` : "") +
+        "No corresponde una tercera inspección. Puedes iniciar un trámite " +
+        "nuevo con el mismo RUC cuando hayas resuelto las observaciones.",
+    });
+  }
+
   /** Aviso al administrado de la inspección programada para hoy. */
   static async notifyInspectionScheduled(to: string, scheduledAt: Date) {
     const cuando = scheduledAt.toLocaleString("es-PE", {

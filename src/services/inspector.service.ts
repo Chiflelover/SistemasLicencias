@@ -220,6 +220,15 @@ export class InspectorService {
         },
       });
 
+      // Es el cierre definitivo del trámite: sin este correo el administrado
+      // solo se enteraría si se le ocurre consultar su RUC.
+      if (inspection.application.contactEmail) {
+        await MailService.notifyDefinitiveRejection(
+          inspection.application.contactEmail,
+          observations?.trim() || ""
+        );
+      }
+
       return updatedInspection;
     }
 
