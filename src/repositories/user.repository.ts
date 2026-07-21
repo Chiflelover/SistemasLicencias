@@ -14,25 +14,8 @@ export class UserRepository {
     });
   }
 
-  static async createApplicant(data: {
-    email: string;
-    passwordHash: string;
-    fullName: string;
-    dni: string;
-    phone: string;
-  }): Promise<User> {
-    return prisma.user.create({
-      data: {
-        email: data.email,
-        passwordHash: data.passwordHash,
-        fullName: data.fullName,
-        dni: data.dni,
-        phone: data.phone,
-        role: Role.APPLICANT,
-        active: true,
-      },
-    });
-  }
+  // createApplicant se eliminó con el autoregistro: los solicitantes los crean
+  // los flujos público y presencial, con contraseña inutilizable.
 
   static async findInspectors(): Promise<User[]> {
     return prisma.user.findMany({

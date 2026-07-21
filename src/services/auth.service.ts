@@ -1,48 +1,16 @@
 import { UserRepository } from "../repositories/user.repository";
-import { hashPassword, comparePassword, signToken, setAuthCookie, removeAuthCookie } from "../lib/auth";
-import { User, Role } from "@prisma/client";
+import { comparePassword, signToken, setAuthCookie, removeAuthCookie } from "../lib/auth";
+import { User } from "@prisma/client";
 
+/**
+ * Sesiones del personal: inspector, cajero, administrador y desarrollador.
+ *
+ * No hay autoregistro. El administrado no tiene cuenta: entra por el flujo
+ * público, que lo identifica por el link de su trámite y por el correo con el
+ * que lo registró. Antes existía `registerApplicant` junto con la pantalla
+ * `/register`, que nadie enlazaba y contradecía ese diseño.
+ */
 export class AuthService {
-  static async registerApplicant(data: {
-    email: string;
-    passwordPlain: string;
-    fullName: string;
-    dni: string;
-    phone: string;
-  }): Promise<{ user: Omit<User, "passwordHash">; token: string }> {
-    // Verificar si el correo ya existe
-    const existingUser = await UserRepository.findByEmail(data.email);
-    if (existingUser) {
-      throw new Error("El correo electrónico ya está registrado.");
-    }
-
-    // Hashear la contraseña
-    const passwordHash = await hashPassword(data.passwordPlain);
-
-    // Crear el usuario solicitante
-    const newUser = await UserRepository.createApplicant({
-      email: data.email,
-      passwordHash,
-      fullName: data.fullName,
-      dni: data.dni,
-      phone: data.phone,
-    });
-
-    // Firmar token JWT
-    const token = signToken({
-      userId: newUser.id,
-      email: newUser.email,
-      role: Role.APPLICANT,
-    });
-
-    // Establecer la cookie de sesión
-    setAuthCookie(token);
-
-    // Retornar sin el hash de la contraseña
-    const { passwordHash: _, ...userWithoutHash } = newUser;
-    return { user: userWithoutHash, token };
-  }
-
   static async login(data: {
     email: string;
     passwordPlain: string;
