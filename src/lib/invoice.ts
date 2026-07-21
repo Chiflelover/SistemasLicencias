@@ -10,11 +10,15 @@ import QRCode from "qrcode";
  * demostración, no está declarado ante SUNAT.
  */
 
-/** Datos del emisor. Reemplazar por los reales de la municipalidad. */
+/**
+ * Datos del emisor, tomados del registro de SUNAT.
+ *
+ * El RUC anterior era un relleno que ni siquiera pasaba el dígito de control.
+ */
 export const EMISOR = {
   razonSocial: "MUNICIPALIDAD PROVINCIAL DE TRUJILLO",
-  ruc: "20166736776",
-  direccion: "JR. PIZARRO NRO. 412, TRUJILLO - TRUJILLO - LA LIBERTAD",
+  ruc: "20175639391",
+  direccion: "JR. ALMAGRO NRO. 525, LA LIBERTAD - TRUJILLO - TRUJILLO",
 };
 
 export type ReceiptKind = "FACTURA" | "BOLETA";
