@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Banknote,
   CheckCircle2,
-  CreditCard,
   DollarSign,
   FileText,
   Loader2,
@@ -20,11 +19,10 @@ const MONTO_TUPA = 180.0;
 /** Billete de mayor denominación en Perú: nadie puede entregar más que esto. */
 const BILLETE_MAXIMO = 200.0;
 
+/** La ventanilla solo cobra en efectivo o por Yape. */
 const METODOS = [
   { value: "EFECTIVO", label: "Efectivo", icon: Banknote },
-  { value: "TARJETA", label: "Tarjeta", icon: CreditCard },
   { value: "YAPE", label: "Yape", icon: Smartphone },
-  { value: "PLIN", label: "Plin", icon: Smartphone },
 ];
 
 interface ApplicationRow {

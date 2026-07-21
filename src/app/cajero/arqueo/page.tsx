@@ -7,17 +7,15 @@ import {
   AlertTriangle,
   ArrowLeft,
   Banknote,
-  CreditCard,
   Loader2,
   Smartphone,
   Wallet,
 } from "lucide-react";
 
+/** La ventanilla solo cobra en efectivo o por Yape. */
 const METODOS = [
   { value: "EFECTIVO", label: "Efectivo", icon: Banknote },
-  { value: "TARJETA", label: "Tarjeta", icon: CreditCard },
   { value: "YAPE", label: "Yape", icon: Smartphone },
-  { value: "PLIN", label: "Plin", icon: Smartphone },
 ];
 
 interface Arqueo {
