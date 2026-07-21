@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Building2,
-  CalendarDays,
   CheckCircle2,
   CreditCard,
   ExternalLink,
@@ -436,8 +435,13 @@ export default async function PublicPaymentPage({
                   </p>
                 </div>
 
+                {/* El color va con inspectionEnabled y no con
+                    paymentCompleted, que es cierto solo en ese estado exacto:
+                    al agendarse la inspección el trámite avanza y el paso se
+                    apagaba, aunque el texto siguiera diciendo que el pago está
+                    registrado. */}
                 <div
-                  className={`rounded-2xl border p-4 ${paymentCompleted
+                  className={`rounded-2xl border p-4 ${inspectionEnabled
                     ? "border-emerald-500/30 bg-emerald-500/10"
                     : paymentAllowed
                       ? "border-amber-500/30 bg-amber-500/10"
@@ -445,7 +449,7 @@ export default async function PublicPaymentPage({
                     }`}
                 >
                   <p
-                    className={`font-bold ${paymentCompleted
+                    className={`font-bold ${inspectionEnabled
                       ? "text-emerald-300"
                       : paymentAllowed
                         ? "text-amber-300"
@@ -505,23 +509,11 @@ export default async function PublicPaymentPage({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 text-sm">
-                        <CalendarDays className="h-4 w-4 shrink-0 text-amber-400" />
-                        <div>
-                          <span className="block text-[10px] uppercase tracking-[0.18em] text-slate-500">Fecha y hora</span>
-                          <span className="font-bold text-white">
-                            {new Date(scheduledInspection.scheduledAt).toLocaleString("es-PE", {
-                              weekday: "long",
-                              day: "2-digit",
-                              month: "long",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        </div>
-                      </div>
-
+                      {/* La fecha y hora se muestran en la página de
+                          inspecciones, que las formatea con la zona de Lima.
+                          Acá salían cinco horas corridas: este archivo no
+                          importa lib/date, así que la zona del proceso quedaba
+                          sin fijar y el formateo caía en UTC. */}
                       <div className="mt-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
                         <p className="text-[11px] font-semibold text-emerald-300">
                           ✓ Inspección agendada
