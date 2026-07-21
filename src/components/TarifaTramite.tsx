@@ -83,11 +83,10 @@ export default function TarifaTramite() {
       </div>
 
       <div className="p-5 space-y-4">
-        <p className="text-sm text-slate-400">
-          Es lo que se cobra por cada trámite, en ventanilla y por la web. Rige
-          la tarifa vigente el día que se paga: los trámites ya cobrados
-          conservan su monto y sus facturas no cambian.
-        </p>
+        {/* Texto corto a pedido del usuario: los límites y el porqué no se
+            explican en pantalla. Si el monto no entra, el error del servidor
+            lo dice. */}
+        <p className="text-sm text-slate-400">Cambio de tarifa.</p>
 
         {error && (
           <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200 flex items-start gap-2">
@@ -128,17 +127,8 @@ export default function TarifaTramite() {
           </button>
         </div>
 
-        {/* El tope no es arbitrario: por encima del billete de mayor
-            denominación no habría forma de cobrar en efectivo. */}
-        {datos && (
-          <p className="text-xs text-slate-500">
-            Entre S/ {datos.minimo.toFixed(2)} y S/ {datos.maximo.toFixed(2)}.
-            El tope es el billete de mayor denominación: con una tarifa mayor no
-            se podría cobrar en efectivo. De fábrica son S/{" "}
-            {datos.porDefecto.toFixed(2)}, y a ese valor vuelve al restablecer
-            el sistema.
-          </p>
-        )}
+        {/* Sin la nota de los límites: el servidor los valida igual y devuelve
+            el mensaje si el monto no entra. */}
       </div>
     </div>
   );

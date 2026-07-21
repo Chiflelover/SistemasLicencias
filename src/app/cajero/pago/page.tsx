@@ -23,9 +23,6 @@ import {
  */
 const TARIFA_POR_DEFECTO = 180.0;
 
-/** Billete de mayor denominación en Perú: nadie puede entregar más que esto. */
-const BILLETE_MAXIMO = 200.0;
-
 /** La ventanilla solo cobra en efectivo o por Yape. */
 const METODOS = [
   { value: "EFECTIVO", label: "Efectivo", icon: Banknote },
@@ -96,10 +93,21 @@ export default function CajeroPagoPage() {
   // avisarlo antes y no que el cajero lo descubra al confirmar.
   const [cajaAbierta, setCajaAbierta] = useState<boolean | null>(null);
 
+  // Efectivo del cajón: con eso se paga el vuelto, así que acota cuánto se
+  // puede devolver. El servidor lo valida igual; esto es para avisar antes.
+  const [efectivoEnCaja, setEfectivoEnCaja] = useState<number | null>(null);
+
   useEffect(() => {
     fetch("/api/cajero/caja", { cache: "no-store" })
       .then((r) => r.json())
-      .then((data) => setCajaAbierta(Boolean(data.abierta)))
+      .then((data) => {
+        setCajaAbierta(Boolean(data.abierta));
+        setEfectivoEnCaja(
+          typeof data.totales?.esperadoEnCaja === "number"
+            ? data.totales.esperadoEnCaja
+            : null
+        );
+      })
       .catch(() => setCajaAbierta(null));
   }, []);
   const [cobrando, setCobrando] = useState(false);
@@ -186,6 +194,17 @@ export default function CajeroPagoPage() {
   const cobrables = applications.filter(
     (a) => a.status === "PENDING_PAYMENT" || a.status === "EXPIRED"
   );
+
+  // Vuelto del pago en efectivo, y si el cajón tiene con qué pagarlo.
+  const vuelto = Math.max(0, Number(recibido) - tarifa);
+  const vueltoSinFondo =
+    !mixto &&
+    metodo === "EFECTIVO" &&
+    recibido !== "" &&
+    Number(recibido) >= tarifa &&
+    vuelto > 0 &&
+    efectivoEnCaja !== null &&
+    Math.round(vuelto * 100) > Math.round(efectivoEnCaja * 100);
 
   // Validación del pago mixto: dos métodos distintos cuyos montos suman la tasa.
   const sumaMixto = (Number(monto1) || 0) + (Number(monto2) || 0);
@@ -521,33 +540,45 @@ export default function CajeroPagoPage() {
 
                 <input
                   value={recibido}
-                  onChange={(e) => {
-                    // No se puede pagar con más que el billete de S/200, así
-                    // que el campo se topa ahí: nunca da un vuelto imposible.
-                    const limpio = e.target.value.replace(/[^\d.]/g, "");
-                    setRecibido(
-                      Number(limpio) > BILLETE_MAXIMO
-                        ? String(BILLETE_MAXIMO)
-                        : limpio
-                    );
-                  }}
+                  onChange={(e) =>
+                    // Sin tope: el contribuyente puede entregar varios
+                    // billetes y el vuelto es la diferencia exacta.
+                    setRecibido(e.target.value.replace(/[^\d.]/g, ""))
+                  }
                   inputMode="decimal"
                   className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-slate-100 outline-none focus:border-amber-400"
                 />
 
                 <span className="mt-1.5 block text-xs text-slate-500">
-                  Entre S/ {tarifa.toFixed(2)} y S/{" "}
-                  {BILLETE_MAXIMO.toFixed(2)}, el billete más grande que existe.
+                  Desde S/ {tarifa.toFixed(2)}. El vuelto se calcula solo.
                 </span>
               </label>
 
               {recibido !== "" && Number(recibido) >= tarifa && (
-                <div className="flex items-center justify-between rounded-lg bg-slate-900/60 px-4 py-3">
+                <div
+                  className={`flex items-center justify-between rounded-lg px-4 py-3 ${
+                    vueltoSinFondo ? "bg-rose-500/10" : "bg-slate-900/60"
+                  }`}
+                >
                   <span className="text-sm text-slate-400">Vuelto a devolver</span>
-                  <span className="text-xl font-black text-emerald-400">
-                    S/ {(Number(recibido) - tarifa).toFixed(2)}
+                  <span
+                    className={`text-xl font-black ${
+                      vueltoSinFondo ? "text-rose-300" : "text-emerald-400"
+                    }`}
+                  >
+                    S/ {vuelto.toFixed(2)}
                   </span>
                 </div>
+              )}
+
+              {/* El vuelto sale del cajón: si no alcanza, el cobro no puede
+                  cerrarse aunque el monto recibido sea correcto. */}
+              {vueltoSinFondo && (
+                <p className="text-sm font-semibold text-rose-300">
+                  En la caja hay S/ {efectivoEnCaja?.toFixed(2)}: no alcanza para
+                  ese vuelto. Pide el importe justo o que el administrador
+                  entregue efectivo.
+                </p>
               )}
 
               {recibido !== "" && Number(recibido) < tarifa && (
@@ -569,7 +600,7 @@ export default function CajeroPagoPage() {
                   : metodo === "EFECTIVO" &&
                     (recibido === "" ||
                       Number(recibido) < tarifa ||
-                      Number(recibido) > BILLETE_MAXIMO))
+                      vueltoSinFondo))
               }
               className="flex-grow bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 px-5 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
             >

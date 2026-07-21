@@ -213,10 +213,10 @@ export default function Sidebar({ role, userName }: SidebarProps) {
           <div className="space-y-1.5">{principales.map(renderLink)}</div>
 
           {secundarios.length > 0 && (
-            // mt-auto empuja este bloque al fondo del nav, contra la línea del
-            // perfil. Va en un div propio y no en el botón, porque un space-y
-            // en el contenedor pisaría el mt-auto de un hijo directo.
-            <div className="mt-auto space-y-1.5">
+            // Van pegados a los principales, no al fondo del menú: separados
+            // por el alto del panel quedaban como una sección aparte y no se
+            // leían como parte de la misma navegación.
+            <div className="mt-1.5 space-y-1.5">
               {mostrarSecundarios && (
                 <div className="space-y-1.5 border-l border-slate-800 ml-4 pl-2">
                   {secundarios.map(renderLink)}

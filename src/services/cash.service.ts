@@ -5,7 +5,7 @@ import { LicenseService } from "@/services/license.service";
 import { AuditService } from "@/services/audit.service";
 import { CashSessionService } from "@/services/cash-session.service";
 import { getCurrentSystemDate } from "@/lib/date";
-import { getTupaAmount, MAX_BILL } from "@/lib/tarifa";
+import { getTupaAmount } from "@/lib/tarifa";
 import {
   ApplicationStatus,
   PaymentMethod,
@@ -14,9 +14,7 @@ import {
 } from "@prisma/client";
 
 // La tarifa dejó de ser una constante: la fija el administrador y se lee en
-// cada cobro con getTupaAmount(). MAX_BILL vive ahora en lib/tarifa junto al
-// tope de la tarifa, que depende de él.
-export { MAX_BILL };
+// cada cobro con getTupaAmount().
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   EFECTIVO: "Efectivo",
@@ -152,16 +150,31 @@ export class CashService {
         );
       }
 
-      if (recibido > MAX_BILL) {
-        throw new Error(
-          `El monto recibido no puede superar los S/ ${MAX_BILL.toFixed(
-            2
-          )}, que es el billete de mayor denominación.`
-        );
-      }
-
+      // No hay tope superior: el contribuyente puede entregar varios billetes
+      // y el vuelto es la diferencia exacta. Con una tarifa de S/ 500 y tres
+      // billetes de 200, el vuelto es 100.
       receivedAmount = recibido;
       changeGiven = Math.round((recibido - tarifa) * 100) / 100;
+
+      // El vuelto sale del cajón, así que no puede pasarse de lo que hay
+      // dentro. Se mira el estado de la caja ANTES de asentar este pago: es
+      // con ese efectivo con el que el cajero va a devolver el cambio. Lo
+      // cobrado por Yape no cuenta, porque nunca pasó por el cajón.
+      if (changeGiven > 0) {
+        const enCaja = await CashSessionService.getSessionTotals(turno.id);
+
+        if (
+          Math.round(changeGiven * 100) >
+          Math.round(enCaja.esperadoEnCaja * 100)
+        ) {
+          throw new Error(
+            `No hay efectivo para el vuelto: harían falta S/ ${changeGiven.toFixed(
+              2
+            )} y en la caja hay S/ ${enCaja.esperadoEnCaja.toFixed(2)}. ` +
+              "Pide el importe justo o solicita al administrador que entregue efectivo."
+          );
+        }
+      }
     }
 
     const paidAt = await getCurrentSystemDate();

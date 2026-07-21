@@ -4,24 +4,14 @@ import { prisma } from "@/lib/db/prisma";
 export const DEFAULT_TUPA_AMOUNT = 180.0;
 
 /**
- * Billete de mayor denominación en circulación en Perú.
- *
- * Acota cuánto puede entregar el contribuyente en un pago en efectivo: por
- * encima de esto no hay billete que lo justifique, y sirve para atajar un
- * tipeo de más.
- */
-export const MAX_BILL = 200.0;
-
-/**
  * Tope de la tarifa configurable.
  *
- * No puede pasar el billete de mayor denominación: el cobro en efectivo exige
- * `recibido >= tarifa` y `recibido <= MAX_BILL`, así que con una tarifa mayor
- * no existiría ningún monto válido y la ventanilla no podría cobrar en
- * efectivo. Para permitir tarifas más altas habría que aceptar varios billetes,
- * que es otra regla.
+ * Estuvo atado al billete de mayor denominación (S/ 200) mientras el cobro en
+ * efectivo exigía que lo recibido no pasara de un billete: con una tarifa
+ * mayor no existía ningún monto válido. Al aceptar varios billetes esa atadura
+ * desapareció y el tope pasó a ser solo un número redondo que ataja un tipeo.
  */
-export const MAX_TUPA_AMOUNT = MAX_BILL;
+export const MAX_TUPA_AMOUNT = 1000.0;
 
 /** Mínimo de la tarifa: cobrar cero no es cobrar. */
 export const MIN_TUPA_AMOUNT = 1.0;
@@ -66,9 +56,7 @@ export async function setTupaAmount(amount: number): Promise<number> {
 
   if (monto > MAX_TUPA_AMOUNT) {
     throw new Error(
-      `La tarifa no puede superar los S/ ${MAX_TUPA_AMOUNT.toFixed(2)}, que es ` +
-        "el billete de mayor denominación: por encima de eso no se podría " +
-        "cobrar en efectivo."
+      `La tarifa no puede superar los S/ ${MAX_TUPA_AMOUNT.toFixed(2)}.`
     );
   }
 
