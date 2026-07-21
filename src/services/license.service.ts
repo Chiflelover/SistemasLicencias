@@ -4,7 +4,7 @@ import { generateLicensePdf } from "@/lib/pdf";
 import { addYears, getCurrentSystemDate } from "@/lib/date";
 import { NotificationService } from "@/services/notification.service";
 import { AuditService } from "@/services/audit.service";
-import { WhatsAppService } from "@/services/whatsapp.service";
+import { MailService } from "@/services/mail.service";
 import { prisma } from "@/lib/db/prisma";
 import { ApplicationStatus, LicenseStatus } from "@prisma/client";
 
@@ -109,9 +109,14 @@ export class LicenseService {
           },
         });
 
-        // Va dentro de esta guarda para que salga una sola vez, en la
-        // transición a vencida, y no en cada consulta posterior.
-        await WhatsAppService.notifyLicenseExpired();
+        // El aviso al administrado va por correo. WhatsApp quedó reservado
+        // para el inspector, porque el bot gratuito entrega a un único número.
+        if (application.contactEmail) {
+          await MailService.notifyLicenseExpired(
+            application.contactEmail,
+            license.licenseNumber
+          );
+        }
       }
 
       return;

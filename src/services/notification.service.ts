@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { WhatsAppService } from "@/services/whatsapp.service";
+import { MailService } from "@/services/mail.service";
 import { getCurrentSystemDate } from "@/lib/date";
 import { NotificationType, Role } from "@prisma/client";
 
@@ -212,10 +213,24 @@ export class NotificationService {
       dedupeKey: `inspeccion-hoy:${params.inspectionId}:${params.day}`,
     });
 
-    // Solo cuando notify() creó una fila nueva. Sin esta guarda el mensaje
+    // Solo cuando notify() creó una fila nueva. Sin esta guarda el aviso
     // saldría en cada sondeo de la campana, cada pocos segundos.
+    //
+    // El administrado se entera por correo; el WhatsApp quedó reservado para
+    // el inspector. El correo de contacto vive en el trámite, no en el
+    // usuario sintético del flujo público.
     if (creada) {
-      await WhatsAppService.notifyInspectionScheduled(params.scheduledAt);
+      const app = await prisma.application.findUnique({
+        where: { id: params.applicationId },
+        select: { contactEmail: true },
+      });
+
+      if (app?.contactEmail) {
+        await MailService.notifyInspectionScheduled(
+          app.contactEmail,
+          params.scheduledAt
+        );
+      }
     }
   }
 

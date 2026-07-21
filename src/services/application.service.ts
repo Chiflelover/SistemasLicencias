@@ -108,6 +108,7 @@ export class ApplicationService {
     ruc: string;
     fiscalAddress: string;
     activityType?: string;
+    contactEmail?: string;
   }): Promise<{ application: Application; business: Business }> {
     const now = await getCurrentSystemDate();
 
@@ -143,6 +144,15 @@ export class ApplicationService {
     );
 
     if (existingApplication) {
+      // Si retoma un trámite y cambió el correo, se actualiza: es el dato con
+      // el que se le va a avisar.
+      if (params.contactEmail) {
+        await prisma.application.update({
+          where: { id: existingApplication.id },
+          data: { contactEmail: params.contactEmail },
+        });
+      }
+
       return {
         application: existingApplication,
         business,
@@ -156,6 +166,7 @@ export class ApplicationService {
         number: applicationNumber,
         applicantId: applicant.id,
         businessId: business.id,
+        contactEmail: params.contactEmail ?? null,
         createdAt: now,
       },
     });

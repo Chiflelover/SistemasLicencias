@@ -22,9 +22,25 @@ export async function GET(request: Request) {
 
     const results = await ApplicationRepository.searchPublic(query);
 
+    // "Subsanado" = ya se subieron los documentos corregidos. El endpoint de
+    // subsanación los nombra con "(subsanado)"; se detecta por el nombre y no
+    // por fecha, porque los documentos usan la hora real y las inspecciones la
+    // simulada, y compararlas daría un resultado incorrecto en las demos.
+    const conSubsanacion = results.map((app) => {
+      const subsanado = app.documents.some((doc) =>
+        /subsanad/i.test(doc.name)
+      );
+
+      // Los documentos no se exponen en la consulta pública.
+      const { documents, ...resto } = app;
+      void documents;
+
+      return { ...resto, subsanado };
+    });
+
     return NextResponse.json({
       success: true,
-      results,
+      results: conSubsanacion,
     });
   } catch (error: any) {
     console.error("Error en consulta pública:", error);

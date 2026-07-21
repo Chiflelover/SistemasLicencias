@@ -314,6 +314,11 @@ export class ApplicationRepository {
             expiresAt: true,
           },
         },
+        // Sin el binario `content`: solo el nombre, para detectar si ya se
+        // subieron documentos de subsanación (el endpoint los marca en el
+        // nombre). No se compara por fecha porque los documentos usan la hora
+        // real y las inspecciones la simulada.
+        documents: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },
       take: 20,

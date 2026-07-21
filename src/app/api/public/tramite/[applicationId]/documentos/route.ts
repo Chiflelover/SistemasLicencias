@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { assertDocumentUploadAllowed } from "@/lib/documents";
+import { assertDocumentUploadAllowed, isUnderObservation } from "@/lib/documents";
 import { ApplicationStatus, DocumentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -128,12 +128,18 @@ export async function POST(
 
     const documentsComplete = hasFloorPlan && hasRucRecord;
 
-    const updatedApplication = documentsComplete
-      ? await prisma.application.update({
-          where: { id: application.id },
-          data: { status: ApplicationStatus.PENDING_PAYMENT },
-        })
-      : application;
+    // En una subsanación el trámite ya pagó y tiene su segunda inspección
+    // agendada: reemplazar un documento NO debe devolverlo a PENDING_PAYMENT
+    // ni cobrar de nuevo. El paso a pago solo aplica al armado inicial.
+    const enSubsanacion = isUnderObservation(application.status);
+
+    const updatedApplication =
+      documentsComplete && !enSubsanacion
+        ? await prisma.application.update({
+            where: { id: application.id },
+            data: { status: ApplicationStatus.PENDING_PAYMENT },
+          })
+        : application;
 
     return NextResponse.json({
       success: true,

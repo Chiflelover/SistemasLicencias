@@ -1,7 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Download } from "lucide-react";
+import { CheckCircle2, Download } from "lucide-react";
+import SubsanarPublico from "@/components/SubsanarPublico";
+
+/** Estados del ciclo de observación que admiten subsanar documentos. */
+const ESTADOS_OBSERVADO = [
+  "FIRST_INSPECTION_REJECTED",
+  "SECOND_INSPECTION_SCHEDULED",
+];
 
 type SearchResult = {
   id: string;
@@ -18,6 +25,7 @@ type SearchResult = {
     status: string;
     expiresAt: string;
   } | null;
+  subsanado?: boolean;
 };
 
 /** Estado de la licencia emitida. */
@@ -224,6 +232,31 @@ export default function PublicLicenseSearch() {
               </table>
             </div>
           )}
+
+          {/* Subsanación: si un trámite quedó observado y todavía no subió los
+              documentos corregidos, se ofrece el formulario con el correo como
+              llave. Si ya subsanó, se muestra el aviso de espera. */}
+          {results
+            .filter((app) => ESTADOS_OBSERVADO.includes(app.status))
+            .map((app) => (
+              <div key={`subsanar-${app.id}`} className="mt-2">
+                {app.subsanado ? (
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-start gap-2.5 text-sm text-emerald-200">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>
+                      Documentos subsanados del trámite {app.number}. Pendiente
+                      de la segunda inspección.
+                    </span>
+                  </div>
+                ) : (
+                  <SubsanarPublico
+                    applicationId={app.id}
+                    applicationNumber={app.number}
+                    legalName={app.business.legalName}
+                  />
+                )}
+              </div>
+            ))}
         </div>
       )}
     </div>

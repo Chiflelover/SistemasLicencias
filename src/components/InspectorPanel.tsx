@@ -176,6 +176,11 @@ export function InspectorPanel() {
   const handleAction = async (action: "approve" | "reject") => {
     if (!selectedInspectionId) return;
 
+    if (action === "reject" && observations.trim().length === 0) {
+      setError("Para rechazar es obligatorio registrar observaciones.");
+      return;
+    }
+
     setActionLoading(true);
     setError(null);
     setSuccessMessage(null);
@@ -363,29 +368,47 @@ export function InspectorPanel() {
               <p className="text-slate-500 uppercase text-[11px] tracking-[0.2em]">Documentos adjuntos</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {details?.application.documents.length ? (
-                  details.application.documents.map((document) => (
+                  details.application.documents.map((document) => {
+                    // El endpoint de subsanación marca el nombre con
+                    // "(subsanado)". Se resalta para que el inspector distinga
+                    // el documento corregido del original, que quedan juntos.
+                    const esSubsanado = /subsanad/i.test(document.name);
+
+                    return (
                     <a
                       key={document.id}
                       href={`/api/public/documentos/${document.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-850/50 bg-slate-900/70 p-3 hover:border-amber-500/50 hover:bg-slate-900 transition text-left cursor-pointer group"
+                      className={`flex items-center justify-between gap-3 rounded-2xl border p-3 transition text-left cursor-pointer group ${
+                        esSubsanado
+                          ? "border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/15"
+                          : "border-slate-850/50 bg-slate-900/70 hover:border-amber-500/50 hover:bg-slate-900"
+                      }`}
                       title="Haga clic para ver el documento"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <ClipboardList className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition" />
+                        <ClipboardList className={`w-4 h-4 transition ${esSubsanado ? "text-emerald-400" : "text-slate-400 group-hover:text-amber-400"}`} />
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-white truncate">
-                            {ETIQUETAS_DOCUMENTO[document.type] ?? document.name}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-white truncate">
+                              {ETIQUETAS_DOCUMENTO[document.type] ?? document.name}
+                            </p>
+                            {esSubsanado && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded shrink-0">
+                                Subsanado
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-slate-500 truncate">{document.fileName}</p>
                         </div>
                       </div>
-                      <span className="text-[10px] text-amber-400 font-bold bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20 shrink-0">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${esSubsanado ? "text-emerald-300 bg-emerald-400/10 border-emerald-400/20" : "text-amber-400 bg-amber-400/10 border-amber-400/20"}`}>
                         VER
                       </span>
                     </a>
-                  ))
+                    );
+                  })
                 ) : (
                   <p className="text-slate-500 text-sm">No hay documentos adjuntos.</p>
                 )}
@@ -471,7 +494,11 @@ export function InspectorPanel() {
             <button
               type="button"
               onClick={() => handleAction(pendingResult)}
-              disabled={!selectedInspectionId || actionLoading}
+              disabled={
+                !selectedInspectionId ||
+                actionLoading ||
+                (pendingResult === "reject" && observations.trim().length === 0)
+              }
               className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-5 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {actionLoading ? (

@@ -29,6 +29,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // Correo de contacto: es la única vía para avisarle al ciudadano, que no
+    // puede iniciar sesión. Se valida acá y no solo en el navegador.
+    const contactEmail = String(body.contactEmail || "").trim();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      return NextResponse.json(
+        { error: "Indica un correo de contacto válido." },
+        { status: 400 }
+      );
+    }
+
     const rucData = await RucService.getBusinessData(ruc);
 
 
@@ -87,6 +98,7 @@ export async function POST(request: Request) {
         legalName: rucData.legalName,
         fiscalAddress: rucData.fiscalAddress,
         activityType,
+        contactEmail,
       });
 
     return NextResponse.json(

@@ -5,6 +5,7 @@ import { InspectionService } from "@/services/inspection.service";
 import { getCurrentSystemDate } from "@/lib/date";
 import { AuditService } from "@/services/audit.service";
 import { NotificationService } from "@/services/notification.service";
+import { MailService } from "@/services/mail.service";
 import {
   ApplicationStatus,
   InspectionNumber,
@@ -144,6 +145,17 @@ export class InspectorService {
           applicationNumber,
           scheduledAt: secondInspection.scheduledAt,
         });
+
+        // Correo con la observación y la fecha de la nueva visita. El correo
+        // de contacto lo declaró el ciudadano al iniciar el trámite; el
+        // usuario del flujo público no puede leer los avisos internos.
+        if (inspection.application.contactEmail) {
+          await MailService.notifyInspectionRejected(
+            inspection.application.contactEmail,
+            observations?.trim() || "",
+            secondInspection.scheduledAt
+          );
+        }
       }
 
       return updatedInspection;

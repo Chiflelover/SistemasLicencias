@@ -154,13 +154,20 @@ export default function DevPanel() {
           {/* Botones de Control de Tiempo */}
           <div className="space-y-2">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">AVANZAR TIEMPO</span>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => handleAdvanceTime(1, "days")}
                 disabled={loading || !simulatedDate}
                 className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold py-2 px-1 rounded-lg border border-slate-750 transition hover:border-slate-600 disabled:cursor-not-allowed disabled:opacity-50 text-center"
               >
                 +1 Día
+              </button>
+              <button
+                onClick={() => handleAdvanceTime(5, "days")}
+                disabled={loading || !simulatedDate}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold py-2 px-1 rounded-lg border border-slate-750 transition hover:border-slate-600 disabled:cursor-not-allowed disabled:opacity-50 text-center"
+              >
+                +5 Días
               </button>
               <button
                 onClick={() => handleAdvanceTime(30, "days")}

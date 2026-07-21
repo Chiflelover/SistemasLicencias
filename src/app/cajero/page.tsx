@@ -3,6 +3,7 @@ import { getCurrentUser } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import RenovacionLicencia from "@/components/RenovacionLicencia";
+import SubsanarTramite from "@/components/SubsanarTramite";
 import {
   Building2,
   DollarSign,
@@ -146,6 +147,8 @@ export default async function CajeroDashboard() {
       )}
 
       <RenovacionLicencia />
+
+      <SubsanarTramite />
 
       <div className="rounded-2xl border border-slate-850 bg-slate-900/40 overflow-hidden">
         <div className="p-5 border-b border-slate-850">

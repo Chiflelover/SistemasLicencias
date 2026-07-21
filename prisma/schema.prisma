@@ -154,6 +154,11 @@ model Application {
   // Cajero que registró el trámite de forma presencial (null si fue autogestión)
   registeredById String?
 
+  // Correo de contacto que declara el ciudadano al iniciar el trámite. Va acá
+  // y no en User.email: ese campo es @unique y el flujo público lo usa con un
+  // valor sintético, así que dos trámites con el mismo Gmail chocarían.
+  contactEmail String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

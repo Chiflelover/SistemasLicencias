@@ -11,7 +11,6 @@ interface ManualPaymentFormProps {
 export default function ManualPaymentForm({ applicationId }: ManualPaymentFormProps) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
-  const [telefono, setTelefono] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,11 +73,6 @@ export default function ManualPaymentForm({ applicationId }: ManualPaymentFormPr
       return;
     }
 
-    if (!/^\d{9}$/.test(telefono)) {
-      setError("Ingresa un teléfono de contacto de 9 dígitos.");
-      return;
-    }
-
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -86,7 +80,6 @@ export default function ManualPaymentForm({ applicationId }: ManualPaymentFormPr
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("telefono", telefono);
 
       const response = await fetch(`/api/public/tramite/${applicationId}/pago/manual`, {
         method: "POST",
@@ -116,39 +109,6 @@ export default function ManualPaymentForm({ applicationId }: ManualPaymentFormPr
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Teléfono de contacto */}
-        <label className="block rounded-2xl border border-slate-850 bg-slate-950/40 p-5">
-          <span className="text-sm font-bold text-slate-200">
-            Teléfono de contacto <span className="text-rose-400">*</span>
-          </span>
-
-          <p className="mt-1 text-xs text-slate-500">
-            Obligatorio. Lo usaremos para avisarte sobre el estado de tu
-            licencia.
-          </p>
-
-          <input
-            type="tel"
-            required
-            inputMode="numeric"
-            maxLength={9}
-            value={telefono}
-            onChange={(event) =>
-              setTelefono(event.target.value.replace(/\D/g, ""))
-            }
-            placeholder="987654321"
-            className="mt-3 w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20"
-          />
-
-          {/* Sin esto, el botón deshabilitado no explica qué falta. */}
-          {telefono.length > 0 && telefono.length < 9 && (
-            <p className="mt-2 text-xs text-amber-300">
-              Faltan {9 - telefono.length} dígito
-              {9 - telefono.length === 1 ? "" : "s"}.
-            </p>
-          )}
-        </label>
-
         {/* Drag & Drop Area */}
         <div
           onDragEnter={handleDrag}
@@ -224,9 +184,7 @@ export default function ManualPaymentForm({ applicationId }: ManualPaymentFormPr
           <div className="text-right">
             <button
               type="submit"
-              disabled={
-                !file || telefono.length !== 9 || loading || success !== null
-              }
+              disabled={!file || loading || success !== null}
               className={`w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-3.5 text-sm font-extrabold uppercase tracking-wider transition disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {loading ? (

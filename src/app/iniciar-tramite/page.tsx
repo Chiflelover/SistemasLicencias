@@ -64,6 +64,7 @@ export default function IniciarTramitePage() {
 
   const [ruc, setRuc] = useState("");
   const [rubro, setRubro] = useState("");
+  const [correo, setCorreo] = useState("");
   const [rucData, setRucData] = useState<RucData | null>(null);
   const [loading, setLoading] = useState(false);
   const [creatingApplication, setCreatingApplication] = useState(false);
@@ -77,12 +78,16 @@ export default function IniciarTramitePage() {
     ? checkRucEligibility(rucData)
     : { elegible: true as boolean, motivo: undefined };
 
+  // Validación de correo pareja a la del servidor: algo@algo.algo.
+  const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
+
   const puedeIniciar =
     Boolean(rucData) &&
     allowed &&
     !tramiteExistente &&
     elegibilidad.elegible &&
-    rubro.trim().length >= 3;
+    rubro.trim().length >= 3 &&
+    correoValido;
 
   const handleRucChange = (value: string) => {
     const cleanValue = value.replace(/\D/g, "").slice(0, 11);
@@ -150,6 +155,7 @@ export default function IniciarTramitePage() {
         body: JSON.stringify({
           ruc: rucData.ruc,
           activityType: rubro.trim(),
+          contactEmail: correo.trim(),
         }),
       });
 
@@ -373,6 +379,35 @@ export default function IniciarTramitePage() {
                 <p className="mt-2 text-xs text-slate-500">
                   Obligatorio. Aparecerá en tu licencia como giro comercial.
                 </p>
+              </label>
+
+              {/* El ciudadano del flujo público no puede iniciar sesión, así
+                  que este correo es la vía para avisarle del vencimiento y de
+                  la inspección. */}
+              <label className="block text-sm text-slate-300">
+                <span className="font-semibold">
+                  Correo de contacto <span className="text-rose-400">*</span>
+                </span>
+
+                <input
+                  type="email"
+                  value={correo}
+                  onChange={(event) => setCorreo(event.target.value)}
+                  maxLength={120}
+                  placeholder="tucorreo@ejemplo.com"
+                  className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20"
+                />
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Obligatorio. Te avisaremos acá cuando tu licencia esté por
+                  vencer y el día de tu inspección.
+                </p>
+
+                {correo.trim().length > 0 && !correoValido && (
+                  <p className="mt-1 text-xs text-amber-300">
+                    Ingresá un correo válido.
+                  </p>
+                )}
               </label>
 
               {/* El estado tributario se evalúa antes que la jurisdicción: si

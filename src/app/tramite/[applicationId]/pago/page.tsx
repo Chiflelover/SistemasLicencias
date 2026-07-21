@@ -4,12 +4,12 @@ import { prisma } from "@/lib/db/prisma";
 import ManualPaymentForm from "@/components/ManualPaymentForm";
 import {
   ArrowLeft,
+  ArrowRight,
   Building2,
   CalendarDays,
   CheckCircle2,
   CreditCard,
   FileText,
-  Home,
   ShieldCheck,
   User,
   WalletCards,
@@ -124,15 +124,9 @@ export default async function PublicPaymentPage({
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 bg-slate-900/40">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-amber-500 hover:text-amber-200"
-          >
-            <Home className="h-4 w-4" />
-            Inicio
-          </Link>
-
+        {/* El botón de Inicio lo aporta el GlobalHomeButton flotante, común a
+            todo el flujo público; acá va solo el distintivo del trámite. */}
+        <div className="mx-auto flex max-w-7xl items-center justify-end px-6 py-4">
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
             Trámite público
           </div>
@@ -156,13 +150,26 @@ export default async function PublicPaymentPage({
             </p>
           </div>
 
-          <Link
-            href={`/tramite/${application.id}/subir-documentos`}
-            className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-amber-500 hover:text-amber-200"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Volver a documentos
-          </Link>
+          {/* Retroceder a documentos solo tiene sentido antes de pagar. Una
+              vez asentado el pago, la inspección ya está agendada y volver
+              atrás confundiría: se muestra en su lugar el avance a inspección. */}
+          {canPay(application.status) ? (
+            <Link
+              href={`/tramite/${application.id}/subir-documentos`}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-amber-500 hover:text-amber-200"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Volver a documentos
+            </Link>
+          ) : inspectionEnabled ? (
+            <Link
+              href={`/tramite/${application.id}/inspecciones`}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-amber-500 hover:text-amber-200"
+            >
+              Ver inspección
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          ) : null}
         </div>
 
         <section className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">

@@ -63,36 +63,14 @@ export class WhatsAppService {
     }
   }
 
-  /** Aviso al administrado de que su licencia caducó. */
-  static async notifyLicenseExpired() {
-    return this.send("Tu licencia ya venció, inicia un nuevo trámite");
-  }
-
-  /**
-   * Aviso al administrado de la inspección que le programaron.
-   *
-   * La fecha se arma con la zona del proceso, que quedó fijada en Lima
-   * (ver src/lib/date.ts): sin eso saldría en UTC, cinco horas corrida.
-   */
-  static async notifyInspectionScheduled(scheduledAt: Date) {
-    const cuando = scheduledAt.toLocaleString("es-PE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    return this.send(
-      `Hoy ${cuando} tienes programada tu inspección para la Licencia`
-    );
-  }
-
   /**
    * Aviso al inspector de su carga del día.
    *
-   * Lleva prefijo porque en la demostración todos los mensajes caen en el
-   * mismo teléfono: sin él no se distingue del aviso al administrado.
+   * El bot gratuito entrega a un único número, así que WhatsApp quedó
+   * dedicado al inspector; al administrado se le avisa por correo.
+   *
+   * La fecha se arma con la zona del proceso, fijada en Lima (ver
+   * src/lib/date.ts): sin eso saldría en UTC, cinco horas corrida.
    */
   static async notifyInspectorAgenda(pendientes: number, primera: Date) {
     const hora = primera.toLocaleTimeString("es-PE", {

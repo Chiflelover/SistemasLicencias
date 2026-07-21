@@ -158,6 +158,12 @@ export class InspectionService {
         ? new Date(firstInspection.resultAt)
         : now;
 
+      // Se cuenta desde el inicio del día del rechazo, no desde la hora
+      // exacta: así los 30 días hábiles caen siempre en la fecha esperada a
+      // primera hora, sin que un rechazo de tarde empuje la cita un día más
+      // (a las 19:00 el "+30" caería fuera de horario y saltaría de franja).
+      rejectionDate.setHours(0, 0, 0, 0);
+
       // Segunda inspección: 30 días hábiles después del rechazo.
       baseDate = addWorkDays(rejectionDate, 30);
     }

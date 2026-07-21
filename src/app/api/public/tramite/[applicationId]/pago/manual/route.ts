@@ -102,25 +102,6 @@ export async function POST(
       );
     }
 
-    // Teléfono de contacto del solicitante. Se valida acá aunque el
-    // formulario ya lo controle: una petición directa se saltea el cliente.
-    const telefono = String(formData.get("telefono") ?? "").trim();
-
-    if (!/^\d{9}$/.test(telefono)) {
-      return NextResponse.json(
-        { error: "Ingresa un teléfono de contacto de 9 dígitos." },
-        { status: 400 }
-      );
-    }
-
-    // Reemplaza el "000000000" de relleno con que el flujo público crea al
-    // solicitante. Se escribe antes de registrar el pago: si algo falla acá,
-    // todavía no se asentó dinero.
-    await prisma.user.update({
-      where: { id: application.applicantId },
-      data: { phone: telefono },
-    });
-
     // 1. Obtener Inspectores y seleccionar uno al azar
     const inspectors = await UserRepository.findInspectors();
     if (inspectors.length === 0) {

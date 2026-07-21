@@ -8,7 +8,7 @@ import {
   InspectionStatus,
   Role,
 } from "@prisma/client";
-import { ArrowLeft, BadgeCheck, Building2, CalendarDays, ClipboardCheck, FileCheck2, Home, MapPin, ShieldCheck, UserCheck } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Building2, CalendarDays, ClipboardCheck, FileCheck2, MapPin, ShieldCheck, UserCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -223,15 +223,9 @@ export default async function PublicInspectionsPage({
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-slate-800 bg-slate-900/40">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-amber-500 hover:text-amber-200"
-          >
-            <Home className="h-4 w-4" />
-            Inicio
-          </Link>
-
+        {/* El botón de Inicio lo aporta el GlobalHomeButton flotante, común a
+            todo el flujo público; acá va solo el distintivo del trámite. */}
+        <div className="mx-auto flex max-w-7xl items-center justify-end px-6 py-4">
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
             Trámite público
           </div>

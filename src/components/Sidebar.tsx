@@ -9,11 +9,13 @@ import {
   Award, 
   FolderSearch, 
   ShieldAlert, 
-  DollarSign, 
+  DollarSign,
   LayoutDashboard,
   Users,
   Menu,
-  X
+  X,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { useState } from "react";
 
@@ -25,6 +27,12 @@ interface SidebarProps {
 export default function Sidebar({ role, userName }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+
+  // Arranca desplegado si el inspector entró directo a una página secundaria,
+  // para que se vea cuál está activa y no parezca que la sección no existe.
+  const [mostrarSecundarios, setMostrarSecundarios] = useState(
+    pathname.startsWith("/inspector/")
+  );
 
   const applicantLinks = [
     {
@@ -69,11 +77,13 @@ export default function Sidebar({ role, userName }: SidebarProps) {
       label: "Inspecciones Inopinadas",
       href: "/inspector/inopinadas",
       icon: ShieldAlert,
+      secondary: true,
     },
     {
       label: "Multas Registradas",
       href: "/inspector/multas",
       icon: DollarSign,
+      secondary: true,
     },
   ];
 
@@ -136,7 +146,36 @@ export default function Sidebar({ role, userName }: SidebarProps) {
 
   const links = linksByRole[role] ?? applicantLinks;
 
+  // Los secundarios existen pero se muestran solo al desplegarlos con el ojo.
+  const principales = links.filter(
+    (link) => !("secondary" in link && link.secondary)
+  );
+  const secundarios = links.filter(
+    (link) => "secondary" in link && link.secondary
+  );
+
   const toggleSidebar = () => setIsOpen(!isOpen);
+
+  const renderLink = (link: (typeof links)[number]) => {
+    const isActive = pathname === link.href;
+    const Icon = link.icon;
+
+    return (
+      <Link
+        key={link.label}
+        href={link.href}
+        onClick={() => setIsOpen(false)}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition duration-200 ${
+          isActive
+            ? "bg-amber-500 text-slate-950"
+            : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+        }`}
+      >
+        <Icon className={`w-4 h-4 ${isActive ? "text-slate-950" : "text-slate-400"}`} />
+        {link.label}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -186,26 +225,41 @@ export default function Sidebar({ role, userName }: SidebarProps) {
         </div>
 
         {/* Links de Navegación */}
-        <nav className="flex-grow p-4 space-y-1.5 overflow-y-auto">
-          {links.map((link) => {
-            const isActive = pathname === link.href;
-            const Icon = link.icon;
-            return (
-              <Link
-                key={link.label}
-                href={link.href}
-                onClick={() => setIsOpen(false)}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition duration-200 ${
-                  isActive
-                    ? "bg-amber-500 text-slate-950"
-                    : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
-                }`}
+        <nav className="flex-grow p-4 overflow-y-auto flex flex-col">
+          <div className="space-y-1.5">{principales.map(renderLink)}</div>
+
+          {secundarios.length > 0 && (
+            // mt-auto empuja este bloque al fondo del nav, contra la línea del
+            // perfil. Va en un div propio y no en el botón, porque un space-y
+            // en el contenedor pisaría el mt-auto de un hijo directo.
+            <div className="mt-auto space-y-1.5">
+              {mostrarSecundarios && (
+                <div className="space-y-1.5 border-l border-slate-800 ml-4 pl-2">
+                  {secundarios.map(renderLink)}
+                </div>
+              )}
+
+              {/* Los secundarios se guardan detrás de este ojo para no saturar
+                  el menú, pero siguen accesibles al desplegarlos. */}
+              <button
+                type="button"
+                onClick={() => setMostrarSecundarios((v) => !v)}
+                title={
+                  mostrarSecundarios ? "Ocultar más opciones" : "Más opciones"
+                }
+                aria-label={
+                  mostrarSecundarios ? "Ocultar más opciones" : "Más opciones"
+                }
+                className="flex items-center justify-center px-4 py-2.5 rounded-lg text-slate-900 hover:bg-slate-800/60 hover:text-slate-400 transition duration-200"
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-slate-950" : "text-slate-400"}`} />
-                {link.label}
-              </Link>
-            );
-          })}
+                {mostrarSecundarios ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+          )}
         </nav>
 
         {/* Perfil del Usuario al Fondo */}
