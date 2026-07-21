@@ -22,6 +22,13 @@ export async function POST(request: Request) {
     // licencia se emitiría con "No registrado" en el giro comercial.
     const activityType = String(body.activityType || "").trim();
 
+    // Para volverlo OPCIONAL, usar esta condición en lugar de la de abajo.
+    // Solo valida el largo cuando mandaron algo:
+    //
+    //   if (activityType.length > 0 && activityType.length < 3) {
+    //
+    // Sin rubro, el negocio se guarda con "No registrado" y eso mismo se
+    // imprime en la licencia como giro comercial.
     if (activityType.length < 3) {
       return NextResponse.json(
         { error: "Indica el rubro o giro del negocio (mínimo 3 caracteres)." },
@@ -46,6 +53,13 @@ export async function POST(request: Request) {
     // que si no salía impresa con el usuario sintético del trámite.
     const representativeDni = String(body.representativeDni || "").trim();
 
+    // Para volverlo OPCIONAL, usar esta condición en lugar de la de abajo.
+    // Solo valida el formato cuando mandaron algo:
+    //
+    //   if (representativeDni && !/^\d{8}$/.test(representativeDni)) {
+    //
+    // Sin DNI, el negocio se guarda con la cadena vacía y la licencia imprime
+    // "No registrado" en el representante, como antes de que se pidiera.
     if (!/^\d{8}$/.test(representativeDni)) {
       return NextResponse.json(
         { error: "El DNI del representante legal debe tener 8 dígitos." },

@@ -83,14 +83,33 @@ export default function IniciarTramitePage() {
   const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
 
   // Solo el formato: el DNI se declara y no se contrasta contra RENIEC.
+  //
+  // Para volverlo OPCIONAL, usar esta línea en lugar de la de abajo. Deja
+  // pasar el campo vacío y sigue exigiendo 8 dígitos si escriben algo:
+  //
+  //   const dniValido = dni.length === 0 || /^\d{8}$/.test(dni);
+  //
+  // Hay que hacer el cambio equivalente en el servidor
+  // (src/app/api/public/iniciar-tramite/route.ts): con este solo, el
+  // formulario deja continuar pero la petición vuelve con 400.
   const dniValido = /^\d{8}$/.test(dni);
+
+  // Para volver el RUBRO opcional, usar esta línea en lugar de la de abajo.
+  // Deja pasar el campo vacío y sigue exigiendo 3 caracteres si escriben algo:
+  //
+  //   const rubroValido = rubro.trim().length === 0 || rubro.trim().length >= 3;
+  //
+  // Hay que hacer el cambio equivalente en el servidor
+  // (src/app/api/public/iniciar-tramite/route.ts): con este solo, el
+  // formulario deja continuar pero la petición vuelve con 400.
+  const rubroValido = rubro.trim().length >= 3;
 
   const puedeIniciar =
     Boolean(rucData) &&
     allowed &&
     !tramiteExistente &&
     elegibilidad.elegible &&
-    rubro.trim().length >= 3 &&
+    rubroValido &&
     correoValido &&
     dniValido;
 
