@@ -65,6 +65,7 @@ export default function IniciarTramitePage() {
   const [ruc, setRuc] = useState("");
   const [rubro, setRubro] = useState("");
   const [correo, setCorreo] = useState("");
+  const [dni, setDni] = useState("");
   const [rucData, setRucData] = useState<RucData | null>(null);
   const [loading, setLoading] = useState(false);
   const [creatingApplication, setCreatingApplication] = useState(false);
@@ -81,13 +82,17 @@ export default function IniciarTramitePage() {
   // Validación de correo pareja a la del servidor: algo@algo.algo.
   const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
 
+  // Solo el formato: el DNI se declara y no se contrasta contra RENIEC.
+  const dniValido = /^\d{8}$/.test(dni);
+
   const puedeIniciar =
     Boolean(rucData) &&
     allowed &&
     !tramiteExistente &&
     elegibilidad.elegible &&
     rubro.trim().length >= 3 &&
-    correoValido;
+    correoValido &&
+    dniValido;
 
   const handleRucChange = (value: string) => {
     const cleanValue = value.replace(/\D/g, "").slice(0, 11);
@@ -156,6 +161,7 @@ export default function IniciarTramitePage() {
           ruc: rucData.ruc,
           activityType: rubro.trim(),
           contactEmail: correo.trim(),
+          representativeDni: dni,
         }),
       });
 
@@ -406,6 +412,38 @@ export default function IniciarTramitePage() {
                 {correo.trim().length > 0 && !correoValido && (
                   <p className="mt-1 text-xs text-amber-300">
                     Ingresa un correo válido.
+                  </p>
+                )}
+              </label>
+
+              {/* Identifica al titular en la licencia. No se contrasta contra
+                  RENIEC: la consulta de DNI exige sesión y este flujo es
+                  público. Sin este dato la licencia salía a nombre del usuario
+                  sintético del trámite. */}
+              <label className="block text-sm text-slate-300">
+                <span className="font-semibold">
+                  DNI del representante legal{" "}
+                  <span className="text-rose-400">*</span>
+                </span>
+
+                <input
+                  value={dni}
+                  onChange={(event) =>
+                    setDni(event.target.value.replace(/\D/g, "").slice(0, 8))
+                  }
+                  inputMode="numeric"
+                  placeholder="8 dígitos"
+                  className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-slate-100 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20"
+                />
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Obligatorio. Aparecerá impreso en tu licencia para identificar
+                  al titular.
+                </p>
+
+                {dni.length > 0 && !dniValido && (
+                  <p className="mt-1 text-xs text-amber-300">
+                    El DNI debe tener 8 dígitos.
                   </p>
                 )}
               </label>

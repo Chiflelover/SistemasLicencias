@@ -40,6 +40,19 @@ export async function POST(request: Request) {
       );
     }
 
+    // DNI del representante legal: se declara, no se verifica. La consulta a
+    // RENIEC exige sesión y el flujo público no la tiene, así que solo se
+    // valida el formato. Sirve para identificar al titular en la licencia,
+    // que si no salía impresa con el usuario sintético del trámite.
+    const representativeDni = String(body.representativeDni || "").trim();
+
+    if (!/^\d{8}$/.test(representativeDni)) {
+      return NextResponse.json(
+        { error: "El DNI del representante legal debe tener 8 dígitos." },
+        { status: 400 }
+      );
+    }
+
     const rucData = await RucService.getBusinessData(ruc);
 
 
@@ -99,6 +112,7 @@ export async function POST(request: Request) {
         fiscalAddress: rucData.fiscalAddress,
         activityType,
         contactEmail,
+        representativeDni,
       });
 
     return NextResponse.json(

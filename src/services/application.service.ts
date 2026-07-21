@@ -109,6 +109,7 @@ export class ApplicationService {
     fiscalAddress: string;
     activityType?: string;
     contactEmail?: string;
+    representativeDni?: string;
   }): Promise<{ application: Application; business: Business }> {
     const now = await getCurrentSystemDate();
 
@@ -117,6 +118,7 @@ export class ApplicationService {
       ruc: params.ruc,
       fiscalAddress: params.fiscalAddress,
       activityType: params.activityType,
+      representativeDni: params.representativeDni,
     });
 
     const applicant = await prisma.user.upsert({

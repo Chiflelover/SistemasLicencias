@@ -37,6 +37,8 @@ export class LicenseService {
       issuedAt,
       expiresAt,
       applicantName: application.applicant.fullName,
+      representativeName: application.business.representativeName,
+      representativeDni: application.business.representativeDni,
     });
 
     return LicenseRepository.create({
@@ -184,6 +186,8 @@ export class LicenseService {
       issuedAt: newIssuedAt,
       expiresAt: newExpiresAt,
       applicantName: application.applicant.fullName,
+      representativeName: application.business.representativeName,
+      representativeDni: application.business.representativeDni,
     });
 
     const renewed = await LicenseRepository.renew(

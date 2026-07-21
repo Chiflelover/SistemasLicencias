@@ -10,6 +10,35 @@ interface LicenseData {
   issuedAt: Date;
   expiresAt: Date;
   applicantName: string;
+  /** Nombre relevado en ventanilla. El flujo público no lo pide. */
+  representativeName?: string;
+  /** Declarado por el ciudadano, sin validar contra RENIEC. */
+  representativeDni?: string;
+}
+
+/** Texto de relleno que guardan los flujos que no relevan al representante. */
+const SIN_DATO = "No registrado";
+
+/**
+ * Arma la línea del representante con lo que haya.
+ *
+ * El flujo público crea un usuario sintético ("Solicitante RUC 2021…"), que no
+ * identifica a nadie: por eso se prefiere el nombre relevado y, si no lo hay,
+ * se imprime solo el DNI que declaró el ciudadano.
+ */
+function formatRepresentative(data: LicenseData): string {
+  const nombreRelevado = data.representativeName?.trim();
+  const nombre =
+    nombreRelevado && nombreRelevado !== SIN_DATO
+      ? nombreRelevado
+      : data.applicantName?.startsWith("Solicitante RUC")
+        ? ""
+        : data.applicantName?.trim() || "";
+
+  const dni = data.representativeDni?.trim();
+  const partes = [nombre, dni ? `DNI ${dni}` : ""].filter(Boolean);
+
+  return partes.length > 0 ? partes.join(" · ") : SIN_DATO;
 }
 
 export async function generateLicensePdf(data: LicenseData): Promise<Uint8Array> {
@@ -70,7 +99,7 @@ export async function generateLicensePdf(data: LicenseData): Promise<Uint8Array>
     ["Domicilio Fiscal:", data.fiscalAddress],
     ["Dirección del Establecimiento:", data.commercialAddress],
     ["Giro o Actividad Comercial:", data.activityType],
-    ["Titular / Representante Legal:", data.applicantName],
+    ["Titular / Representante Legal:", formatRepresentative(data)],
     ["Fecha de Emisión:", formatDate(data.issuedAt)],
     ["Fecha de Vencimiento:", formatDate(data.expiresAt)],
   ];
