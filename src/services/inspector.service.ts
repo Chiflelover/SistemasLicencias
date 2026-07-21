@@ -5,6 +5,7 @@ import { InspectionService } from "@/services/inspection.service";
 import { getCurrentSystemDate } from "@/lib/date";
 import { AuditService } from "@/services/audit.service";
 import { NotificationService } from "@/services/notification.service";
+import { FineService } from "@/services/fine.service";
 import { MailService } from "@/services/mail.service";
 import {
   ApplicationStatus,
@@ -19,8 +20,11 @@ export class InspectorService {
   }
 
   /**
-   * Agenda del día para el inspector: lo que le queda por hacer y lo que ya
-   * resolvió. No incluye inspecciones de otras fechas.
+   * Agenda del día para el inspector: solo lo que le queda por hacer.
+   *
+   * Una inspección resuelta desaparece de su vista y no deja historial: el
+   * inspector trabaja contra lo pendiente, y el registro de lo hecho vive en el
+   * panel del administrador, que ve todas las inspecciones.
    *
    * Usa la fecha del sistema (simulada en desarrollo) y no la real, para que
    * el DevPanel siga sirviendo para demostrar el flujo.
@@ -34,17 +38,16 @@ export class InspectorService {
     const to = new Date(systemDate);
     to.setHours(23, 59, 59, 999);
 
-    const [pending, completed] = await Promise.all([
-      InspectionRepository.findPendingForDay(inspectorId, from, to),
-      InspectionRepository.findCompletedForDay(inspectorId, from, to),
-    ]);
+    const pending = await InspectionRepository.findPendingForDay(
+      inspectorId,
+      from,
+      to
+    );
 
     return {
       date: systemDate,
       pending,
-      completed,
       pendingCount: pending.length,
-      completedCount: completed.length,
     };
   }
 
@@ -56,7 +59,8 @@ export class InspectorService {
     inspectionId: string,
     action: "approve" | "reject",
     observations?: string,
-    paymentInvalid = false
+    paymentInvalid = false,
+    fineAmount?: number
   ) {
     const inspection = await InspectionRepository.findById(inspectionId);
 
@@ -74,6 +78,21 @@ export class InspectorService {
       );
     }
 
+    const esInopinada = inspection.number === InspectionNumber.UNANNOUNCED;
+
+    // Se valida ANTES de marcarla como resuelta: si no, el intento fallido la
+    // cerraba igual y el segundo rebotaba con "ya fue revisada", dejando la
+    // inspección terminada y sin la multa.
+    if (
+      esInopinada &&
+      action === "reject" &&
+      (!Number.isFinite(fineAmount) || (fineAmount ?? 0) <= 0)
+    ) {
+      throw new Error(
+        "Indica el monto de la multa para registrar la observación."
+      );
+    }
+
     const result =
       action === "approve"
         ? InspectionResult.APPROVED
@@ -87,6 +106,35 @@ export class InspectorService {
 
     if (!updatedInspection) {
       throw new Error("No se pudo guardar la revisión de la inspección.");
+    }
+
+    // ── Inspección inopinada ────────────────────────────────────────────────
+    // Es una visita de control sobre una licencia ya vigente y pagada, así que
+    // no mueve el trámite en ninguna dirección: aprobar deja constancia y nada
+    // más, y observar registra una multa contra la licencia. La licencia no se
+    // revoca ni se vence: sigue valiendo hasta su fecha.
+    if (esInopinada) {
+      if (action === "reject") {
+        const licencia = await LicenseService.getLicenseByApplication(
+          inspection.applicationId
+        );
+
+        if (!licencia) {
+          throw new Error(
+            "No se encontró la licencia del trámite para registrar la multa."
+          );
+        }
+
+        await FineService.createFine(
+          inspection.inspectorId,
+          licencia.id,
+          fineAmount as number,
+          "Multa por inspección inopinada",
+          observations?.trim() || ""
+        );
+      }
+
+      return updatedInspection;
     }
 
     if (action === "approve") {

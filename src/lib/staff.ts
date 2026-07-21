@@ -46,13 +46,19 @@ export const PROTECTED_DEACTIVATION_MESSAGE =
   "No se puede desactivar al inspector base: sin ningún inspector activo el sistema no puede agendar inspecciones.";
 
 /**
- * Siempre tiene que quedar al menos una caja activa: sin ninguna no se puede
- * cobrar en ventanilla. Cuál es la que queda no importa —puede ser la Caja 1,
- * la 2 o una nueva—, la regla se evalúa contra cuántas hay activas en ese
+ * Cajas activas que el sistema exige tener siempre.
+ *
+ * Son dos porque la municipalidad atiende con dos ventanillas y el arqueo se
+ * compara entre ellas: con una sola no hay contra qué contrastar la
+ * recaudación. Cuáles son las que quedan no importa —pueden ser la Caja 1, la 2
+ * o cajas nuevas—, la regla se evalúa contra cuántas hay activas en ese
  * momento, así que sigue valiendo al agregar cajas.
+ *
+ * El seed crea exactamente dos, así que el sistema arranca cumpliendo.
  */
-export const LAST_CASHIER_MESSAGE =
-  "Tiene que quedar al menos una caja activa: sin ninguna no se puede registrar ningún cobro en ventanilla.";
+export const MIN_ACTIVE_CASHIERS = 2;
+
+export const LAST_CASHIER_MESSAGE = `Tienen que quedar al menos ${MIN_ACTIVE_CASHIERS} cajas activas: el sistema trabaja con dos ventanillas.`;
 
 /**
  * El personal se amplía solo con cajas.

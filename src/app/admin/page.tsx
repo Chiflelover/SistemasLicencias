@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "../../lib/auth";
 import { redirect } from "next/navigation";
 import { AdminService } from "@/services/admin.service";
+import TarifaTramite from "@/components/TarifaTramite";
 import { Users, DollarSign, ShieldCheck, Wallet, ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -106,7 +107,23 @@ export default async function AdminDashboard() {
             filtro por período.
           </p>
         </Link>
+
+        <Link
+          href="/admin/inspecciones"
+          className="group rounded-2xl border border-slate-850 bg-slate-900/40 p-6 transition hover:border-amber-500/40"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white">Inspecciones</h2>
+            <ArrowRight className="w-5 h-5 text-slate-600 transition group-hover:text-amber-400" />
+          </div>
+          <p className="mt-2 text-sm text-slate-400">
+            Todas las inspecciones —pasadas, de hoy y futuras— con su resultado
+            y las observaciones del inspector.
+          </p>
+        </Link>
       </div>
+
+      <TarifaTramite />
     </div>
   );
 }

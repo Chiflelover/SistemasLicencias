@@ -10,7 +10,7 @@ type TramiteExistente = {
   id: string;
   number: string;
   status: string;
-  motivo: "EN_PROCESO" | "YA_TIENE_LICENCIA";
+  motivo: "EN_PROCESO" | "YA_TIENE_LICENCIA" | "LICENCIA_VENCIDA";
 };
 
 type RucData = {
@@ -34,7 +34,7 @@ const ETIQUETAS_ESTADO: Record<string, string> = {
   FIRST_INSPECTION_REJECTED: "OBSERVADO",
   SECOND_INSPECTION_SCHEDULED: "OBSERVADO · 2DA INSPECCIÓN PROGRAMADA",
   LICENSE_ISSUED: "LICENCIA EMITIDA",
-  RENEWAL_AVAILABLE: "RENOVACIÓN DISPONIBLE",
+  RENEWAL_AVAILABLE: "LICENCIA POR VENCER",
 };
 
 function normalizeText(value: string) {

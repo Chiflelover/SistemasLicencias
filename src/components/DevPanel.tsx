@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles, CalendarDays, Zap, Info, RotateCcw } from "lucide-react";
+import { Sparkles, CalendarDays, Zap, Info, RotateCcw, Trash2 } from "lucide-react";
 
 export default function DevPanel() {
   const [collapsed, setCollapsed] = useState(true);
@@ -24,8 +24,13 @@ export default function DevPanel() {
     }
   };
 
-  /** Devuelve el reloj al presente y recalcula los estados dependientes. */
-  const handleReset = async () => {
+  /**
+   * Devuelve el reloj a la hora real sin tocar ningún dato.
+   *
+   * Es el que se usa durante una demostración: los trámites y las licencias
+   * quedan donde están, y solo se recalcula lo que depende de la fecha.
+   */
+  const handleVolverAFechaReal = async () => {
     setLoading(true);
     setErrorMessage(null);
 
@@ -43,6 +48,45 @@ export default function DevPanel() {
 
       // Los paneles leen la fecha en el servidor: hay que recargar para que
       // la agenda y los vencimientos se vuelvan a calcular.
+      window.location.reload();
+    } catch (error: any) {
+      setErrorMessage(error.message);
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Vacía la base y devuelve el reloj al presente.
+   *
+   * Se confirma antes porque no hay vuelta atrás y el panel está a un clic en
+   * todas las pantallas del personal: un toque distraído en medio de la
+   * presentación se llevaría los trámites que se acaban de mostrar.
+   */
+  const handleVaciar = async () => {
+    const confirmado = confirm(
+      "Esto borra TODOS los trámites, licencias, pagos, turnos de caja y notificaciones, " +
+        "y devuelve el reloj a la fecha real.\n\n" +
+        "Se conservan las cuentas del personal. No se puede deshacer.\n\n" +
+        "¿Vaciar el sistema?"
+    );
+
+    if (!confirmado) return;
+
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/system/demo", { method: "DELETE" });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error?.error || "No se pudo vaciar el sistema.");
+      }
+
+      const data = await response.json();
+      setSimulatedDate(new Date(data.currentSystemDate));
+      setOffsetDays(0);
+
       window.location.reload();
     } catch (error: any) {
       setErrorMessage(error.message);
@@ -185,14 +229,35 @@ export default function DevPanel() {
               </button>
             </div>
 
+            {/* Dos cosas distintas, dos botones. Mover el reloj es inofensivo
+                y se usa a mitad de una demostración; vaciar la base es
+                irreversible y va entre una demostración y otra. */}
             <button
-              onClick={handleReset}
+              onClick={handleVolverAFechaReal}
               disabled={loading}
               className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold py-2 px-1 rounded-lg border border-slate-750 transition hover:border-emerald-600 hover:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
               <RotateCcw className="w-3 h-3" />
-              Restablecer a la fecha real
+              Volver a la fecha real
             </button>
+
+            <p className="text-[9px] leading-relaxed text-slate-500">
+              Solo el reloj. Los trámites, licencias y pagos quedan como están.
+            </p>
+
+            <button
+              onClick={handleVaciar}
+              disabled={loading}
+              className="mt-2 w-full bg-slate-900 hover:bg-rose-500/10 text-slate-400 text-[10px] font-bold py-2 px-1 rounded-lg border border-slate-800 transition hover:border-rose-600 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              <Trash2 className="w-3 h-3" />
+              Vaciar y empezar de cero
+            </button>
+
+            <p className="text-[9px] leading-relaxed text-slate-500">
+              Borra trámites, licencias, pagos y cajas. Las cuentas del personal
+              se conservan. No se puede deshacer.
+            </p>
 
             {errorMessage && (
               <p className="text-[10px] leading-relaxed text-rose-400">

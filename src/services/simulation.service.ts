@@ -4,8 +4,9 @@ import { prisma } from "@/lib/db/prisma";
  * Simulación de tiempo para la demostración académica.
  *
  * Mientras hay una corrida abierta, el middleware de Prisma anota cada
- * escritura en SimulationChange. Al restablecer el reloj, esos cambios se
- * deshacen en orden inverso y la corrida queda archivada como historial.
+ * escritura en SimulationChange. Ese registro quedó como bitácora para el
+ * panel de desarrollo: ya no se usa para deshacer nada, porque el restablecer
+ * borra los datos de la demostración en vez de revertirlos.
  */
 export class SimulationService {
   /** Corrida abierta, si la hay. */
@@ -38,112 +39,12 @@ export class SimulationService {
     });
   }
 
-  /**
-   * Deshace los cambios de la corrida abierta y la archiva.
-   *
-   * Los cambios se revierten del más reciente al más antiguo para respetar
-   * las dependencias: lo último que se creó es lo primero que se borra.
-   */
-  static async restoreAndArchive(params: { simulatedEndAt: Date }) {
-    const corrida = await this.getRunningSimulation();
-
-    if (!corrida) {
-      return { restored: false, revertidos: 0, fallidos: 0 };
-    }
-
-    const cambios = await prisma.simulationChange.findMany({
-      where: { runId: corrida.id },
-      orderBy: { createdAt: "desc" },
-    });
-
-    let revertidos = 0;
-    let fallidos = 0;
-
-    for (const cambio of cambios) {
-      const delegado = (prisma as any)[
-        cambio.model.charAt(0).toLowerCase() + cambio.model.slice(1)
-      ];
-
-      if (!delegado) {
-        fallidos++;
-        continue;
-      }
-
-      try {
-        if (cambio.operation === "CREATE") {
-          if (cambio.recordId) {
-            await delegado.deleteMany({ where: { id: cambio.recordId } });
-            revertidos++;
-          } else {
-            fallidos++;
-          }
-          continue;
-        }
-
-        // UPDATE y DELETE: se devuelve la fila a su estado previo.
-        const previos = Array.isArray(cambio.before) ? cambio.before : [];
-
-        for (const fila of previos as Array<Record<string, any>>) {
-          if (!fila?.id) continue;
-
-          const datos = this.prepararDatos(cambio.model, fila);
-
-          await delegado.upsert({
-            where: { id: fila.id },
-            update: datos,
-            create: { id: fila.id, ...datos },
-          });
-          revertidos++;
-        }
-      } catch (error) {
-        // Una fila que ya no existe, o una dependencia rota, no debe frenar
-        // el resto de la reversión.
-        fallidos++;
-      }
-    }
-
-    await prisma.simulationRun.update({
-      where: { id: corrida.id },
-      data: {
-        status: "RESTORED",
-        simulatedEndAt: params.simulatedEndAt,
-        restoredAt: new Date(),
-      },
-    });
-
-    return { restored: true, revertidos, fallidos, runId: corrida.id };
-  }
-
-  /**
-   * Reconstruye los tipos que el registro guardó como texto.
-   *
-   * El anotador serializa fechas a ISO y omite binarios; acá se revierte lo
-   * que se puede y se descartan los campos irrecuperables.
-   */
-  private static prepararDatos(model: string, fila: Record<string, any>) {
-    const datos: Record<string, any> = {};
-
-    for (const [clave, valor] of Object.entries(fila)) {
-      if (clave === "id") continue;
-
-      // Los binarios no se guardan en el registro: se dejan como estaban.
-      if (typeof valor === "string" && valor.startsWith("<binario ")) {
-        continue;
-      }
-
-      if (
-        typeof valor === "string" &&
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(valor)
-      ) {
-        datos[clave] = new Date(valor);
-        continue;
-      }
-
-      datos[clave] = valor;
-    }
-
-    return datos;
-  }
+  // restoreAndArchive y su ayudante prepararDatos se eliminaron. Deshacían
+  // cambio por cambio contra Neon —lento y frágil con binarios y dependencias
+  // rotas— y solo alcanzaban a lo ocurrido con una corrida abierta: quien
+  // probaba el sistema sin adelantar el reloj no dejaba nada anotado y el
+  // restablecer no limpiaba nada. Hoy el restablecer borra los datos de la
+  // demostración (DemoResetService) en vez de revertirlos.
 
   /** Historial de simulaciones, para el panel de desarrollo. */
   static async listHistory(limit = 20) {

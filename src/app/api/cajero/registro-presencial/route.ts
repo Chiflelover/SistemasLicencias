@@ -13,6 +13,25 @@ import { ApplicationStatus, DocumentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
+// ── CAMBIAR EL TAMAÑO MÁXIMO DE ARCHIVO ─────────────────────────────────────
+// Poner los MB que pidan en lugar del 5:
+//
+//   const MAX_FILE_SIZE = 3 * 1024 * 1024;
+//
+// OJO: el límite está repetido y hay que cambiarlo en los 5 archivos del
+// servidor, en la validación del navegador y en los 3 textos que dicen "5MB"
+// (incluido el mensaje de error de unas líneas más abajo). Si se cambia solo
+// acá, la pantalla sigue rechazando con el límite viejo y el usuario ve un
+// error que no coincide con lo que acepta el servidor.
+//
+//   src/app/api/cajero/registro-presencial/route.ts          (este archivo)
+//   src/app/api/cajero/subsanar/[applicationId]/route.ts
+//   src/app/api/public/tramite/[applicationId]/documentos/route.ts
+//   src/app/api/public/tramite/[applicationId]/pago/manual/route.ts
+//   src/app/api/public/tramite/[applicationId]/subsanar/route.ts
+//   src/components/ManualPaymentForm.tsx                     (validación y texto)
+//   src/components/PublicDocumentUploadForm.tsx              (texto)
+//   src/app/cajero/registro-presencial/page.tsx              (texto)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_MIME_TYPES = [
   "application/pdf",
@@ -162,13 +181,32 @@ export async function POST(request: Request) {
           error:
             tramiteExistente.motivo === "EN_PROCESO"
               ? `El RUC ${ruc} ya tiene el trámite ${tramiteExistente.number} en proceso. No corresponde registrar otro hasta que finalice.`
-              : `El RUC ${ruc} ya cuenta con una licencia vigente (trámite ${tramiteExistente.number}).`,
+              : tramiteExistente.motivo === "LICENCIA_VENCIDA"
+                ? `La licencia del RUC ${ruc} venció (trámite ${tramiteExistente.number}). No se registra un trámite nuevo: usa "Renovación de licencia" para cobrarle la renovación.`
+                : `El RUC ${ruc} ya cuenta con una licencia vigente (trámite ${tramiteExistente.number}).`,
           tramiteExistente,
         },
         { status: 409 }
       );
     }
 
+    // ── PARA HACER LOS DOCUMENTOS OPCIONALES ────────────────────────────────
+    // Acá el registro presencial exige los dos archivos. Para aceptarlo sin
+    // ellos hace falta algo más que borrar una línea, porque más abajo se leen
+    // y se escriben. El reemplazo completo, listo para pegar:
+    //
+    //   const planoFile = formData.get("plano") instanceof File
+    //     ? validateFile(formData.get("plano"), "el plano del local")
+    //     : null;
+    //   const certificadoFile = formData.get("certificados") instanceof File
+    //     ? validateFile(formData.get("certificados"), "los certificados")
+    //     : null;
+    //
+    // ...y en el paso 2 de más abajo, envolver cada DocumentRepository.create
+    // en su `if (planoFile)` / `if (certificadoFile)`, y dejar de promover a
+    // PENDING_PAYMENT si no hay ninguno. Ver también el `documentsComplete` de
+    // src/app/api/public/tramite/[applicationId]/documentos/route.ts, que lista
+    // los demás puntos donde se exigen documentos.
     let planoFile: File;
     let certificadoFile: File;
 

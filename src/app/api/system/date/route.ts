@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import {
   advanceSystemDateByDays,
   advanceSystemDateByYears,
+  clearSimulatedDate,
   getCurrentSystemDate,
-  resetSystemDate,
 } from "@/lib/date";
-import { LicenseService } from "@/services/license.service";
 import { SimulationService } from "@/services/simulation.service";
 import { getCurrentUser } from "@/lib/auth";
-import { isTimeSimulatorEnabled } from "@/lib/simulator";
+import {
+  isTimeSimulatorEnabled,
+  PERSONAL_CON_SIMULADOR,
+} from "@/lib/simulator";
 
 export async function GET() {
   const current = await getCurrentSystemDate();
@@ -29,8 +31,13 @@ export async function GET() {
 }
 
 /**
- * Devuelve el reloj a la fecha real y recalcula los estados que dependen de
- * ella, para que el sistema quede como si nunca se hubiera simulado nada.
+ * Devuelve el reloj a la hora real. **No toca ningún dato.**
+ *
+ * Es lo que se usa durante una demostración: los trámites, licencias, pagos e
+ * inspecciones quedan donde están y solo se recalcula lo que depende de la
+ * fecha (una licencia marcada vencida vuelve a estar vigente, por ejemplo).
+ *
+ * Para vaciar la base está `DELETE /api/system/demo`, que es otra cosa.
  */
 export async function DELETE() {
   if (!isTimeSimulatorEnabled()) {
@@ -40,32 +47,24 @@ export async function DELETE() {
     );
   }
 
+  const user = await getCurrentUser();
+
+  if (!user || !PERSONAL_CON_SIMULADOR.includes(user.role)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   try {
-    const simulatedEndAt = await getCurrentSystemDate();
-
-    // Primero se deshacen los cambios anotados durante la simulación, y
-    // recién después se mueve el reloj: así la reversión ocurre con la misma
-    // fecha con la que se hicieron.
-    const reversion = await SimulationService.restoreAndArchive({
-      simulatedEndAt,
-    });
-
-    const restored = await resetSystemDate();
-
-    // Con el reloj de vuelta en el presente, las licencias que se habían
-    // vencido durante la demostración recuperan su estado real.
-    await LicenseService.resyncAllLicenseStates();
+    const real = await clearSimulatedDate();
 
     return NextResponse.json({
-      currentSystemDate: restored.toISOString(),
-      realDate: restored.toISOString(),
+      currentSystemDate: real.toISOString(),
+      realDate: real.toISOString(),
       offsetDays: 0,
-      simulacion: reversion,
-      message: reversion.restored
-        ? `Fecha restablecida. Se revirtieron ${reversion.revertidos} cambio(s) de la simulación.`
-        : "Fecha restablecida. No había simulación en curso.",
+      message: "El reloj volvió a la fecha real. No se borró ningún dato.",
     });
   } catch (error) {
+    console.error("Error devolviendo el reloj a la fecha real:", error);
+
     return NextResponse.json(
       { error: "No se pudo restablecer la fecha del sistema." },
       { status: 500 }

@@ -79,9 +79,10 @@ export class MailService {
       subject: "Tu licencia de funcionamiento venció",
       text:
         `La licencia ${licenseNumber} venció.\n\n` +
-        "Una licencia vencida no se renueva: debes iniciar un trámite nuevo " +
-        "de licencia de funcionamiento en la Municipalidad Provincial de " +
-        "Trujillo.",
+        "Para renovarla acércate a una ventanilla de la Municipalidad " +
+        "Provincial de Trujillo con tu RUC. Si cambió algo del local puedes " +
+        "presentar los documentos actualizados; si no cambió nada, no hace " +
+        "falta volver a presentarlos.",
     });
   }
 

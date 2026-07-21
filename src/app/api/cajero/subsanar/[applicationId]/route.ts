@@ -7,6 +7,25 @@ import { DocumentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
+// ── CAMBIAR EL TAMAÑO MÁXIMO DE ARCHIVO ─────────────────────────────────────
+// Poner los MB que pidan en lugar del 5:
+//
+//   const MAX_FILE_SIZE = 3 * 1024 * 1024;
+//
+// OJO: el límite está repetido y hay que cambiarlo en los 5 archivos del
+// servidor, en la validación del navegador y en los 3 textos que dicen "5MB"
+// (incluido el mensaje de error de más abajo). Si se cambia solo acá, la
+// pantalla sigue rechazando con el límite viejo y el usuario ve un error que
+// no coincide con lo que acepta el servidor.
+//
+//   src/app/api/cajero/registro-presencial/route.ts
+//   src/app/api/cajero/subsanar/[applicationId]/route.ts
+//   src/app/api/public/tramite/[applicationId]/documentos/route.ts
+//   src/app/api/public/tramite/[applicationId]/pago/manual/route.ts
+//   src/app/api/public/tramite/[applicationId]/subsanar/route.ts
+//   src/components/ManualPaymentForm.tsx                     (validación y texto)
+//   src/components/PublicDocumentUploadForm.tsx              (texto)
+//   src/app/cajero/registro-presencial/page.tsx              (texto)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MIME_PERMITIDOS = [
   "application/pdf",

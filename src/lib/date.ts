@@ -92,21 +92,19 @@ export async function advanceSystemDateByYears(years: number): Promise<Date> {
 }
 
 /**
- * Devuelve el reloj del sistema a la fecha real.
+ * Devuelve el reloj a la hora real, sin tocar ningún dato.
  *
- * Se usa para cerrar una demostración: al volver al presente, los estados que
- * dependen de la fecha (vencimientos, agenda del día) se recalculan solos.
+ * Borra la fila en lugar de escribirle la fecha actual. El antiguo
+ * `resetSystemDate` hacía `simulatedDate: new Date()` para "volver al
+ * presente", pero la columna es NOT NULL y `getCurrentSystemDate` toma como
+ * simulada cualquier fecha guardada: el reloj quedaba CONGELADO en ese
+ * instante y no volvía a avanzar. Todos los turnos de caja abrían y cerraban
+ * con la misma marca de tiempo, y uno nuevo heredaba los cobros del anterior.
+ * La única forma de decir "no hay simulación" es que la fila no exista.
  */
-export async function resetSystemDate(): Promise<Date> {
-  const now = new Date();
-
-  await prisma.systemConfig.upsert({
-    where: { id: "singleton" },
-    update: { simulatedDate: now },
-    create: { id: "singleton", simulatedDate: now },
-  });
-
-  return now;
+export async function clearSimulatedDate(): Promise<Date> {
+  await prisma.systemConfig.deleteMany();
+  return new Date();
 }
 
 /**

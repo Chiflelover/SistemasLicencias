@@ -20,8 +20,8 @@ export default function RenovacionPage() {
           Renovación de licencia
         </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Verifica si una licencia venció para iniciar un trámite nuevo desde
-          cero.
+          Consulta el RUC para renovar una licencia vencida: documentos
+          actualizados si hubo cambios, y el cobro de la tasa.
         </p>
       </div>
 

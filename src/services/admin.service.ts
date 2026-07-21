@@ -8,6 +8,7 @@ import {
   PROTECTED_STAFF_MESSAGE,
   PROTECTED_DEACTIVATION_MESSAGE,
   LAST_CASHIER_MESSAGE,
+  MIN_ACTIVE_CASHIERS,
   ONLY_CASHIERS_MESSAGE,
   MAX_CASHIERS,
   MAX_CASHIERS_MESSAGE,
@@ -26,7 +27,7 @@ export class AdminService {
    * Cajas activas sin contar la que se está por modificar.
    *
    * Se cuenta contra la base y no sobre la lista de la pantalla: dos pestañas
-   * abiertas podrían desactivar cada una "la otra" caja y dejar cero.
+   * abiertas podrían desactivar cada una "la otra" caja y bajar del mínimo.
    */
   private static async countOtherActiveCashiers(excludeUserId: string) {
     return prisma.user.count({
@@ -237,7 +238,7 @@ export class AdminService {
     if (!params.active && user.role === Role.CAJERO) {
       const otrasActivas = await this.countOtherActiveCashiers(user.id);
 
-      if (otrasActivas === 0) {
+      if (otrasActivas < MIN_ACTIVE_CASHIERS) {
         throw new Error(LAST_CASHIER_MESSAGE);
       }
     }
@@ -288,11 +289,12 @@ export class AdminService {
       throw new Error(PROTECTED_STAFF_MESSAGE);
     }
 
-    // Borrar la única caja activa deja el mismo agujero que desactivarla.
+    // Borrar una caja activa deja el mismo agujero que desactivarla. Si ya
+    // estaba inactiva no cambia el conteo y no hace falta el chequeo.
     if (user.role === Role.CAJERO && user.active) {
       const otrasActivas = await this.countOtherActiveCashiers(user.id);
 
-      if (otrasActivas === 0) {
+      if (otrasActivas < MIN_ACTIVE_CASHIERS) {
         throw new Error(LAST_CASHIER_MESSAGE);
       }
     }

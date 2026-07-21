@@ -16,13 +16,19 @@ export const OPEN_APPLICATION_STATUSES = [
 ];
 
 /**
- * Estados en los que el negocio ya cuenta con licencia y tampoco corresponde
- * iniciar un trámite nuevo. Una licencia vencida o un rechazo definitivo sí
- * habilitan empezar de cero.
+ * Estados en los que el negocio ya tramitó su licencia y no corresponde
+ * iniciar otro trámite.
+ *
+ * `EXPIRED` está incluido a propósito: una licencia vencida **se renueva en
+ * ventanilla**, no se reemplaza por un trámite nuevo. Antes el vencimiento
+ * liberaba el RUC; ahora lo mantiene tomado, porque si no habría dos caminos
+ * válidos para el mismo negocio. El rechazo definitivo sí libera: ahí no hay
+ * licencia que renovar.
  */
 const LICENSED_STATUSES: ApplicationStatus[] = [
   ApplicationStatus.LICENSE_ISSUED,
   ApplicationStatus.RENEWAL_AVAILABLE,
+  ApplicationStatus.EXPIRED,
 ];
 
 export class ApplicationService {
@@ -52,12 +58,16 @@ export class ApplicationService {
       return null;
     }
 
-    return {
-      ...application,
-      motivo: LICENSED_STATUSES.includes(application.status)
-        ? ("YA_TIENE_LICENCIA" as const)
-        : ("EN_PROCESO" as const),
-    };
+    // Una licencia vencida se distingue del resto: no es que "ya tiene
+    // licencia", es que le toca renovar, y eso solo se hace en ventanilla.
+    const motivo =
+      application.status === ApplicationStatus.EXPIRED
+        ? ("LICENCIA_VENCIDA" as const)
+        : LICENSED_STATUSES.includes(application.status)
+          ? ("YA_TIENE_LICENCIA" as const)
+          : ("EN_PROCESO" as const);
+
+    return { ...application, motivo };
   }
 
   /** Devuelve el trámite vigente de ese solicitante y negocio, si lo hay. */

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { CashService, isPaymentMethod } from "@/services/cash.service";
+import { getTupaAmount } from "@/lib/tarifa";
 
 export const dynamic = "force-dynamic";
 
@@ -31,10 +32,9 @@ export async function POST(request: Request) {
 
     // Formas de pago: una (pago simple) o dos (pago mixto). Compat: si llega
     // el viejo `method`, se arma una única forma por la tasa completa.
-    const TUPA = 180.0;
     const formasCrudas = Array.isArray(body.formasPago)
       ? body.formasPago
-      : [{ method: body.method, amount: TUPA }];
+      : [{ method: body.method, amount: await getTupaAmount() }];
 
     const formasPago = [] as Array<{ method: any; amount: number }>;
 
@@ -57,24 +57,13 @@ export async function POST(request: Request) {
         ? undefined
         : Number(body.receivedAmount);
 
-    const receiptType = String(body.receiptType || "FACTURA")
-      .trim()
-      .toUpperCase();
-
-    if (receiptType !== "FACTURA" && receiptType !== "BOLETA") {
-      return NextResponse.json(
-        { error: "El comprobante debe ser Boleta o Factura." },
-        { status: 400 }
-      );
-    }
-
+    // El comprobante ya no se elige: la municipalidad emite solo factura.
     const { payment, pagos, operationNumber, paidAt } =
       await CashService.registerCounterPayment({
         cashierId: user.id,
         applicationId,
         formasPago,
         receivedAmount,
-        receiptType,
       });
 
     const total = pagos.reduce((suma, p) => suma + Number(p.amount), 0);

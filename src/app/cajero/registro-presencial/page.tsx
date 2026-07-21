@@ -17,7 +17,7 @@ type TramiteExistente = {
   id: string;
   number: string;
   status: string;
-  motivo: "EN_PROCESO" | "YA_TIENE_LICENCIA";
+  motivo: "EN_PROCESO" | "YA_TIENE_LICENCIA" | "LICENCIA_VENCIDA";
 };
 
 type SunatData = {
@@ -41,7 +41,7 @@ const ETIQUETAS_ESTADO: Record<string, string> = {
   FIRST_INSPECTION_REJECTED: "OBSERVADO",
   SECOND_INSPECTION_SCHEDULED: "OBSERVADO · 2DA INSPECCIÓN PROGRAMADA",
   LICENSE_ISSUED: "LICENCIA EMITIDA",
-  RENEWAL_AVAILABLE: "RENOVACIÓN DISPONIBLE",
+  RENEWAL_AVAILABLE: "LICENCIA POR VENCER",
 };
 
 function normalizar(valor: string) {
@@ -560,6 +560,10 @@ export default function RegistroPresencialPage() {
             />
           </div>
 
+          {/* El "5MB" va a mano. Si cambia el límite del servidor
+              (src/app/api/cajero/registro-presencial/route.ts, que lista todos
+              los archivos a tocar), hay que corregir este texto o la pantalla
+              promete algo que el servidor no acepta. */}
           <p className="text-xs text-slate-500">
             PDF, JPG o PNG. Máximo 5MB por archivo.
           </p>

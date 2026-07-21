@@ -112,7 +112,9 @@ export async function POST(request: Request) {
           error:
             tramiteExistente.motivo === "EN_PROCESO"
               ? `El RUC ${rucData.ruc} ya tiene el trámite ${tramiteExistente.number} en proceso. No puedes iniciar otro hasta que finalice.`
-              : `El RUC ${rucData.ruc} ya cuenta con una licencia vigente (trámite ${tramiteExistente.number}). No corresponde iniciar un trámite nuevo.`,
+              : tramiteExistente.motivo === "LICENCIA_VENCIDA"
+                ? `La licencia del RUC ${rucData.ruc} venció (trámite ${tramiteExistente.number}). No corresponde iniciar un trámite nuevo: la renovación se hace en ventanilla, en la Municipalidad Provincial de Trujillo.`
+                : `El RUC ${rucData.ruc} ya cuenta con una licencia vigente (trámite ${tramiteExistente.number}). No corresponde iniciar un trámite nuevo.`,
           tramiteExistente,
         },
         { status: 409 }

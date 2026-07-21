@@ -21,37 +21,25 @@ export const EMISOR = {
   direccion: "JR. ALMAGRO NRO. 525, LA LIBERTAD - TRUJILLO - TRUJILLO",
 };
 
-export type ReceiptKind = "FACTURA" | "BOLETA";
-
 /**
- * Serie y código SUNAT de cada comprobante.
+ * Serie y códigos SUNAT del único comprobante que emite la municipalidad.
  *
- * La factura identifica al adquirente por RUC (código 6) y la boleta por DNI
- * (código 1). Cambian también la serie y el tipo de documento del QR.
+ * La boleta de venta se eliminó: el derecho de trámite se cobra siempre a la
+ * empresa titular del RUC, así que el adquirente es la persona jurídica
+ * (documento tipo 6) y no hay caso de persona natural que justifique la serie
+ * B001.
  */
-export const COMPROBANTES: Record<
-  ReceiptKind,
-  { serie: string; codigo: string; titulo: string; docCode: string }
-> = {
-  FACTURA: {
-    serie: "F001",
-    codigo: "01",
-    titulo: "FACTURA ELECTRÓNICA",
-    docCode: "6",
-  },
-  BOLETA: {
-    serie: "B001",
-    codigo: "03",
-    titulo: "BOLETA DE VENTA ELECTRÓNICA",
-    docCode: "1",
-  },
+export const COMPROBANTE = {
+  serie: "F001",
+  codigo: "01",
+  titulo: "FACTURA ELECTRÓNICA",
+  docCode: "6",
 };
 
 /** El derecho de trámite se cobra con IGV incluido. */
 export const IGV_RATE = 0.18;
 
 export interface InvoiceData {
-  tipo: ReceiptKind;
   correlativo: number;
   operationNumber: string;
   paidAt: Date;
@@ -65,10 +53,6 @@ export interface InvoiceData {
     razonSocial: string;
     ruc: string;
     direccion: string;
-    // Para la boleta: el representante legal es la persona natural a la que
-    // se emite. En el flujo público no se releva, y ahí va sin identificar.
-    representanteNombre?: string;
-    representanteDni?: string;
   };
 }
 
@@ -142,11 +126,8 @@ export function desglosarIgv(total: number) {
   return { gravado, igv, total };
 }
 
-export function numeroComprobante(
-  tipo: ReceiptKind,
-  correlativo: number
-): string {
-  return `${COMPROBANTES[tipo].serie}-${String(correlativo).padStart(8, "0")}`;
+export function numeroComprobante(correlativo: number): string {
+  return `${COMPROBANTE.serie}-${String(correlativo).padStart(8, "0")}`;
 }
 
 export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array> {
@@ -161,30 +142,18 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   const gris = rgb(0.35, 0.4, 0.5);
   const negro = rgb(0.1, 0.1, 0.12);
 
-  const comprobante = COMPROBANTES[data.tipo];
-  const numero = numeroComprobante(data.tipo, data.correlativo);
+  const comprobante = COMPROBANTE;
+  const numero = numeroComprobante(data.correlativo);
   const { gravado, igv, total } = desglosarIgv(data.total);
 
-  // En la boleta el adquirente es la persona natural; en la factura, la
-  // empresa. Si el flujo público no relevó al representante, la boleta sale
-  // sin identificar: SUNAT lo permite por debajo de S/ 700.
-  const esBoleta = data.tipo === "BOLETA";
-  const tieneDni = Boolean(data.cliente.representanteDni);
-
-  const adquirente = esBoleta
-    ? {
-        etiquetaNombre: "CLIENTE:",
-        nombre:
-          data.cliente.representanteNombre?.trim() || "CONSUMIDOR FINAL",
-        etiquetaDoc: "DNI:",
-        doc: tieneDni ? data.cliente.representanteDni! : "-",
-      }
-    : {
-        etiquetaNombre: "SEÑOR(ES):",
-        nombre: data.cliente.razonSocial,
-        etiquetaDoc: "RUC:",
-        doc: data.cliente.ruc,
-      };
+  // El adquirente es siempre la empresa titular del RUC: el derecho de trámite
+  // lo paga el negocio, no el representante.
+  const adquirente = {
+    etiquetaNombre: "SEÑOR(ES):",
+    nombre: data.cliente.razonSocial,
+    etiquetaDoc: "RUC:",
+    doc: data.cliente.ruc,
+  };
 
   const texto = (
     contenido: string,
@@ -374,9 +343,7 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
 
   // ── Pie ───────────────────────────────────────────────────────────────────
   texto(
-    `Representación impresa de la ${
-      esBoleta ? "boleta de venta" : "factura"
-    } electrónica.`,
+    "Representación impresa de la factura electrónica.",
     40,
     72,
     7,

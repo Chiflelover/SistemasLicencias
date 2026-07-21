@@ -20,7 +20,7 @@ export async function POST(
     return NextResponse.json({ error: parseResult.error.flatten() }, { status: 400 });
   }
 
-  const { action, observations, paymentInvalid } = parseResult.data;
+  const { action, observations, paymentInvalid, fineAmount } = parseResult.data;
 
   try {
     const inspection = await InspectorService.getInspectionDetails(params.id);
@@ -33,7 +33,8 @@ export async function POST(
       params.id,
       action,
       observations,
-      paymentInvalid
+      paymentInvalid,
+      fineAmount
     );
     return NextResponse.json({ inspection: updatedInspection });
   } catch (error) {

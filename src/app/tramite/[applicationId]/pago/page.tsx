@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { getTupaAmount } from "@/lib/tarifa";
 import ManualPaymentForm from "@/components/ManualPaymentForm";
 import {
   AlertCircle,
@@ -29,15 +30,16 @@ function formatStatus(status: string) {
     SECOND_INSPECTION_SCHEDULED: "OBSERVADO · 2DA INSPECCIÓN PROGRAMADA",
     LICENSE_ISSUED: "LICENCIA EMITIDA",
     DEFINITIVELY_REJECTED: "RECHAZADO DEFINITIVO",
-    RENEWAL_AVAILABLE: "RENOVACIÓN DISPONIBLE",
+    RENEWAL_AVAILABLE: "LICENCIA POR VENCER",
     EXPIRED: "VENCIDA",
   };
 
   return statuses[status] || status.replaceAll("_", " ");
 }
 
+// Solo el pago inicial: la renovación se cobra en ventanilla, no por la web.
 function canPay(status: string) {
-  return status === "PENDING_PAYMENT" || status === "RENEWAL_AVAILABLE";
+  return status === "PENDING_PAYMENT";
 }
 
 function buildValidPayerEmail(ruc: string) {
@@ -64,6 +66,10 @@ export default async function PublicPaymentPage({
   // Enlace de cobro de Flow. Se lee en el servidor y en cada petición, así
   // cambiarlo no obliga a reconstruir la aplicación.
   const flowPaymentUrl = process.env.FLOW_PAYMENT_URL?.trim() || null;
+
+  // Tarifa vigente: la fija el administrador y puede cambiar entre que el
+  // ciudadano abre el trámite y llega a pagarlo.
+  const tarifa = await getTupaAmount();
 
   const application = await prisma.application.findUnique({
     where: {
@@ -230,7 +236,9 @@ export default async function PublicPaymentPage({
                     </p>
                   </div>
 
-                  <p className="text-3xl font-black text-amber-300">S/ 180.00</p>
+                  <p className="text-3xl font-black text-amber-300">
+                    S/ {tarifa.toFixed(2)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -368,8 +376,10 @@ export default async function PublicPaymentPage({
 
                   <p className="mt-2 text-sm text-slate-400">
                     Sube la imagen del comprobante de tu pago por{" "}
-                    <strong className="text-amber-300">S/ 180.00</strong>. Al
-                    registrarlo, el sistema agenda la inspección municipal.
+                    <strong className="text-amber-300">
+                      S/ {tarifa.toFixed(2)}
+                    </strong>
+                    . Al registrarlo, el sistema agenda la inspección municipal.
                   </p>
                 </div>
 

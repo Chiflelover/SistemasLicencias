@@ -106,6 +106,11 @@ export default function Sidebar({ role, userName }: SidebarProps) {
       href: "/admin/cajas",
       icon: DollarSign,
     },
+    {
+      label: "Inspecciones",
+      href: "/admin/inspecciones",
+      icon: CalendarDays,
+    },
   ];
 
   const developerLinks = [

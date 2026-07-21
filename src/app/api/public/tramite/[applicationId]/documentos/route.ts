@@ -1,10 +1,33 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { assertDocumentUploadAllowed, isUnderObservation } from "@/lib/documents";
+import {
+  assertDocumentUploadAllowed,
+  isUnderObservation,
+  isUnderRenewal,
+} from "@/lib/documents";
 import { ApplicationStatus, DocumentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
+// ── CAMBIAR EL TAMAÑO MÁXIMO DE ARCHIVO ─────────────────────────────────────
+// Poner los MB que pidan en lugar del 5:
+//
+//   const MAX_FILE_SIZE = 3 * 1024 * 1024;
+//
+// OJO: el límite está repetido y hay que cambiarlo en los 5 archivos del
+// servidor, en la validación del navegador y en los 3 textos que dicen "5MB"
+// (incluido el mensaje de error de más abajo). Si se cambia solo acá, la
+// pantalla sigue rechazando con el límite viejo y el usuario ve un error que
+// no coincide con lo que acepta el servidor.
+//
+//   src/app/api/cajero/registro-presencial/route.ts
+//   src/app/api/cajero/subsanar/[applicationId]/route.ts
+//   src/app/api/public/tramite/[applicationId]/documentos/route.ts
+//   src/app/api/public/tramite/[applicationId]/pago/manual/route.ts
+//   src/app/api/public/tramite/[applicationId]/subsanar/route.ts
+//   src/components/ManualPaymentForm.tsx                     (validación y texto)
+//   src/components/PublicDocumentUploadForm.tsx              (texto)
+//   src/app/cajero/registro-presencial/page.tsx              (texto)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 function isValidDocumentType(value: string): value is DocumentType {
@@ -48,6 +71,18 @@ export async function POST(
     if (!isValidDocumentType(type)) {
       return NextResponse.json(
         { error: "Tipo de documento inválido." },
+        { status: 400 }
+      );
+    }
+
+    // La renovación se atiende solo en ventanilla, así que por la web no se
+    // suben documentos aunque la política general lo permita en ese estado.
+    if (isUnderRenewal(application.status)) {
+      return NextResponse.json(
+        {
+          error:
+            "Tu licencia venció. La renovación se hace en ventanilla: si cambió algo del local, lleva los documentos actualizados.",
+        },
         { status: 400 }
       );
     }
@@ -126,6 +161,23 @@ export async function POST(
       (document) => document.type === DocumentType.RUC_RECORD
     );
 
+    // ── PARA HACER LOS DOCUMENTOS OPCIONALES ────────────────────────────────
+    // Esta línea decide cuándo el trámite pasa a PENDING_PAYMENT. Según lo que
+    // pidan:
+    //
+    //   const documentsComplete = hasFloorPlan;              // solo el plano
+    //   const documentsComplete = hasRucRecord;              // solo la ficha
+    //   const documentsComplete = hasFloorPlan || hasRucRecord;  // cualquiera
+    //   const documentsComplete = true;                      // ninguno
+    //
+    // Con esto alcanza para que el ciudadano avance, pero el pago se valida
+    // aparte y hay que aflojarlo en los mismos términos, o el trámite queda en
+    // PENDING_PAYMENT sin poder pagar:
+    //
+    //   src/app/api/public/tramite/[applicationId]/pago/manual/route.ts
+    //   src/services/cash.service.ts                (cobro en ventanilla)
+    //   src/app/cajero/pago/page.tsx                (habilita el botón)
+    //   src/app/api/cajero/registro-presencial/route.ts (exige los 2 archivos)
     const documentsComplete = hasFloorPlan && hasRucRecord;
 
     // En una subsanación el trámite ya pagó y tiene su segunda inspección

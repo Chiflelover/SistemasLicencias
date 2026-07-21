@@ -27,6 +27,18 @@ const OBSERVED_UPLOAD_STATUSES: ApplicationStatus[] = [
   ApplicationStatus.SECOND_INSPECTION_SCHEDULED,
 ];
 
+/**
+ * Renovación: la licencia venció y se renueva en ventanilla.
+ *
+ * La carga es **opcional**: si el local no cambió, los documentos del trámite
+ * original siguen sirviendo y no hay que volver a presentarlos. Se habilita
+ * para el caso contrario —cambió el plano, cambió la ficha RUC— sin obligar a
+ * nadie a subir nada.
+ */
+const RENEWAL_UPLOAD_STATUSES: ApplicationStatus[] = [
+  ApplicationStatus.EXPIRED,
+];
+
 /** Tipos que se pueden adjuntar o reemplazar mientras la carga está abierta. */
 const ALLOWED_DOCUMENT_TYPES: DocumentType[] = [
   DocumentType.FLOOR_PLAN,
@@ -44,8 +56,14 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
 export function canUploadDocuments(status: ApplicationStatus): boolean {
   return (
     INITIAL_UPLOAD_STATUSES.includes(status) ||
-    OBSERVED_UPLOAD_STATUSES.includes(status)
+    OBSERVED_UPLOAD_STATUSES.includes(status) ||
+    RENEWAL_UPLOAD_STATUSES.includes(status)
   );
+}
+
+/** True si el trámite está en renovación (licencia vencida). */
+export function isUnderRenewal(status: ApplicationStatus): boolean {
+  return RENEWAL_UPLOAD_STATUSES.includes(status);
 }
 
 /** True si el trámite está en período de subsanación por observación. */

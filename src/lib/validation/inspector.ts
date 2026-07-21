@@ -11,6 +11,9 @@ export const InspectorActionSchema = z
     // pago legítimo no hay nada que volver a inspeccionar, así que el trámite
     // se cierra en firme y el RUC queda libre para empezar de cero.
     paymentInvalid: z.boolean().optional().default(false),
+    // Monto de la multa. Solo se usa al observar una inspección inopinada:
+    // ahí la licencia sigue vigente y lo único que corresponde es multar.
+    fineAmount: z.number().positive().optional(),
   })
   // Rechazar sin motivo deja al administrado sin saber qué subsanar: para
   // rechazar, las observaciones son obligatorias.

@@ -10,12 +10,36 @@ import {
   InspectionStatus,
 } from "@prisma/client";
 
-const WORK_START_HOUR = 8;
-const WORK_END_HOUR = 17;
 const MAX_LOOKAHEAD_DAYS = 30;
 
-/** Franjas horarias a explorar por inspector (9 por día hábil). */
-const MAX_LOOKAHEAD_SLOTS = MAX_LOOKAHEAD_DAYS * 10;
+// ── CAMBIAR LAS FRANJAS DE INSPECCIÓN ───────────────────────────────────────
+// Cada visita dura dos horas: 8-10, 10-12, 12-14, almuerzo de 14 a 15, y la
+// última de 15 a 17, que cierra justo con la jornada.
+//
+// Para cambiar los horarios alcanza con tocar esta lista; el resto del
+// agendador se acomoda solo. Por ejemplo, sin almuerzo y con una franja más:
+//
+//   const SLOT_START_HOURS = [8, 10, 12, 14];
+//
+// Se lista hora por hora en vez de calcularlas con un paso fijo justamente
+// porque el almuerzo parte el día y no hay fórmula que lo describa.
+const SLOT_START_HOURS = [8, 10, 12, 15];
+
+/** Inicio de la jornada: la primera franja del día. */
+const WORK_START_HOUR = SLOT_START_HOURS[0];
+
+/** Última hora en la que puede empezar una inspección. */
+const LAST_START_HOUR = SLOT_START_HOURS[SLOT_START_HOURS.length - 1];
+
+/** Franjas horarias a explorar por inspector. */
+const MAX_LOOKAHEAD_SLOTS = MAX_LOOKAHEAD_DAYS * SLOT_START_HOURS.length;
+
+/** Primera franja que empieza a esa hora o después. `null` si ya pasaron todas. */
+function franjaDesde(hour: number, conMinutos: boolean): number | null {
+  // Con minutos encima ya se perdió la franja en curso: se busca la siguiente.
+  const objetivo = conMinutos ? hour + 1 : hour;
+  return SLOT_START_HOURS.find((inicio) => inicio >= objetivo) ?? null;
+}
 
 /** Reintentos ante colisión con otro proceso que tomó el mismo horario. */
 const MAX_SCHEDULING_ATTEMPTS = 5;
@@ -38,15 +62,16 @@ function normalizeToNextSlot(date: Date): Date {
   }
 
   const hour = current.getHours();
-  const minute = current.getMinutes();
-  const lastStartHour = WORK_END_HOUR - 1;
+  const conMinutos =
+    current.getMinutes() > 0 ||
+    current.getSeconds() > 0 ||
+    current.getMilliseconds() > 0;
 
-  if (hour < WORK_START_HOUR) {
-    current.setHours(WORK_START_HOUR, 0, 0, 0);
-    return current;
-  }
+  // Franja siguiente hacia arriba: las 9:00 y las 9:30 caen igual en la de las
+  // 10:00, y cualquier hora del almuerzo cae en la de las 15:00.
+  const inicio = franjaDesde(hour, conMinutos);
 
-  if (hour > lastStartHour || (hour === lastStartHour && minute > 0)) {
+  if (inicio === null) {
     current.setDate(current.getDate() + 1);
 
     while (isWeekend(current)) {
@@ -57,20 +82,20 @@ function normalizeToNextSlot(date: Date): Date {
     return current;
   }
 
-  if (minute > 0 || current.getSeconds() > 0 || current.getMilliseconds() > 0) {
-    current.setHours(hour + 1, 0, 0, 0);
-  }
-
+  current.setHours(inicio, 0, 0, 0);
   return current;
 }
 
-function addOneHour(date: Date): Date {
+/** Salta a la franja siguiente, cruzando al próximo día hábil si hace falta. */
+function addOneSlot(date: Date): Date {
   const next = cloneDate(date);
-  next.setHours(next.getHours() + 1, 0, 0, 0);
+  const siguiente = franjaDesde(next.getHours() + 1, false);
 
-  if (next.getHours() >= WORK_END_HOUR) {
+  if (siguiente === null) {
     next.setDate(next.getDate() + 1);
     next.setHours(WORK_START_HOUR, 0, 0, 0);
+  } else {
+    next.setHours(siguiente, 0, 0, 0);
   }
 
   while (isWeekend(next)) {
@@ -247,6 +272,108 @@ export class InspectionService {
       "No fue posible reservar un horario de inspección. Intenta nuevamente."
     );
   }
+
+  /**
+   * Agenda la visita de control de una licencia renovada.
+   *
+   * Se sortea un día dentro del año de vigencia y se busca la primera franja
+   * libre desde ahí. La fecha es al azar a propósito: el administrado no sabe
+   * cuándo lo van a visitar, que es lo que hace inopinada a la inspección.
+   *
+   * No toca el estado del trámite —la licencia ya está vigente y pagada— y no
+   * interrumpe la renovación si algo falla: es un efecto secundario del cobro,
+   * no parte de él.
+   */
+  static async scheduleUnannouncedInspection(params: {
+    applicationId: string;
+    desde: Date;
+    hasta: Date;
+  }) {
+    const application = await ApplicationRepository.findById(params.applicationId);
+
+    if (!application) {
+      throw new Error("Trámite no encontrado.");
+    }
+
+    const inspectors = await UserRepository.findInspectors();
+
+    if (inspectors.length === 0) {
+      throw new Error("No hay inspectores disponibles.");
+    }
+
+    // Día al azar dentro del período. El sorteo es sobre días completos: la
+    // hora la define la franja libre que se encuentre a partir de ahí.
+    const dias = Math.max(
+      1,
+      Math.floor(
+        (params.hasta.getTime() - params.desde.getTime()) / (1000 * 60 * 60 * 24)
+      )
+    );
+
+    const sorteado = cloneDate(params.desde);
+    sorteado.setDate(sorteado.getDate() + Math.floor(Math.random() * dias));
+    sorteado.setHours(0, 0, 0, 0);
+
+    const inspectorIds = inspectors.map((inspector) => inspector.id);
+    const searchStart = normalizeToNextSlot(sorteado);
+
+    const occupiedByInspector = await InspectionRepository.findOccupiedSlots(
+      inspectorIds,
+      searchStart
+    );
+    const loadByInspector = await InspectionRepository.countScheduledByInspector(
+      inspectorIds
+    );
+
+    const rejectedSlots = new Set<string>();
+
+    for (let attempt = 0; attempt < MAX_SCHEDULING_ATTEMPTS; attempt += 1) {
+      const bestSchedule = findEarliestSlot({
+        inspectorIds,
+        searchStart,
+        occupiedByInspector,
+        loadByInspector,
+        rejectedSlots,
+      });
+
+      if (!bestSchedule) {
+        throw new Error(
+          "No fue posible programar la inspección inopinada en el período de la licencia."
+        );
+      }
+
+      try {
+        const inspection = await InspectionRepository.create({
+          applicationId: params.applicationId,
+          inspectorId: bestSchedule.inspectorId,
+          number: InspectionNumber.UNANNOUNCED,
+          scheduledAt: bestSchedule.scheduledAt,
+        });
+
+        await NotificationService.notifyNewAssignment({
+          inspectorId: bestSchedule.inspectorId,
+          applicationId: params.applicationId,
+          applicationNumber: application.number,
+          legalName: application.business.legalName,
+          scheduledAt: bestSchedule.scheduledAt,
+        });
+
+        return inspection;
+      } catch (error: any) {
+        if (error?.code !== "P2002") {
+          throw error;
+        }
+
+        const slotTime = bestSchedule.scheduledAt.getTime();
+        occupiedByInspector.get(bestSchedule.inspectorId)?.add(slotTime);
+        rejectedSlots.add(`${bestSchedule.inspectorId}:${slotTime}`);
+      }
+    }
+
+    throw new Error(
+      "No fue posible reservar un horario para la inspección inopinada."
+    );
+  }
 }
 
 /**
@@ -297,7 +424,7 @@ function findEarliestSlot(params: {
         break;
       }
 
-      candidate = addOneHour(candidate);
+      candidate = addOneSlot(candidate);
       tries += 1;
     }
   }

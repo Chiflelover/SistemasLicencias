@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic";
 /**
  * Agenda del día del inspector.
  *
- * Devuelve solo las inspecciones de la fecha actual del sistema: las
- * pendientes (ordenadas por hora) y las ya resueltas hoy. No incluye
- * inspecciones futuras ni de días anteriores.
+ * Devuelve solo las inspecciones pendientes de la fecha actual del sistema,
+ * ordenadas por hora. No incluye las ya resueltas —que salen de su vista al
+ * terminarlas— ni las de otros días.
  */
 export async function GET() {
   const user = await getCurrentUser();
@@ -23,8 +23,6 @@ export async function GET() {
   return NextResponse.json({
     date: agenda.date,
     inspections: agenda.pending,
-    completed: agenda.completed,
     pendingCount: agenda.pendingCount,
-    completedCount: agenda.completedCount,
   });
 }

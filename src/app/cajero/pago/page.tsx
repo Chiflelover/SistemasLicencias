@@ -14,7 +14,14 @@ import {
   Smartphone,
 } from "lucide-react";
 
-const MONTO_TUPA = 180.0;
+/**
+ * Tarifa de arranque, hasta que responde /api/tarifa.
+ *
+ * La fija el administrador y puede no ser 180: esto es solo el valor con el
+ * que se pinta la pantalla el primer instante. El servidor valida contra la
+ * tarifa real, así que un desfase acá no deja pasar un cobro incorrecto.
+ */
+const TARIFA_POR_DEFECTO = 180.0;
 
 /** Billete de mayor denominación en Perú: nadie puede entregar más que esto. */
 const BILLETE_MAXIMO = 200.0;
@@ -36,7 +43,6 @@ interface ApplicationRow {
 
 interface Comprobante {
   id: string;
-  receiptType: "FACTURA" | "BOLETA";
   operationNumber: string;
   total: number;
   formasPago: Array<{ method: string; amount: number }>;
@@ -53,16 +59,38 @@ export default function CajeroPagoPage() {
   const [loading, setLoading] = useState(true);
   const [seleccionado, setSeleccionado] = useState<ApplicationRow | null>(null);
   const [metodo, setMetodo] = useState<string>("EFECTIVO");
-  const [recibido, setRecibido] = useState<string>(String(MONTO_TUPA));
-  const [comprobanteTipo, setComprobanteTipo] = useState<"FACTURA" | "BOLETA">(
-    "FACTURA"
-  );
+  const [recibido, setRecibido] = useState<string>(String(TARIFA_POR_DEFECTO));
+
+  // Tarifa vigente, que fija el administrador.
+  const [tarifa, setTarifa] = useState<number>(TARIFA_POR_DEFECTO);
 
   // Pago mixto: dos métodos cuyos montos suman la tasa. En mixto no hay vuelto.
   const [mixto, setMixto] = useState(false);
   const [metodo2, setMetodo2] = useState<string>("YAPE");
-  const [monto1, setMonto1] = useState<string>("90");
-  const [monto2, setMonto2] = useState<string>("90");
+  const [monto1, setMonto1] = useState<string>(String(TARIFA_POR_DEFECTO / 2));
+  const [monto2, setMonto2] = useState<string>(String(TARIFA_POR_DEFECTO / 2));
+
+  // Al llegar la tarifa real se reacomodan los montos propuestos: si no, el
+  // mixto arrancaría con una suma que no da y el cajero tendría que corregir
+  // dos campos antes de poder cobrar.
+  useEffect(() => {
+    fetch("/api/tarifa", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        const monto = Number(data.amount);
+        if (!Number.isFinite(monto) || monto <= 0) return;
+
+        setTarifa(monto);
+        setRecibido(String(monto));
+
+        const mitad = Math.round((monto / 2) * 100) / 100;
+        setMonto1(String(mitad));
+        setMonto2(String(Math.round((monto - mitad) * 100) / 100));
+      })
+      .catch(() => {
+        // Se queda con la tarifa por defecto: el servidor valida igual.
+      });
+  }, []);
 
   // Sin caja abierta el cobro se rechaza en el servidor. Se consulta acá para
   // avisarlo antes y no que el cajero lo descubra al confirmar.
@@ -118,10 +146,9 @@ export default function CajeroPagoPage() {
                 { method: metodo, amount: Number(monto1) },
                 { method: metodo2, amount: Number(monto2) },
               ]
-            : [{ method: metodo, amount: MONTO_TUPA }],
+            : [{ method: metodo, amount: tarifa }],
           receivedAmount:
             !mixto && metodo === "EFECTIVO" ? Number(recibido) : undefined,
-          receiptType: comprobanteTipo,
         }),
       });
 
@@ -133,7 +160,6 @@ export default function CajeroPagoPage() {
 
       setComprobante({
         id: data.payment.id,
-        receiptType: data.payment.receiptType,
         operationNumber: data.payment.operationNumber,
         total: data.payment.total,
         formasPago: data.payment.formasPago,
@@ -143,7 +169,7 @@ export default function CajeroPagoPage() {
         changeGiven: data.payment.changeGiven,
       });
 
-      setRecibido(String(MONTO_TUPA));
+      setRecibido(String(tarifa));
       setSeleccionado(null);
       setMetodo("EFECTIVO");
 
@@ -156,13 +182,14 @@ export default function CajeroPagoPage() {
     }
   };
 
+  // EXPIRED es la renovación: se cobra recién cuando la licencia venció.
   const cobrables = applications.filter(
-    (a) => a.status === "PENDING_PAYMENT" || a.status === "RENEWAL_AVAILABLE"
+    (a) => a.status === "PENDING_PAYMENT" || a.status === "EXPIRED"
   );
 
   // Validación del pago mixto: dos métodos distintos cuyos montos suman la tasa.
   const sumaMixto = (Number(monto1) || 0) + (Number(monto2) || 0);
-  const sumaMixtoOk = Math.round(sumaMixto * 100) === Math.round(MONTO_TUPA * 100);
+  const sumaMixtoOk = Math.round(sumaMixto * 100) === Math.round(tarifa * 100);
   const metodosDistintos = metodo !== metodo2;
   const mixtoValido =
     metodosDistintos &&
@@ -332,7 +359,7 @@ export default function CajeroPagoPage() {
             className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-5 py-2.5 text-sm font-bold transition"
           >
             <FileText className="w-4 h-4" />
-            Descargar {comprobante.receiptType === "BOLETA" ? "boleta" : "factura"}
+            Descargar factura
           </a>
         </div>
       )}
@@ -351,7 +378,7 @@ export default function CajeroPagoPage() {
               Monto a cobrar
             </span>
             <span className="text-3xl font-black text-amber-300">
-              S/ {MONTO_TUPA.toFixed(2)}
+              S/ {tarifa.toFixed(2)}
             </span>
           </div>
 
@@ -461,7 +488,7 @@ export default function CajeroPagoPage() {
                       sumaMixtoOk ? "text-emerald-400" : "text-rose-300"
                     }`}
                   >
-                    S/ {sumaMixto.toFixed(2)} / {MONTO_TUPA.toFixed(2)}
+                    S/ {sumaMixto.toFixed(2)} / {tarifa.toFixed(2)}
                   </span>
                 </div>
 
@@ -473,40 +500,15 @@ export default function CajeroPagoPage() {
                 {metodosDistintos && !sumaMixtoOk && (
                   <p className="text-sm font-semibold text-rose-300">
                     Los montos deben sumar exactamente S/{" "}
-                    {MONTO_TUPA.toFixed(2)}.
+                    {tarifa.toFixed(2)}.
                   </p>
                 )}
               </div>
             )}
           </div>
 
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold text-slate-500 mb-3">
-              Comprobante a emitir
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
-              {(["FACTURA", "BOLETA"] as const).map((tipo) => {
-                const activo = comprobanteTipo === tipo;
-
-                return (
-                  <button
-                    key={tipo}
-                    type="button"
-                    onClick={() => setComprobanteTipo(tipo)}
-                    className={`py-3 px-3 rounded-xl text-sm font-bold flex flex-col items-center gap-1 border transition ${
-                      activo
-                        ? "bg-amber-500 text-slate-950 border-amber-400"
-                        : "bg-slate-950/50 text-slate-300 border-slate-800 hover:border-slate-600"
-                    }`}
-                  >
-                    <FileText className="w-5 h-5" />
-                    {tipo === "FACTURA" ? "Factura" : "Boleta"}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* El comprobante ya no se elige: la municipalidad emite solo
+              factura, así que no hay nada que preguntar acá. */}
 
           {/* El vuelto solo aplica en un pago único en efectivo: en mixto los
               montos son exactos, y los medios digitales cobran el importe. */}
@@ -534,21 +536,21 @@ export default function CajeroPagoPage() {
                 />
 
                 <span className="mt-1.5 block text-xs text-slate-500">
-                  Entre S/ {MONTO_TUPA.toFixed(2)} y S/{" "}
+                  Entre S/ {tarifa.toFixed(2)} y S/{" "}
                   {BILLETE_MAXIMO.toFixed(2)}, el billete más grande que existe.
                 </span>
               </label>
 
-              {recibido !== "" && Number(recibido) >= MONTO_TUPA && (
+              {recibido !== "" && Number(recibido) >= tarifa && (
                 <div className="flex items-center justify-between rounded-lg bg-slate-900/60 px-4 py-3">
                   <span className="text-sm text-slate-400">Vuelto a devolver</span>
                   <span className="text-xl font-black text-emerald-400">
-                    S/ {(Number(recibido) - MONTO_TUPA).toFixed(2)}
+                    S/ {(Number(recibido) - tarifa).toFixed(2)}
                   </span>
                 </div>
               )}
 
-              {recibido !== "" && Number(recibido) < MONTO_TUPA && (
+              {recibido !== "" && Number(recibido) < tarifa && (
                 <p className="text-sm font-semibold text-rose-300">
                   No alcanza para cubrir la tasa.
                 </p>
@@ -566,7 +568,7 @@ export default function CajeroPagoPage() {
                   ? !mixtoValido
                   : metodo === "EFECTIVO" &&
                     (recibido === "" ||
-                      Number(recibido) < MONTO_TUPA ||
+                      Number(recibido) < tarifa ||
                       Number(recibido) > BILLETE_MAXIMO))
               }
               className="flex-grow bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 px-5 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
@@ -612,6 +614,16 @@ export default function CajeroPagoPage() {
         ) : (
           <div className="divide-y divide-slate-850">
             {cobrables.map((application) => {
+              // ── PARA HACER LOS DOCUMENTOS OPCIONALES ────────────────────
+              // Esto habilita el botón de cobrar. Según lo que pidan:
+              //
+              //   const tieneDocumentos = true;   // no exigir ninguno
+              //   const tieneDocumentos =         // al menos uno de los dos
+              //     application.documents.some((d) => d.type === "FLOOR_PLAN") ||
+              //     application.documents.some((d) => d.type === "RUC_RECORD");
+              //
+              // Es solo la pantalla: el que rechaza de verdad es
+              // src/services/cash.service.ts, y hay que aflojarlo igual.
               const tieneDocumentos =
                 application.documents.some((d) => d.type === "FLOOR_PLAN") &&
                 application.documents.some((d) => d.type === "RUC_RECORD");
@@ -650,7 +662,7 @@ export default function CajeroPagoPage() {
                     className="bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 px-5 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition whitespace-nowrap"
                   >
                     <Banknote className="w-4 h-4" />
-                    Cobrar S/ {MONTO_TUPA.toFixed(2)}
+                    Cobrar S/ {tarifa.toFixed(2)}
                   </button>
                 </div>
               );

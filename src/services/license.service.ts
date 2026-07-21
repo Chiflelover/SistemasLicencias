@@ -3,6 +3,7 @@ import { LicenseRepository } from "@/repositories/license.repository";
 import { generateLicensePdf } from "@/lib/pdf";
 import { addYears, getCurrentSystemDate } from "@/lib/date";
 import { NotificationService } from "@/services/notification.service";
+import { InspectionService } from "@/services/inspection.service";
 import { AuditService } from "@/services/audit.service";
 import { MailService } from "@/services/mail.service";
 import { prisma } from "@/lib/db/prisma";
@@ -161,16 +162,14 @@ export class LicenseService {
 
     const license = application.license;
 
-    // Una licencia vencida ya no se renueva: corresponde un trámite nuevo.
-    if (license.status === LicenseStatus.EXPIRED) {
+    // La renovación es POSTERIOR al vencimiento: mientras la licencia siga
+    // vigente no hay nada que renovar. El aviso de "por vencer" que aparece 30
+    // días antes es solo eso, un aviso.
+    if (license.status !== LicenseStatus.EXPIRED) {
       throw new Error(
-        `La licencia ${license.licenseNumber} está vencida y no puede renovarse. ` +
-          "Debes iniciar un nuevo trámite de licencia de funcionamiento."
+        `La licencia ${license.licenseNumber} todavía está vigente. La renovación ` +
+          "se habilita recién cuando vence."
       );
-    }
-
-    if (license.status !== LicenseStatus.RENEWAL_AVAILABLE) {
-      throw new Error("La renovación solo está habilitada cuando falta hasta 30 días para el vencimiento.");
     }
 
     const newIssuedAt = await getCurrentSystemDate();
@@ -200,6 +199,19 @@ export class LicenseService {
 
     if (application.status !== ApplicationStatus.LICENSE_ISSUED) {
       await ApplicationRepository.updateStatus(application.id, ApplicationStatus.LICENSE_ISSUED);
+    }
+
+    // Visita de control en una fecha al azar del año que acaba de empezar. Va
+    // en try/catch como el resto de los efectos auxiliares: si el agendado
+    // falla, la renovación ya está hecha y no se deshace por eso.
+    try {
+      await InspectionService.scheduleUnannouncedInspection({
+        applicationId: application.id,
+        desde: newIssuedAt,
+        hasta: newExpiresAt,
+      });
+    } catch (error) {
+      console.error("No se pudo agendar la inspección inopinada:", error);
     }
 
     return renewed;
@@ -237,25 +249,8 @@ export class LicenseService {
     return vencidas.length;
   }
 
-  /**
-   * Recalcula el estado de todas las licencias contra la fecha actual.
-   *
-   * A diferencia de syncExpiredLicenses, que solo procesa las ya vencidas,
-   * esta recorre todas: sirve para restablecer el sistema cuando el reloj
-   * vuelve al presente después de una simulación.
-   */
-  static async resyncAllLicenseStates() {
-    const licencias = await prisma.license.findMany({
-      select: { applicationId: true },
-    });
-
-    // En paralelo: cada licencia es una fila distinta y la transición a
-    // vencida es atómica, así que no compiten. Secuencial, con la latencia de
-    // Neon por consulta, era el grueso de la demora al restablecer el reloj.
-    await Promise.all(
-      licencias.map((licencia) => this.ensureRenewalState(licencia.applicationId))
-    );
-
-    return licencias.length;
-  }
+  // resyncAllLicenseStates se eliminó con la reversión del simulador: era su
+  // único llamador. El restablecer ahora borra las licencias en vez de
+  // recalcularlas, y el vencimiento de cada una se sincroniza al consultarla
+  // (syncExpiredLicenses / ensureRenewalState).
 }

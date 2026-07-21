@@ -7,7 +7,7 @@ interface InspectionSummary {
   id: string;
   applicationId: string;
   scheduledAt: string;
-  number: "FIRST" | "SECOND";
+  number: "FIRST" | "SECOND" | "UNANNOUNCED";
   status: string;
   application: {
     number: string;
@@ -18,7 +18,7 @@ interface InspectionSummary {
 interface InspectionDetail {
   id: string;
   scheduledAt: string;
-  number: "FIRST" | "SECOND";
+  number: "FIRST" | "SECOND" | "UNANNOUNCED";
   status: string;
   result: string | null;
   observations: string | null;
@@ -59,7 +59,7 @@ const ESTADOS_TRAMITE: Record<string, string> = {
   SECOND_INSPECTION_SCHEDULED: "Observado · 2da inspección programada",
   LICENSE_ISSUED: "Licencia emitida",
   DEFINITIVELY_REJECTED: "Rechazado definitivo",
-  RENEWAL_AVAILABLE: "Renovación disponible",
+  RENEWAL_AVAILABLE: "Licencia por vencer",
   EXPIRED: "Licencia vencida",
 };
 
@@ -88,10 +88,12 @@ export function InspectorPanel() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [completedToday, setCompletedToday] = useState(0);
   const [agendaDate, setAgendaDate] = useState<string | null>(null);
   const [pendingResult, setPendingResult] = useState<"approve" | "reject">("approve");
   const [paymentInvalid, setPaymentInvalid] = useState(false);
+
+  // Multa de una inspección inopinada: es lo único que produce observarla.
+  const [fineAmount, setFineAmount] = useState("");
 
   const formatPaymentAmount = (amount: unknown) => {
     if (typeof amount === "number") {
@@ -110,6 +112,10 @@ export function InspectorPanel() {
     [inspections, selectedInspectionId]
   );
 
+  // Visita de control de una licencia renovada: no aprueba ni rechaza un
+  // trámite, solo deja constancia o multa.
+  const esInopinada = selectedInspection?.number === "UNANNOUNCED";
+
   const loadInspections = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -125,7 +131,6 @@ export function InspectorPanel() {
       const pendientes: InspectionSummary[] = data.inspections || [];
 
       setInspections(pendientes);
-      setCompletedToday(data.completedCount ?? 0);
       setAgendaDate(data.date ?? null);
 
       // Si la seleccionada ya se resolvió, deja de existir en la lista:
@@ -193,7 +198,11 @@ export function InspectorPanel() {
         body: JSON.stringify({
           action,
           observations,
-          paymentInvalid: action === "reject" && paymentInvalid,
+          paymentInvalid: action === "reject" && !esInopinada && paymentInvalid,
+          fineAmount:
+            action === "reject" && esInopinada
+              ? Number(fineAmount)
+              : undefined,
         }),
       });
       const data = await response.json();
@@ -216,6 +225,7 @@ export function InspectorPanel() {
       setDetails(null);
       setObservations("");
       setPaymentInvalid(false);
+      setFineAmount("");
       setPendingResult("approve");
 
       await loadInspections();
@@ -237,24 +247,17 @@ export function InspectorPanel() {
 
   return (
     <div className="space-y-8">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
-          <p className="text-amber-400 text-xs uppercase tracking-wider font-bold">
-            Pendientes hoy
-          </p>
-          <p className="mt-2 text-4xl font-black text-white">{inspections.length}</p>
-          {fechaAgenda && (
-            <p className="text-slate-500 text-xs mt-1 capitalize">{fechaAgenda}</p>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5">
-          <p className="text-emerald-400 text-xs uppercase tracking-wider font-bold">
-            Inspecciones realizadas hoy
-          </p>
-          <p className="mt-2 text-4xl font-black text-white">{completedToday}</p>
-          <p className="text-slate-500 text-xs mt-1">Terminadas en la jornada</p>
-        </div>
+      {/* Solo lo pendiente. El contador de "realizadas hoy" se quitó: una
+          inspección terminada no deja rastro en la vista del inspector, y el
+          registro de lo hecho vive en el panel del administrador. */}
+      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+        <p className="text-amber-400 text-xs uppercase tracking-wider font-bold">
+          Pendientes hoy
+        </p>
+        <p className="mt-2 text-4xl font-black text-white">{inspections.length}</p>
+        {fechaAgenda && (
+          <p className="text-slate-500 text-xs mt-1 capitalize">{fechaAgenda}</p>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
@@ -500,8 +503,9 @@ export function InspectorPanel() {
             </div>
 
             {/* Solo tiene sentido al rechazar: marca que el problema es el
-                pago, no el local, y cierra el trámite en firme. */}
-            {pendingResult === "reject" && (
+                pago, no el local, y cierra el trámite en firme. En una
+                inopinada no aplica: esa licencia ya se pagó y está vigente. */}
+            {pendingResult === "reject" && !esInopinada && (
               <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
                 <input
                   type="checkbox"
@@ -512,6 +516,31 @@ export function InspectorPanel() {
 
                 <span className="text-sm font-bold text-white">
                   El comprobante de pago no es válido
+                </span>
+              </label>
+            )}
+
+            {/* Observar una inopinada no frena nada: la licencia sigue
+                vigente y lo único que corresponde es la multa. */}
+            {pendingResult === "reject" && esInopinada && (
+              <label className="block rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
+                <span className="text-sm font-bold text-white">
+                  Monto de la multa (S/)
+                </span>
+
+                <input
+                  value={fineAmount}
+                  onChange={(event) =>
+                    setFineAmount(event.target.value.replace(/[^\d.]/g, ""))
+                  }
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-slate-100 outline-none focus:border-rose-400"
+                />
+
+                <span className="mt-2 block text-xs text-slate-400">
+                  La licencia no se da de baja: queda vigente hasta su fecha y
+                  la multa se registra contra ella.
                 </span>
               </label>
             )}

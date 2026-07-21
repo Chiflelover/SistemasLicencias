@@ -53,10 +53,11 @@ enum PaymentStatus {
 }
 
 // Medios aceptados en caja (pago presencial, sin pasarela externa)
-// Comprobante de pago. La factura identifica al adquirente por RUC y la
-// boleta por DNI: cambian la serie y el código de documento ante SUNAT.
+// Comprobante de pago. La boleta de venta se eliminó: el derecho de trámite lo
+// paga siempre la empresa titular del RUC, así que no hay caso de persona
+// natural. El campo se conserva con un único valor para dejar asentado que el
+// cobro emitió comprobante — los pagos anteriores a la factura lo tienen null.
 enum ReceiptType {
-  BOLETA
   FACTURA
 }
 
@@ -67,9 +68,13 @@ enum PaymentMethod {
   PLIN
 }
 
+// FIRST y SECOND son las del trámite inicial. UNANNOUNCED es la visita de
+// control que se agenda al renovar: cae en una fecha al azar dentro del año de
+// la licencia renovada y el administrado no la conoce de antemano.
 enum InspectionNumber {
   FIRST
   SECOND
+  UNANNOUNCED
 }
 
 enum InspectionStatus {
@@ -110,6 +115,7 @@ model User {
   notifications Notification[] @relation("UserNotifications")
   cashSessions   CashSession[] @relation("CashierSessions")
   closedSessions CashSession[] @relation("AdminClosedSessions")
+  cashMovements  CashMovement[] @relation("AdminCashMovements")
 
   @@index([role])
   @@index([active])
@@ -357,6 +363,17 @@ model SystemConfig {
   simulatedDate DateTime @default(now())
 }
 
+// Tarifa del derecho de trámite, que el administrador puede cambiar.
+//
+// Fila única. Si no existe, rige DEFAULT_TUPA_AMOUNT: la ausencia significa
+// "valor de fábrica", el mismo criterio que SystemConfig con el reloj. Por eso
+// el restablecer la borra en lugar de escribirle 180.
+model Tarifa {
+  id        String   @id @default("singleton")
+  amount    Decimal  @db.Decimal(10, 2)
+  updatedAt DateTime @updatedAt
+}
+
 // ─── Simulación de tiempo (demostración académica) ─────────────────────────────
 
 enum SimulationStatus {
@@ -434,41 +451,86 @@ model DniCache {
 
 // ─── Caja ────────────────────────────────────────────────────────────────────
 
+// Apertura y cierre pasan los dos por el administrador, así que el turno vive
+// la mitad del tiempo esperando una decisión: PENDING_OPEN antes de operar y
+// PENDING_APPROVAL antes de cerrarse. REJECTED es una apertura que el admin no
+// autorizó; el rechazo de un cierre devuelve el turno a OPEN y no deja estado
+// propio, porque la caja sigue operativa.
 enum CashSessionStatus {
+  PENDING_OPEN
   OPEN
   PENDING_APPROVAL
   CLOSED
+  REJECTED
 }
 
-// Turno de caja de un cajero: se abre con un fondo, se cobra contra él y se
-// cierra contando el efectivo. Sin turno abierto no se puede registrar pagos.
+// Turno de caja de un cajero: se solicita con un fondo, el administrador lo
+// autoriza, se cobra contra él y se cierra contando el efectivo. Sin turno
+// abierto no se puede registrar pagos.
 model CashSession {
   id            String            @id @default(cuid())
   cashierId     String
   openingAmount Decimal           @db.Decimal(10, 2)
   openedAt      DateTime
-  status        CashSessionStatus @default(OPEN)
+  // El turno nace pidiendo autorización: nadie abre su propia caja.
+  status        CashSessionStatus @default(PENDING_OPEN)
 
   // Se congelan al cerrar: el arqueo posterior no debe cambiar lo que se
-  // declaró en el momento del cierre.
+  // declaró en el momento del cierre. Un cierre rechazado los limpia: dejar el
+  // conteo viejo mostraría un descuadre que el cajero ya está recontando.
   cashCollected    Decimal? @db.Decimal(10, 2)
   digitalCollected Decimal? @db.Decimal(10, 2)
   expectedAmount   Decimal? @db.Decimal(10, 2)
   countedAmount    Decimal? @db.Decimal(10, 2)
   difference       Decimal? @db.Decimal(10, 2)
 
-  // Solo cuando el cierre no cuadró y lo autorizó un administrador.
+  // Texto que acompaña lo último que se decidió sobre el turno: el motivo del
+  // descuadre que declara el cajero, o el motivo con el que el administrador
+  // rechazó la apertura o el cierre.
   justification String?
-  closedById    String?
-  closedAt      DateTime?
+
+  // Quién resolvió la última solicitud del turno, sea la apertura o el cierre.
+  closedById String?
+  closedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cashier  User  @relation("CashierSessions", fields: [cashierId], references: [id], onDelete: Restrict)
-  closedBy User? @relation("AdminClosedSessions", fields: [closedById], references: [id], onDelete: SetNull)
+  cashier   User           @relation("CashierSessions", fields: [cashierId], references: [id], onDelete: Restrict)
+  closedBy  User?          @relation("AdminClosedSessions", fields: [closedById], references: [id], onDelete: SetNull)
+  movements CashMovement[]
 
   @@index([cashierId])
   @@index([status])
   @@index([openedAt])
+}
+
+// Movimientos de efectivo que hace el administrador sobre una caja abierta:
+// le entrega más sencillo o le retira parte de la recaudación a bóveda.
+//
+// Solo alcanzan al efectivo. Lo cobrado por Yape va directo a la cuenta
+// digital de la municipalidad y nunca pasa por el cajón, así que no hay nada
+// que entregar ni retirar de eso.
+enum CashMovementType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+model CashMovement {
+  id        String           @id @default(cuid())
+  sessionId String
+  type      CashMovementType
+  // Siempre positivo: el signo lo da el tipo. Con un monto con signo se podría
+  // escribir una "reposición de -200", que no significa nada.
+  amount    Decimal          @db.Decimal(10, 2)
+  reason    String
+
+  // Siempre un administrador: el cajero no mueve el fondo de su propia caja.
+  createdById String
+  createdAt   DateTime
+
+  session   CashSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdBy User        @relation("AdminCashMovements", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([sessionId])
 }

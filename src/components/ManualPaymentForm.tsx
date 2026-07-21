@@ -24,6 +24,17 @@ export default function ManualPaymentForm({ applicationId }: ManualPaymentFormPr
       setError("Solo se permiten archivos de imagen (PNG, JPG, JPEG) o PDF.");
       return;
     }
+    // ── CAMBIAR EL TAMAÑO MÁXIMO DE ARCHIVO ─────────────────────────────────
+    // Poner los MB que pidan en lugar del 5, acá y en el texto de más abajo
+    // ("Máx. 5MB"):
+    //
+    //   if (selectedFile.size > 3 * 1024 * 1024) {
+    //     setError("El archivo no debe superar los 3MB.");
+    //
+    // Esta es la validación del navegador: es comodidad, no seguridad. La que
+    // manda es la del servidor, en las 5 rutas listadas en
+    // src/app/api/public/tramite/[applicationId]/pago/manual/route.ts. Si se
+    // cambia solo acá, el servidor sigue rechazando con el límite viejo.
     if (selectedFile.size > 5 * 1024 * 1024) {
       setError("El archivo no debe superar los 5MB.");
       return;
@@ -159,6 +170,8 @@ export default function ManualPaymentForm({ applicationId }: ManualPaymentFormPr
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-300">Selecciona o arrastra el comprobante</p>
+                {/* El "5MB" va a mano: si se cambia el límite, cambiarlo acá
+                    también o la pantalla va a prometer algo que no es. */}
                 <p className="text-xs text-slate-500 mt-1">Formatos permitidos: PNG, JPG, JPEG o PDF (Máx. 5MB)</p>
               </div>
             </div>

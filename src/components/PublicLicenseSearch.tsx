@@ -36,7 +36,7 @@ function formatLicenseStatus(status: string) {
     case "ACTIVE":
       return "Activa";
     case "RENEWAL_AVAILABLE":
-      return "Renovación disponible";
+      return "Licencia por vencer";
     case "EXPIRED":
       return "Vencida";
     default:
@@ -55,7 +55,7 @@ const ESTADO_TRAMITE: Record<string, string> = {
   SECOND_INSPECTION_SCHEDULED: "Observado · 2da inspección programada",
   LICENSE_ISSUED: "Licencia emitida",
   DEFINITIVELY_REJECTED: "Rechazado definitivo",
-  RENEWAL_AVAILABLE: "Renovación disponible",
+  RENEWAL_AVAILABLE: "Licencia por vencer",
   EXPIRED: "Licencia vencida",
 };
 

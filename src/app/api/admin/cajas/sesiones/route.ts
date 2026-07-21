@@ -13,10 +13,41 @@ export async function GET() {
   }
 
   try {
-    const [pendientes, historial] = await Promise.all([
-      CashSessionService.listPendingApprovals(),
+    const [aperturas, cierres, abiertas, historial] = await Promise.all([
+      CashSessionService.listPendingOpenings(),
+      CashSessionService.listPendingCloses(),
+      CashSessionService.listOpenSessions(),
       CashSessionService.listHistory(),
     ]);
+
+    // Las abiertas llevan además su estado de caja: es contra eso que el
+    // administrador decide cuánto entregar o retirar.
+    const abiertasConTotales = await Promise.all(
+      abiertas.map(async (sesion) => {
+        const totales = await CashSessionService.getSessionTotals(sesion.id);
+
+        return {
+          id: sesion.id,
+          cajero: sesion.cashier.fullName,
+          email: sesion.cashier.email,
+          openedAt: sesion.openedAt,
+          fondo: totales.fondo,
+          efectivo: totales.efectivo,
+          digital: totales.digital,
+          entregado: totales.entregado,
+          retirado: totales.retirado,
+          esperadoEnCaja: totales.esperadoEnCaja,
+          movimientos: totales.movimientos.map((m) => ({
+            id: m.id,
+            tipo: m.type,
+            monto: Number(m.amount),
+            motivo: m.reason,
+            fecha: m.createdAt,
+            autor: m.createdBy.fullName,
+          })),
+        };
+      })
+    );
 
     const serializar = (sesion: any) => ({
       id: sesion.id,
@@ -36,7 +67,9 @@ export async function GET() {
     });
 
     return NextResponse.json({
-      pendientes: pendientes.map(serializar),
+      aperturas: aperturas.map(serializar),
+      cierres: cierres.map(serializar),
+      abiertas: abiertasConTotales,
       historial: historial.map(serializar),
     });
   } catch (error: any) {
@@ -49,7 +82,21 @@ export async function GET() {
   }
 }
 
-/** El administrador autoriza el cierre de una caja descuadrada. */
+/** Acciones que puede tomar el administrador sobre una solicitud de caja. */
+const ACCIONES = [
+  "autorizar-apertura",
+  "rechazar-apertura",
+  "autorizar-cierre",
+  "rechazar-cierre",
+] as const;
+
+type Accion = (typeof ACCIONES)[number];
+
+function esAccion(valor: string): valor is Accion {
+  return (ACCIONES as readonly string[]).includes(valor);
+}
+
+/** El administrador resuelve una solicitud de apertura o de cierre. */
 export async function POST(request: Request) {
   const user = await getCurrentUser();
 
@@ -60,18 +107,47 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    await CashSessionService.approveClose({
-      adminId: user.id,
-      sessionId: String(body.sessionId || ""),
-    });
+    const sessionId = String(body.sessionId || "").trim();
+    const accion = String(body.accion || "").trim();
+    const reason = body.reason === undefined ? undefined : String(body.reason);
 
-    return NextResponse.json({
-      success: true,
-      message: "Caja cerrada.",
-    });
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: "Falta el identificador del turno." },
+        { status: 400 }
+      );
+    }
+
+    if (!esAccion(accion)) {
+      return NextResponse.json(
+        { error: "La acción sobre el turno no es válida." },
+        { status: 400 }
+      );
+    }
+
+    const mensajes: Record<Accion, string> = {
+      "autorizar-apertura": "Caja abierta. El cajero ya puede registrar cobros.",
+      "rechazar-apertura":
+        "Apertura rechazada. El cajero puede volver a solicitarla.",
+      "autorizar-cierre": "Caja cerrada.",
+      "rechazar-cierre":
+        "Cierre rechazado. La caja vuelve a estar abierta para que el cajero cuente de nuevo.",
+    };
+
+    if (accion === "autorizar-apertura") {
+      await CashSessionService.approveOpen({ adminId: user.id, sessionId });
+    } else if (accion === "rechazar-apertura") {
+      await CashSessionService.rejectOpen({ adminId: user.id, sessionId, reason });
+    } else if (accion === "autorizar-cierre") {
+      await CashSessionService.approveClose({ adminId: user.id, sessionId });
+    } else {
+      await CashSessionService.rejectClose({ adminId: user.id, sessionId, reason });
+    }
+
+    return NextResponse.json({ success: true, message: mensajes[accion] });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error?.message || "No se pudo cerrar la caja." },
+      { error: error?.message || "No se pudo resolver la solicitud." },
       { status: 400 }
     );
   }

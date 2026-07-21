@@ -5,11 +5,10 @@ import { CashSessionService } from "@/services/cash-session.service";
 export const dynamic = "force-dynamic";
 
 /**
- * Cierre de caja.
+ * Solicitud de cierre de caja.
  *
- * Si el efectivo contado coincide con el del sistema, el cajero cierra solo.
- * Si no coincide, hace falta una justificación y el turno queda esperando la
- * autorización de un administrador.
+ * El cierre siempre queda esperando al administrador, cuadre o no. Si no
+ * cuadra, además hace falta una justificación.
  */
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -21,7 +20,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const resultado = await CashSessionService.closeSession({
+    const resultado = await CashSessionService.requestClose({
       cashierId: user.id,
       countedAmount: Number(body.countedAmount),
       justification: body.justification,
@@ -32,12 +31,12 @@ export async function POST(request: Request) {
       cuadra: resultado.cuadra,
       diferencia: resultado.diferencia,
       message: resultado.cuadra
-        ? "Caja cerrada. El efectivo contado coincide con el del sistema."
-        : "Se envió la solicitud al administrador para que autorice el cierre.",
+        ? "El efectivo contado coincide con el del sistema. Se envió la solicitud al administrador para que autorice el cierre."
+        : "Se envió la solicitud al administrador con el motivo del descuadre.",
     });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error?.message || "No se pudo cerrar la caja." },
+      { error: error?.message || "No se pudo solicitar el cierre." },
       { status: 400 }
     );
   }

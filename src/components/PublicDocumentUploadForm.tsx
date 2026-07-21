@@ -183,6 +183,10 @@ export default function PublicDocumentUploadForm({
         })}
       </div>
 
+      {/* El "5MB" va a mano. Si cambia el límite del servidor
+          (src/app/api/public/tramite/[applicationId]/documentos/route.ts, que
+          lista todos los archivos a tocar), hay que corregir este texto o la
+          pantalla promete algo que el servidor no acepta. */}
       <p className="mt-4 text-xs text-slate-500">
         PDF, JPG o PNG. Máximo 5MB por archivo.
       </p>

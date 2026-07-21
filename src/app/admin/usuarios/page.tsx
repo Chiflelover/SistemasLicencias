@@ -17,6 +17,7 @@ import {
 import {
   isProtectedStaff,
   isProtectedFromDeactivation,
+  MIN_ACTIVE_CASHIERS,
   MAX_CASHIERS,
   MAX_CASHIERS_MESSAGE,
 } from "@/lib/staff";
@@ -396,19 +397,22 @@ export default function AdminUsuariosPage() {
               </thead>
               <tbody className="divide-y divide-slate-850">
                 {staff.map((row) => {
-                  // Siempre tiene que quedar una caja activa. Se mira cuántas
-                  // hay en este momento, así la regla sigue valiendo con una
-                  // Caja 3 o más.
+                  // Siempre tienen que quedar dos cajas activas. Se mira
+                  // cuántas hay en este momento, así la regla sigue valiendo
+                  // con una Caja 3 o más.
                   const cajasActivas = staff.filter(
                     (u) => u.role === "CAJERO" && u.active
                   ).length;
 
-                  const esUltimaCaja =
-                    row.role === "CAJERO" && row.active && cajasActivas <= 1;
+                  const esCajaImprescindible =
+                    row.role === "CAJERO" &&
+                    row.active &&
+                    cajasActivas <= MIN_ACTIVE_CASHIERS;
 
                   const noSeDesactiva =
                     row.active &&
-                    (isProtectedFromDeactivation(row.email) || esUltimaCaja);
+                    (isProtectedFromDeactivation(row.email) ||
+                      esCajaImprescindible);
 
                   return (
                   <tr key={row.id} className="hover:bg-slate-900/40">
@@ -446,8 +450,8 @@ export default function AdminUsuariosPage() {
                         </button>
 
                         {/* No se apaga al inspector base (findInspectors solo
-                            devuelve activos) ni la última caja activa (sin
-                            ninguna no se puede cobrar). Reactivar siempre se
+                            devuelve activos) ni se baja de las dos cajas
+                            activas que el sistema exige. Reactivar siempre se
                             puede. El servidor valida las dos reglas igual. */}
                         <button
                           onClick={() => alternarActivo(row)}
@@ -457,8 +461,8 @@ export default function AdminUsuariosPage() {
                               ? row.active
                                 ? "Desactivar"
                                 : "Activar"
-                              : esUltimaCaja
-                                ? "Es la única caja activa: tiene que quedar al menos una"
+                              : esCajaImprescindible
+                                ? `Tienen que quedar al menos ${MIN_ACTIVE_CASHIERS} cajas activas`
                                 : "Inspector base: no se puede desactivar"
                           }
                           className="rounded-lg border border-slate-800 p-2 text-slate-400 transition hover:border-slate-600 hover:text-white disabled:cursor-not-allowed disabled:text-slate-700 disabled:hover:border-slate-800 disabled:hover:text-slate-700"
@@ -466,16 +470,19 @@ export default function AdminUsuariosPage() {
                           <Power className="w-4 h-4" />
                         </button>
 
-                        {/* Tampoco se borran las cuentas base ni la última caja
-                            activa: borrarla deja el mismo hueco que apagarla. */}
+                        {/* Tampoco se borran las cuentas base ni una caja que
+                            haga falta para el mínimo: borrarla deja el mismo
+                            hueco que apagarla. */}
                         <button
                           onClick={() => eliminar(row)}
-                          disabled={isProtectedStaff(row.email) || esUltimaCaja}
+                          disabled={
+                            isProtectedStaff(row.email) || esCajaImprescindible
+                          }
                           title={
                             isProtectedStaff(row.email)
                               ? "Cuenta base del sistema: no se puede eliminar"
-                              : esUltimaCaja
-                                ? "Es la única caja activa: tiene que quedar al menos una"
+                              : esCajaImprescindible
+                                ? `Tienen que quedar al menos ${MIN_ACTIVE_CASHIERS} cajas activas`
                                 : "Eliminar"
                           }
                           className="rounded-lg border border-rose-500/30 p-2 text-rose-400 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:border-slate-800 disabled:text-slate-600 disabled:hover:bg-transparent"

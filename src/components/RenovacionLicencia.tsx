@@ -1,37 +1,70 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { AlertCircle, Loader2, Plus, RefreshCw, Search } from "lucide-react";
+import { useState } from "react";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  FileUp,
+  Loader2,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 
-type Resultado = {
+type Tramite = {
   id: string;
   number: string;
   status: string;
   business: { ruc: string; legalName: string };
-  license: { licenseNumber: string; status: string; expiresAt: string } | null;
+  documents: Array<{ id: string; type: string; name: string }>;
+  license: {
+    licenseNumber: string;
+    issuedAt: string;
+    expiresAt: string;
+    status: string;
+  } | null;
 };
 
-/** Estados en los que el negocio todavía tiene un trámite abierto. */
-const EN_CURSO = [
-  "DRAFT",
-  "DOCUMENTS_COMPLETE",
-  "PENDING_PAYMENT",
-  "PAYMENT_COMPLETED",
-  "INSPECTION_SCHEDULED",
-  "FIRST_INSPECTION_REJECTED",
-  "SECOND_INSPECTION_SCHEDULED",
-];
-
-/** Estados con licencia vigente: no corresponde iniciar un trámite nuevo. */
-const CON_LICENCIA = ["LICENSE_ISSUED", "RENEWAL_AVAILABLE"];
+const ETIQUETAS: Record<string, string> = {
+  DRAFT: "Borrador",
+  DOCUMENTS_COMPLETE: "Documentos completos",
+  PENDING_PAYMENT: "Pendiente de pago",
+  PAYMENT_COMPLETED: "Pagado, esperando inspección",
+  INSPECTION_SCHEDULED: "Inspección programada",
+  FIRST_INSPECTION_REJECTED: "Observado",
+  SECOND_INSPECTION_SCHEDULED: "Observado · 2da inspección programada",
+  LICENSE_ISSUED: "Licencia vigente",
+  RENEWAL_AVAILABLE: "Licencia por vencer",
+  DEFINITIVELY_REJECTED: "Rechazado definitivo",
+  EXPIRED: "Licencia vencida",
+};
 
 export default function RenovacionLicencia() {
   const [ruc, setRuc] = useState("");
   const [consultando, setConsultando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [consultado, setConsultado] = useState<string | null>(null);
-  const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [tramite, setTramite] = useState<Tramite | null>(null);
+  const [renovable, setRenovable] = useState(false);
+
+  // Documentos actualizados: opcionales. Si el local no cambió, no se sube nada.
+  const [plano, setPlano] = useState<File | null>(null);
+  const [fichaRuc, setFichaRuc] = useState<File | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [errorSubida, setErrorSubida] = useState<string | null>(null);
+  const [exitoSubida, setExitoSubida] = useState<string | null>(null);
+
+  const limpiar = () => {
+    setTramite(null);
+    setConsultado(null);
+    setRenovable(false);
+    setError(null);
+    setPlano(null);
+    setFichaRuc(null);
+    setErrorSubida(null);
+    setExitoSubida(null);
+  };
 
   const consultar = async () => {
     if (ruc.length !== 11) {
@@ -40,15 +73,11 @@ export default function RenovacionLicencia() {
     }
 
     setConsultando(true);
-    setError(null);
-    setResultado(null);
-    setConsultado(null);
+    limpiar();
 
     try {
-      // La consulta pública sincroniza los vencimientos antes de responder,
-      // así que el estado que devuelve ya está al día.
       const response = await fetch(
-        `/api/public/consulta?q=${encodeURIComponent(ruc)}`,
+        `/api/cajero/renovacion?ruc=${encodeURIComponent(ruc)}`,
         { cache: "no-store" }
       );
 
@@ -58,13 +87,8 @@ export default function RenovacionLicencia() {
         throw new Error(data.error || "No se pudo consultar el RUC.");
       }
 
-      // La búsqueda es por coincidencia parcial: hay que quedarse con el RUC
-      // exacto, y de ese negocio con el trámite más reciente.
-      const exactos = (data.results as Resultado[]).filter(
-        (item) => item.business.ruc === ruc
-      );
-
-      setResultado(exactos[0] ?? null);
+      setTramite(data.tramite);
+      setRenovable(Boolean(data.renovable));
       setConsultado(ruc);
     } catch (err: any) {
       setError(err.message);
@@ -73,10 +97,45 @@ export default function RenovacionLicencia() {
     }
   };
 
-  const vencida = resultado?.status === "EXPIRED";
-  const conLicencia = resultado && CON_LICENCIA.includes(resultado.status);
-  const enCurso = resultado && EN_CURSO.includes(resultado.status);
-  const sinTramites = consultado && !resultado;
+  const subirDocumentos = async () => {
+    if (!tramite) return;
+
+    setSubiendo(true);
+    setErrorSubida(null);
+    setExitoSubida(null);
+
+    try {
+      const formData = new FormData();
+      if (plano) formData.append("plano", plano);
+      if (fichaRuc) formData.append("fichaRuc", fichaRuc);
+
+      const response = await fetch(
+        `/api/cajero/renovacion/${tramite.id}/documentos`,
+        { method: "POST", body: formData }
+      );
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+
+      setExitoSubida(data.message);
+      setPlano(null);
+      setFichaRuc(null);
+    } catch (err: any) {
+      setErrorSubida(err.message);
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
+  const fecha = (iso: string) =>
+    new Date(iso).toLocaleDateString("es-PE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+  const hayArchivo = Boolean(plano || fichaRuc);
+  const sinTramite = consultado && !tramite;
 
   return (
     <div className="rounded-2xl border border-slate-850 bg-slate-900/40 overflow-hidden">
@@ -89,9 +148,9 @@ export default function RenovacionLicencia() {
         </div>
 
         <p className="mt-1 text-sm text-slate-400">
-          Consulta el RUC para verificar si la licencia venció. Una licencia
-          vencida no se renueva: corresponde iniciar un trámite nuevo desde
-          cero, con documentos, pago e inspección.
+          La renovación se hace acá, después de que la licencia venció. Si el
+          local cambió puedes registrar los documentos actualizados; si no
+          cambió nada, pasas directo al cobro.
         </p>
       </div>
 
@@ -101,9 +160,7 @@ export default function RenovacionLicencia() {
             value={ruc}
             onChange={(e) => {
               setRuc(e.target.value.replace(/\D/g, "").slice(0, 11));
-              setResultado(null);
-              setConsultado(null);
-              setError(null);
+              limpiar();
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") consultar();
@@ -135,77 +192,152 @@ export default function RenovacionLicencia() {
           </div>
         )}
 
-        {vencida && resultado && (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-            <p className="text-sm font-bold text-white">
-              {resultado.business.legalName}
-            </p>
-
-            <p className="mt-1 text-sm text-amber-200">
-              Licencia {resultado.license?.licenseNumber} vencida
-              {resultado.license
-                ? ` el ${new Date(
-                    resultado.license.expiresAt
-                  ).toLocaleDateString("es-PE")}`
-                : ""}
-              . Corresponde iniciar un trámite nuevo.
-            </p>
-
-            <Link
-              href={`/cajero/registro-presencial?ruc=${resultado.business.ruc}`}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 py-2.5 text-sm font-bold transition"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              Iniciar trámite nuevo
-            </Link>
+        {sinTramite && (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
+            El RUC {consultado} no tiene ningún trámite registrado. Si es un
+            negocio nuevo, usa <strong>Registro presencial</strong>.
           </div>
         )}
 
-        {conLicencia && resultado && (
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
-            <p className="font-bold text-white">
-              {resultado.business.legalName}
+        {/* Licencia todavía vigente: no hay nada que renovar */}
+        {tramite && !renovable && (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4 text-sm">
+            <p className="font-bold text-white">{tramite.business.legalName}</p>
+
+            <p className="mt-1 text-slate-300">
+              Trámite {tramite.number} ·{" "}
+              {ETIQUETAS[tramite.status] ?? tramite.status}
             </p>
 
-            <p className="mt-1 text-emerald-200">
-              Tiene licencia vigente
-              {resultado.license
-                ? ` hasta el ${new Date(
-                    resultado.license.expiresAt
-                  ).toLocaleDateString("es-PE")}`
-                : ""}
-              . No corresponde iniciar un trámite nuevo.
+            {tramite.license && (
+              <p className="mt-2 text-slate-400">
+                Licencia {tramite.license.licenseNumber}, vigente hasta el{" "}
+                {fecha(tramite.license.expiresAt)}.
+              </p>
+            )}
+
+            <p className="mt-2 text-amber-200">
+              La renovación se habilita recién cuando la licencia vence.
             </p>
           </div>
         )}
 
-        {enCurso && resultado && (
-          <div className="rounded-lg border border-slate-700 bg-slate-950/60 p-4 text-sm">
-            <p className="font-bold text-white">
-              {resultado.business.legalName}
-            </p>
+        {/* Licencia vencida: documentos opcionales y cobro */}
+        {tramite && renovable && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+              <p className="font-bold text-white">
+                {tramite.business.legalName}
+              </p>
 
-            <p className="mt-1 text-slate-400">
-              Ya tiene el trámite {resultado.number} en curso. Hay que esperar a
-              que termine.
-            </p>
-          </div>
-        )}
+              <p className="mt-1 text-amber-200">
+                Trámite {tramite.number} · Licencia vencida
+              </p>
 
-        {sinTramites && (
-          <div className="rounded-lg border border-slate-700 bg-slate-950/60 p-4 text-sm">
-            <p className="text-slate-400">
-              Ese RUC no tiene trámites registrados. Si el negocio quiere su
-              primera licencia, se registra como trámite nuevo.
-            </p>
+              {tramite.license && (
+                <p className="mt-2 text-slate-300">
+                  Licencia {tramite.license.licenseNumber}, venció el{" "}
+                  {fecha(tramite.license.expiresAt)}.
+                </p>
+              )}
+            </div>
 
-            <Link
-              href={`/cajero/registro-presencial?ruc=${consultado}`}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-700 hover:border-slate-500 text-slate-200 px-5 py-2.5 text-sm font-bold transition"
-            >
-              <Plus className="w-4 h-4" />
-              Registrar trámite
-            </Link>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-bold text-white">
+                  Paso 1 · Documentos actualizados{" "}
+                  <span className="font-normal text-slate-500">(opcional)</span>
+                </p>
+
+                <p className="mt-1 text-xs text-slate-400">
+                  Solo si cambió algo del local. Si no cambió nada, saltea este
+                  paso: los documentos del trámite original siguen valiendo.
+                </p>
+              </div>
+
+              {exitoSubida ? (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200 flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{exitoSubida}</span>
+                </div>
+              ) : (
+                <>
+                  <label className="block">
+                    <span className="text-xs uppercase tracking-wider text-slate-500 font-bold">
+                      Plano del local
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setPlano(e.target.files?.[0] ?? null)}
+                      className="mt-1.5 w-full text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-slate-200"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs uppercase tracking-wider text-slate-500 font-bold">
+                      Ficha RUC
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setFichaRuc(e.target.files?.[0] ?? null)}
+                      className="mt-1.5 w-full text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-slate-200"
+                    />
+                  </label>
+
+                  {/* El "5MB" va a mano: si cambia el límite del servidor hay
+                      que corregir este texto. */}
+                  <p className="text-xs text-slate-500">
+                    PDF, JPG o PNG. Máximo 5MB por archivo.
+                  </p>
+
+                  {errorSubida && (
+                    <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{errorSubida}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={subirDocumentos}
+                    disabled={subiendo || !hayArchivo}
+                    className="inline-flex items-center gap-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-2.5 text-sm font-bold text-white transition"
+                  >
+                    {subiendo ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <FileUp className="w-4 h-4" />
+                    )}
+                    Registrar documentos
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-bold text-white">
+                  Paso 2 · Cobrar la renovación
+                </p>
+
+                <p className="mt-1 text-xs text-slate-400">
+                  Se cobra la misma tasa que un trámite nuevo, con factura y con
+                  las mismas formas de pago. Al pagar, la licencia se extiende un
+                  año y queda agendada una inspección inopinada en una fecha al
+                  azar del período.
+                </p>
+              </div>
+
+              <Link
+                href="/cajero/pago"
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-500 hover:bg-amber-400 px-5 py-2.5 text-sm font-bold text-slate-950 transition"
+              >
+                Ir al cobro
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         )}
       </div>

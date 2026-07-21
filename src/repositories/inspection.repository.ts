@@ -72,23 +72,55 @@ export class InspectionRepository {
     });
   }
 
+  // findCompletedForDay se eliminó: el inspector no conserva historial. Al
+  // resolver una inspección, esta sale de su vista; el registro de lo hecho
+  // vive en el panel del administrador (findAllForAdmin).
+
   /**
-   * Inspecciones que el inspector resolvió durante el día.
+   * Todas las inspecciones para el administrador: pasadas, de hoy y futuras.
    *
-   * Se filtra por resultAt (cuándo la terminó) y no por scheduledAt, para que
-   * también cuente una inspección agendada antes y cerrada hoy.
+   * Es el único lugar del sistema donde queda el historial completo, porque el
+   * inspector solo ve lo que tiene pendiente hoy.
    */
-  static async findCompletedForDay(inspectorId: string, from: Date, to: Date) {
+  static async findAllForAdmin(params: {
+    estado?: "SCHEDULED" | "COMPLETED";
+    inspectorId?: string;
+    desde?: Date;
+    hasta?: Date;
+    limit?: number;
+  }) {
     return prisma.inspection.findMany({
       where: {
-        inspectorId,
-        status: "COMPLETED",
-        resultAt: { gte: from, lte: to },
+        ...(params.estado ? { status: params.estado } : {}),
+        ...(params.inspectorId ? { inspectorId: params.inspectorId } : {}),
+        ...(params.desde || params.hasta
+          ? {
+              scheduledAt: {
+                ...(params.desde ? { gte: params.desde } : {}),
+                ...(params.hasta ? { lte: params.hasta } : {}),
+              },
+            }
+          : {}),
       },
-      include: {
-        application: { include: { business: true } },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        result: true,
+        observations: true,
+        scheduledAt: true,
+        resultAt: true,
+        inspector: { select: { id: true, fullName: true } },
+        application: {
+          select: {
+            number: true,
+            status: true,
+            business: { select: { ruc: true, legalName: true } },
+          },
+        },
       },
-      orderBy: { resultAt: "desc" },
+      orderBy: { scheduledAt: "desc" },
+      take: params.limit ?? 200,
     });
   }
 

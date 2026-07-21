@@ -5,6 +5,7 @@ import { LicenseService } from "@/services/license.service";
 import { AuditService } from "@/services/audit.service";
 import { CashSessionService } from "@/services/cash-session.service";
 import { getCurrentSystemDate } from "@/lib/date";
+import { getTupaAmount, MAX_BILL } from "@/lib/tarifa";
 import {
   ApplicationStatus,
   PaymentMethod,
@@ -12,16 +13,10 @@ import {
   ReceiptType,
 } from "@prisma/client";
 
-/** Tarifa TUPA del derecho de trámite. */
-export const TUPA_AMOUNT = 180.0;
-
-/**
- * Billete de mayor denominación en circulación en Perú.
- *
- * Acota cuánto puede entregar el contribuyente: por encima de esto no hay
- * billete que lo justifique, y sirve para atajar un tipeo de más.
- */
-export const MAX_BILL = 200.0;
+// La tarifa dejó de ser una constante: la fija el administrador y se lee en
+// cada cobro con getTupaAmount(). MAX_BILL vive ahora en lib/tarifa junto al
+// tope de la tarifa, que depende de él.
+export { MAX_BILL };
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   EFECTIVO: "Efectivo",
@@ -47,7 +42,6 @@ export class CashService {
     // Una o dos formas de pago (pago mixto). Sus montos deben sumar la tasa.
     formasPago: Array<{ method: PaymentMethod; amount: number }>;
     receivedAmount?: number;
-    receiptType?: ReceiptType;
   }) {
     const application = await prisma.application.findUnique({
       where: { id: params.applicationId },
@@ -59,30 +53,49 @@ export class CashService {
     }
 
     // Sin turno abierto no hay dónde asentar el dinero: el cobro quedaría
-    // fuera de todo arqueo y el cierre no cuadraría nunca.
+    // fuera de todo arqueo y el cierre no cuadraría nunca. Una apertura
+    // solicitada todavía no está OPEN, así que tampoco habilita el cobro.
     const turno = await CashSessionService.getOpenSession(params.cashierId);
 
     if (!turno) {
       throw new Error(
-        "Tienes que abrir la caja antes de registrar un cobro."
+        "No tienes ninguna caja abierta. Solicita la apertura y espera a que el administrador la autorice."
       );
     }
 
-    if (application.registeredById !== params.cashierId) {
+    // La renovación es de mostrador y llega cualquiera: el contribuyente va a
+    // la ventanilla que esté libre, y su licencia pudo haber salido del flujo
+    // web, donde `registeredById` es null y ningún cajero podría cobrarla. El
+    // alta presencial sí conserva la restricción: ahí el cajero armó el
+    // expediente y es el que responde por él.
+    const isRenewal = application.status === ApplicationStatus.EXPIRED;
+
+    if (!isRenewal && application.registeredById !== params.cashierId) {
       throw new Error("Solo puedes cobrar trámites que registraste tú.");
     }
 
     const hasFloorPlan = application.documents.some((d) => d.type === "FLOOR_PLAN");
     const hasRucRecord = application.documents.some((d) => d.type === "RUC_RECORD");
 
+    // ── PARA HACER LOS DOCUMENTOS OPCIONALES ────────────────────────────────
+    // Para cobrar sin exigir documentos, borrar este bloque entero. Para
+    // exigir uno solo, cambiar la condición:
+    //
+    //   if (!hasFloorPlan) {                    // solo el plano
+    //   if (!hasFloorPlan && !hasRucRecord) {   // al menos uno de los dos
+    //
+    // La pantalla del cajero tiene su propia comprobación y también deshabilita
+    // el botón (src/app/cajero/pago/page.tsx). El punto de partida de todo esto
+    // es el `documentsComplete` de
+    // src/app/api/public/tramite/[applicationId]/documentos/route.ts.
     if (!hasFloorPlan || !hasRucRecord) {
       throw new Error(
         "Faltan documentos obligatorios: el plano del local y los certificados."
       );
     }
 
-    const isRenewal = application.status === ApplicationStatus.RENEWAL_AVAILABLE;
-
+    // La renovación se cobra recién cuando la licencia venció: mientras siga
+    // vigente no hay nada que renovar.
     if (application.status !== ApplicationStatus.PENDING_PAYMENT && !isRenewal) {
       throw new Error(
         `El trámite no está pendiente de pago. Estado actual: ${application.status}`
@@ -106,15 +119,19 @@ export class CashService {
       throw new Error("En un pago mixto los dos métodos deben ser distintos.");
     }
 
+    // La tarifa se lee al cobrar, no al iniciar el trámite: rige la vigente
+    // hoy. Lo que se cobró de verdad queda en Payment.amount.
+    const tarifa = await getTupaAmount();
+
     // La suma debe ser exactamente la tasa. Se compara en céntimos para no
     // arrastrar el error de coma flotante.
     const totalCentimos = Math.round(
       formas.reduce((suma, forma) => suma + forma.amount, 0) * 100
     );
 
-    if (totalCentimos !== Math.round(TUPA_AMOUNT * 100)) {
+    if (totalCentimos !== Math.round(tarifa * 100)) {
       throw new Error(
-        `Los montos deben sumar exactamente S/ ${TUPA_AMOUNT.toFixed(2)}.`
+        `Los montos deben sumar exactamente S/ ${tarifa.toFixed(2)}.`
       );
     }
 
@@ -127,11 +144,11 @@ export class CashService {
     let changeGiven: number | null = null;
 
     if (esUnicoEfectivo) {
-      const recibido = params.receivedAmount ?? TUPA_AMOUNT;
+      const recibido = params.receivedAmount ?? tarifa;
 
-      if (!Number.isFinite(recibido) || recibido < TUPA_AMOUNT) {
+      if (!Number.isFinite(recibido) || recibido < tarifa) {
         throw new Error(
-          `El monto recibido no alcanza: la tasa es S/ ${TUPA_AMOUNT.toFixed(2)}.`
+          `El monto recibido no alcanza: la tasa es S/ ${tarifa.toFixed(2)}.`
         );
       }
 
@@ -144,11 +161,14 @@ export class CashService {
       }
 
       receivedAmount = recibido;
-      changeGiven = Math.round((recibido - TUPA_AMOUNT) * 100) / 100;
+      changeGiven = Math.round((recibido - tarifa) * 100) / 100;
     }
 
     const paidAt = await getCurrentSystemDate();
-    const receiptType = params.receiptType ?? ReceiptType.FACTURA;
+    // Único comprobante que se emite. El campo se conserva para dejar asentado
+    // que el cobro generó comprobante; los pagos anteriores a la factura lo
+    // tienen en null.
+    const receiptType = ReceiptType.FACTURA;
     const type = isRenewal
       ? PaymentType.RENEWAL
       : PaymentType.INITIAL_APPLICATION;
@@ -203,7 +223,7 @@ export class CashService {
       details: {
         applicationId: application.id,
         applicationNumber: application.number,
-        total: TUPA_AMOUNT,
+        total: tarifa,
         formasPago: formas.map((f) => ({ method: f.method, amount: f.amount })),
         receivedAmount,
         changeGiven,

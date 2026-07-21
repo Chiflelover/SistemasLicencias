@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { getTupaAmount } from "@/lib/tarifa";
 import {
   Shield,
   ShieldCheck,
@@ -10,7 +11,13 @@ import {
   FileText,
 } from "lucide-react";
 
-export default function HomePage() {
+// La portada publica la tarifa, que el administrador puede cambiar: se lee en
+// cada visita en vez de quedar fija en el build.
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const tarifa = await getTupaAmount();
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950">
       <header className="border-b border-slate-800 bg-slate-900/40 backdrop-blur-md sticky top-0 z-50">
@@ -140,7 +147,7 @@ export default function HomePage() {
               </div>
 
               <span className="text-3xl font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-xl">
-                S/ 180.00
+                S/ {tarifa.toFixed(2)}
               </span>
             </div>
           </div>
