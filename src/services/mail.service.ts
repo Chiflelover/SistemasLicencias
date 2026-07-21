@@ -114,6 +114,25 @@ export class MailService {
     });
   }
 
+  /**
+   * Aviso de rechazo por comprobante de pago inválido.
+   *
+   * A diferencia de una observación normal, acá no hay segunda inspección: el
+   * trámite se cierra y corresponde iniciar uno nuevo.
+   */
+  static async notifyPaymentRejected(to: string, observations: string) {
+    return this.send({
+      to,
+      subject: "Tu trámite fue rechazado: el pago no es válido",
+      text:
+        "El inspector municipal no pudo validar el comprobante de pago de tu " +
+        "trámite, así que quedó rechazado.\n\n" +
+        (observations ? `Observación del inspector:\n${observations}\n\n` : "") +
+        "No hay una segunda inspección para este caso. Puedes iniciar un " +
+        "trámite nuevo con el mismo RUC cuando tengas el pago en regla.",
+    });
+  }
+
   /** Aviso al administrado de la inspección programada para hoy. */
   static async notifyInspectionScheduled(to: string, scheduledAt: Date) {
     const cuando = scheduledAt.toLocaleString("es-PE", {

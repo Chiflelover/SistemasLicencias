@@ -165,38 +165,25 @@ export default function ManualPaymentForm({ applicationId }: ManualPaymentFormPr
           )}
         </div>
 
-        {/* Buttons & Warning Section */}
-        <div className="grid gap-4 md:grid-cols-2 items-center bg-slate-950/40 border border-slate-850 p-5 rounded-2xl">
-          {/* Warning Message */}
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 shrink-0">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white">Aviso Importante</h4>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Todo pago realizado no se puede devolver o no hay devoluciones bajo ningún concepto. Por favor, asegúrate de ingresar los datos correctos.
-              </p>
-            </div>
-          </div>
-
-          {/* Action Button */}
-          <div className="text-right">
-            <button
-              type="submit"
-              disabled={!file || loading || success !== null}
-              className={`w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-3.5 text-sm font-extrabold uppercase tracking-wider transition disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Enviando pago...
-                </>
-              ) : (
-                "Enviar pago"
-              )}
-            </button>
-          </div>
+        {/* El aviso de que no hay devoluciones se movió arriba, antes del
+            botón de pago: advertirlo recién acá llegaba tarde, cuando el
+            dinero ya estaba pagado. Sin él, el recuadro que lo acompañaba
+            quedaba vacío, así que el botón va suelto. */}
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={!file || loading || success !== null}
+            className={`w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-3.5 text-sm font-extrabold uppercase tracking-wider transition disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Enviando pago...
+              </>
+            ) : (
+              "Enviar pago"
+            )}
+          </button>
         </div>
       </form>
 

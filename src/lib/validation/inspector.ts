@@ -7,6 +7,10 @@ export const InspectorActionSchema = z
       .string()
       .max(500, "Las observaciones no pueden superar los 500 caracteres")
       .optional(),
+    // El comprobante de pago no es válido. No hay segunda oportunidad: sin
+    // pago legítimo no hay nada que volver a inspeccionar, así que el trámite
+    // se cierra en firme y el RUC queda libre para empezar de cero.
+    paymentInvalid: z.boolean().optional().default(false),
   })
   // Rechazar sin motivo deja al administrado sin saber qué subsanar: para
   // rechazar, las observaciones son obligatorias.

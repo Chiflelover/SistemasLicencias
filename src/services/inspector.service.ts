@@ -55,7 +55,8 @@ export class InspectorService {
   static async reviewInspection(
     inspectionId: string,
     action: "approve" | "reject",
-    observations?: string
+    observations?: string,
+    paymentInvalid = false
   ) {
     const inspection = await InspectionRepository.findById(inspectionId);
 
@@ -95,6 +96,43 @@ export class InspectorService {
       );
 
       await LicenseService.createLicenseForApplication(inspection.applicationId);
+
+      return updatedInspection;
+    }
+
+    // Comprobante de pago inválido: no hay segunda oportunidad. Subsanar sirve
+    // para corregir documentos, pero un pago que nunca se hizo no se corrige
+    // subiendo otro papel. El trámite se cierra en firme y el RUC queda libre
+    // —DEFINITIVELY_REJECTED no bloquea— para iniciar uno nuevo desde cero.
+    if (action === "reject" && paymentInvalid) {
+      await ApplicationRepository.updateStatus(
+        inspection.applicationId,
+        ApplicationStatus.DEFINITIVELY_REJECTED
+      );
+
+      await AuditService.log({
+        action: "TRAMITE_RECHAZADO_POR_PAGO_INVALIDO",
+        entityType: "Inspection",
+        entityId: inspection.id,
+        userId: inspection.inspectorId,
+        details: {
+          applicationId: inspection.applicationId,
+          numero: inspection.number,
+          observaciones: observations?.trim() || "",
+          nuevoEstado: ApplicationStatus.DEFINITIVELY_REJECTED,
+          motivo: "El comprobante de pago no es válido.",
+        },
+      });
+
+      // Sin aviso, el administrado no se entera de que tiene que empezar de
+      // nuevo: no puede iniciar sesión y el rechazo definitivo no tiene
+      // pantalla propia.
+      if (inspection.application.contactEmail) {
+        await MailService.notifyPaymentRejected(
+          inspection.application.contactEmail,
+          observations?.trim() || ""
+        );
+      }
 
       return updatedInspection;
     }

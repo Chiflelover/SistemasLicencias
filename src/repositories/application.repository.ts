@@ -309,6 +309,9 @@ export class ApplicationRepository {
         // nombre). No se compara por fecha porque los documentos usan la hora
         // real y las inspecciones la simulada.
         documents: { select: { name: true } },
+        // Solo los ids: alcanzan para buscar en la auditoría por qué se cerró
+        // el trámite, sin arrastrar el resto de la inspección.
+        inspections: { select: { id: true } },
       },
       orderBy: { createdAt: "desc" },
       take: 20,

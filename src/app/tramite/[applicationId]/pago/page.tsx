@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import ManualPaymentForm from "@/components/ManualPaymentForm";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
   Building2,
   CalendarDays,
   CheckCircle2,
   CreditCard,
+  ExternalLink,
   FileText,
   ShieldCheck,
   User,
@@ -60,6 +62,10 @@ export default async function PublicPaymentPage({
 }: {
   params: { applicationId: string };
 }) {
+  // Enlace de cobro de Flow. Se lee en el servidor y en cada petición, así
+  // cambiarlo no obliga a reconstruir la aplicación.
+  const flowPaymentUrl = process.env.FLOW_PAYMENT_URL?.trim() || null;
+
   const application = await prisma.application.findUnique({
     where: {
       id: params.applicationId,
@@ -299,13 +305,70 @@ export default async function PublicPaymentPage({
 
             {paymentAllowed ? (
               <div className="rounded-3xl border border-slate-800 bg-slate-900/40 p-6">
+                {/* Va antes de todo: advertir que no hay devoluciones después
+                    de pagar no le sirve a nadie. */}
+                <div className="mb-6 flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4">
+                  <div className="shrink-0 rounded-xl border border-rose-500/20 bg-rose-500/10 p-2 text-rose-400">
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-bold text-white">
+                      Antes de pagar
+                    </h4>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                      El pago del derecho de trámite no tiene devolución bajo
+                      ningún concepto. Revisa que los datos del negocio sean
+                      correctos antes de continuar.
+                    </p>
+                  </div>
+                </div>
+
+                {/* El enlace de cobro se configura por variable de entorno: si
+                    no está, el paso no se muestra y queda solo la carga del
+                    comprobante, igual que antes. Mismo criterio que el correo
+                    y el WhatsApp, que tampoco rompen si faltan sus claves. */}
+                {flowPaymentUrl && (
+                  <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
+                      Paso 1 · Pagar
+                    </p>
+
+                    <h2 className="mt-2 text-lg font-bold text-white">
+                      Paga en línea con Flow
+                    </h2>
+
+                    <p className="mt-2 text-sm text-slate-400">
+                      Se abre en una pestaña nueva. Puedes pagar con tarjeta,
+                      Yape o Plin. Al terminar, guarda la constancia y vuelve
+                      aquí para subirla.
+                    </p>
+
+                    <a
+                      href={flowPaymentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-6 py-3 font-bold text-slate-950 transition hover:bg-amber-400"
+                    >
+                      <ExternalLink className="h-5 w-5" />
+                      Pagar con Flow
+                    </a>
+                  </div>
+                )}
+
                 <div className="mb-5">
-                  <h2 className="text-xl font-bold text-white">
+                  {flowPaymentUrl && (
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                      Paso 2 · Registrar
+                    </p>
+                  )}
+
+                  <h2 className="mt-2 text-xl font-bold text-white">
                     Registrar el pago del derecho de trámite
                   </h2>
 
                   <p className="mt-2 text-sm text-slate-400">
-                    Sube la imagen del comprobante de tu transferencia por{" "}
+                    Sube la imagen del comprobante de tu pago por{" "}
                     <strong className="text-amber-300">S/ 180.00</strong>. Al
                     registrarlo, el sistema agenda la inspección municipal.
                   </p>
@@ -418,18 +481,17 @@ export default async function PublicPaymentPage({
                       }`}
                   >
                     4. Inspección
-
-
                   </p>
 
-                  <p className="mt-1 text-sm text-slate-400">
-                    {assignedInspection
-                      ? `Asignada a ${assignedInspection.inspector.fullName}`
-                      : inspectionEnabled
-                      ? "Pendiente de programación."
-                      : "Se programará después del pago aprobado."}
-
-                  </p>
+                  {/* Antes del pago no se dice nada acá: el bloque de abajo ya
+                      cubre ese caso. */}
+                  {(assignedInspection || inspectionEnabled) && (
+                    <p className="mt-1 text-sm text-slate-400">
+                      {assignedInspection
+                        ? `Asignada a ${assignedInspection.inspector.fullName}`
+                        : "Pendiente de programación."}
+                    </p>
+                  )}
 
                   {scheduledInspection ? (
                     <div className="mt-3 space-y-2.5">
@@ -467,10 +529,12 @@ export default async function PublicPaymentPage({
                       </div>
                     </div>
                   ) : (
+                    // El párrafo de arriba ya dice que se programa después del
+                    // pago: repetirlo acá era el texto duplicado.
                     <p className="mt-1 text-sm text-slate-400">
                       {paymentCompleted
                         ? "Procesando agendamiento..."
-                        : "Se programará después del pago aprobado."}
+                        : "Suerte con la inspección."}
                     </p>
                   )}
                 </div>

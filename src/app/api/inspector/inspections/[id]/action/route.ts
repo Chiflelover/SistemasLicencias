@@ -20,7 +20,7 @@ export async function POST(
     return NextResponse.json({ error: parseResult.error.flatten() }, { status: 400 });
   }
 
-  const { action, observations } = parseResult.data;
+  const { action, observations, paymentInvalid } = parseResult.data;
 
   try {
     const inspection = await InspectorService.getInspectionDetails(params.id);
@@ -29,7 +29,12 @@ export async function POST(
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const updatedInspection = await InspectorService.reviewInspection(params.id, action, observations);
+    const updatedInspection = await InspectorService.reviewInspection(
+      params.id,
+      action,
+      observations,
+      paymentInvalid
+    );
     return NextResponse.json({ inspection: updatedInspection });
   } catch (error) {
     return NextResponse.json(

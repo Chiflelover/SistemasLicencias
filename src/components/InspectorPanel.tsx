@@ -91,6 +91,7 @@ export function InspectorPanel() {
   const [completedToday, setCompletedToday] = useState(0);
   const [agendaDate, setAgendaDate] = useState<string | null>(null);
   const [pendingResult, setPendingResult] = useState<"approve" | "reject">("approve");
+  const [paymentInvalid, setPaymentInvalid] = useState(false);
 
   const formatPaymentAmount = (amount: unknown) => {
     if (typeof amount === "number") {
@@ -189,7 +190,11 @@ export function InspectorPanel() {
       const response = await fetch(`/api/inspector/inspections/${selectedInspectionId}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, observations }),
+        body: JSON.stringify({
+          action,
+          observations,
+          paymentInvalid: action === "reject" && paymentInvalid,
+        }),
       });
       const data = await response.json();
 
@@ -200,7 +205,9 @@ export function InspectorPanel() {
       setSuccessMessage(
         action === "approve"
           ? "Inspección terminada y aprobada. Sale de tus pendientes de hoy."
-          : "Inspección terminada con observaciones. Sale de tus pendientes de hoy."
+          : paymentInvalid
+            ? "Trámite rechazado por pago inválido. No se programa una segunda inspección."
+            : "Inspección terminada con observaciones. Sale de tus pendientes de hoy."
       );
 
       // Terminada deja de estar pendiente: se suelta la selección y se
@@ -208,6 +215,7 @@ export function InspectorPanel() {
       setSelectedInspectionId(null);
       setDetails(null);
       setObservations("");
+      setPaymentInvalid(false);
       setPendingResult("approve");
 
       await loadInspections();
@@ -490,6 +498,23 @@ export function InspectorPanel() {
                 </p>
               )}
             </div>
+
+            {/* Solo tiene sentido al rechazar: marca que el problema es el
+                pago, no el local, y cierra el trámite en firme. */}
+            {pendingResult === "reject" && (
+              <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
+                <input
+                  type="checkbox"
+                  checked={paymentInvalid}
+                  onChange={(event) => setPaymentInvalid(event.target.checked)}
+                  className="h-4 w-4 shrink-0 accent-rose-500"
+                />
+
+                <span className="text-sm font-bold text-white">
+                  El comprobante de pago no es válido
+                </span>
+              </label>
+            )}
 
             <button
               type="button"

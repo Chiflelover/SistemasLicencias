@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { CheckCircle2, Download } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download } from "lucide-react";
 import SubsanarPublico from "@/components/SubsanarPublico";
 
 /** Estados del ciclo de observación que admiten subsanar documentos. */
@@ -26,6 +26,8 @@ type SearchResult = {
     expiresAt: string;
   } | null;
   subsanado?: boolean;
+  /** Solo en trámites cerrados en firme. Null si no se registró un motivo. */
+  motivoRechazo?: string | null;
 };
 
 /** Estado de la licencia emitida. */
@@ -236,6 +238,26 @@ export default function PublicLicenseSearch() {
               </table>
             </div>
           )}
+
+          {/* Un trámite rechazado sin motivo visible deja al administrado sin
+              saber qué pasó ni qué hacer. */}
+          {results
+            .filter((app) => app.motivoRechazo)
+            .map((app) => (
+              <div
+                key={`rechazo-${app.id}`}
+                className="mt-2 flex items-start gap-2.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  <strong className="font-bold text-white">
+                    Trámite rechazado
+                  </strong>{" "}
+                  — {app.motivoRechazo}. Puedes iniciar un trámite nuevo con
+                  este mismo RUC.
+                </span>
+              </div>
+            ))}
 
           {/* Subsanación: si un trámite quedó observado y todavía no subió los
               documentos corregidos, se ofrece el formulario con el correo como
