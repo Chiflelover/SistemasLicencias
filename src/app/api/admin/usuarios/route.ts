@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { AdminService, isManageableRole } from "@/services/admin.service";
+import { ONLY_CASHIERS_MESSAGE } from "@/lib/staff";
 
 export const dynamic = "force-dynamic";
 
@@ -70,11 +71,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isManageableRole(role)) {
-      return NextResponse.json(
-        { error: "El rol debe ser INSPECTOR o CAJERO." },
-        { status: 400 }
-      );
+    // Solo cajas: el sistema trabaja con un único inspector, ya precreado.
+    if (!isManageableRole(role) || role !== "CAJERO") {
+      return NextResponse.json({ error: ONLY_CASHIERS_MESSAGE }, { status: 400 });
     }
 
     const created = await AdminService.createStaff({

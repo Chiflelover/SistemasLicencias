@@ -2,6 +2,16 @@ import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth";
 import { AuditService } from "@/services/audit.service";
 import { getCurrentSystemDate } from "@/lib/date";
+import {
+  isProtectedStaff,
+  isProtectedFromDeactivation,
+  PROTECTED_STAFF_MESSAGE,
+  PROTECTED_DEACTIVATION_MESSAGE,
+  LAST_CASHIER_MESSAGE,
+  ONLY_CASHIERS_MESSAGE,
+  MAX_CASHIERS,
+  MAX_CASHIERS_MESSAGE,
+} from "@/lib/staff";
 import { Role } from "@prisma/client";
 
 /** Roles de personal que el administrador puede gestionar. */
@@ -12,6 +22,18 @@ export function isManageableRole(value: string): value is "INSPECTOR" | "CAJERO"
 }
 
 export class AdminService {
+  /**
+   * Cajas activas sin contar la que se está por modificar.
+   *
+   * Se cuenta contra la base y no sobre la lista de la pantalla: dos pestañas
+   * abiertas podrían desactivar cada una "la otra" caja y dejar cero.
+   */
+  private static async countOtherActiveCashiers(excludeUserId: string) {
+    return prisma.user.count({
+      where: { role: Role.CAJERO, active: true, id: { not: excludeUserId } },
+    });
+  }
+
   /** Personal del sistema con un resumen de su actividad. */
   static async listStaff() {
     const users = await prisma.user.findMany({
@@ -100,6 +122,22 @@ export class AdminService {
     phone: string;
     role: "INSPECTOR" | "CAJERO";
   }) {
+    // El personal solo se amplía con cajas. Se valida acá y no solo en el
+    // formulario: el desplegable se saltea con una petición directa.
+    if (params.role !== Role.CAJERO) {
+      throw new Error(ONLY_CASHIERS_MESSAGE);
+    }
+
+    // El tope se cuenta contra la base en el momento del alta: dos pestañas
+    // creando a la vez podrían pasarse si se confiara en lo que ve la pantalla.
+    const cajasExistentes = await prisma.user.count({
+      where: { role: Role.CAJERO },
+    });
+
+    if (cajasExistentes >= MAX_CASHIERS) {
+      throw new Error(MAX_CASHIERS_MESSAGE);
+    }
+
     const existing = await prisma.user.findUnique({
       where: { email: params.email },
     });
@@ -190,6 +228,20 @@ export class AdminService {
       throw new Error("Usuario no encontrado o no gestionable.");
     }
 
+    // Solo se bloquea apagarla: reactivarla siempre tiene que poder hacerse,
+    // por si quedó inactiva de antes.
+    if (!params.active && isProtectedFromDeactivation(user.email)) {
+      throw new Error(PROTECTED_DEACTIVATION_MESSAGE);
+    }
+
+    if (!params.active && user.role === Role.CAJERO) {
+      const otrasActivas = await this.countOtherActiveCashiers(user.id);
+
+      if (otrasActivas === 0) {
+        throw new Error(LAST_CASHIER_MESSAGE);
+      }
+    }
+
     await prisma.user.update({
       where: { id: params.userId },
       data: { active: params.active },
@@ -221,6 +273,7 @@ export class AdminService {
         email: true,
         fullName: true,
         role: true,
+        active: true,
         _count: { select: { inspections: true, fines: true } },
       },
     });
@@ -229,10 +282,25 @@ export class AdminService {
       throw new Error("Usuario no encontrado o no gestionable.");
     }
 
+    // Se valida acá y no solo en la pantalla: el botón deshabilitado se saltea
+    // con una petición directa.
+    if (isProtectedStaff(user.email)) {
+      throw new Error(PROTECTED_STAFF_MESSAGE);
+    }
+
+    // Borrar la única caja activa deja el mismo agujero que desactivarla.
+    if (user.role === Role.CAJERO && user.active) {
+      const otrasActivas = await this.countOtherActiveCashiers(user.id);
+
+      if (otrasActivas === 0) {
+        throw new Error(LAST_CASHIER_MESSAGE);
+      }
+    }
+
     if (user._count.inspections > 0 || user._count.fines > 0) {
       throw new Error(
         `No se puede eliminar: tiene ${user._count.inspections} inspección(es) y ` +
-          `${user._count.fines} multa(s) asociadas. Desactivá la cuenta para conservar el historial.`
+          `${user._count.fines} multa(s) asociadas. Desactiva la cuenta para conservar el historial.`
       );
     }
 

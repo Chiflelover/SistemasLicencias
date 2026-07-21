@@ -14,6 +14,12 @@ import {
   UserCog,
   X,
 } from "lucide-react";
+import {
+  isProtectedStaff,
+  isProtectedFromDeactivation,
+  MAX_CASHIERS,
+  MAX_CASHIERS_MESSAGE,
+} from "@/lib/staff";
 
 interface StaffRow {
   id: string;
@@ -50,7 +56,8 @@ const FORM_INICIAL = {
   dni: "",
   phone: "",
   password: "",
-  role: "INSPECTOR",
+  // Solo se dan de alta cajas: el inspector es único y ya existe.
+  role: "CAJERO",
 };
 
 export default function AdminUsuariosPage() {
@@ -66,6 +73,10 @@ export default function AdminUsuariosPage() {
   const [perfil, setPerfil] = useState<Profile | null>(null);
   const [nuevaPassword, setNuevaPassword] = useState("");
   const [accionEnCurso, setAccionEnCurso] = useState(false);
+
+  // Cuenta todas las cajas, activas o no: una desactivada sigue ocupando lugar.
+  const totalCajas = staff.filter((u) => u.role === "CAJERO").length;
+  const topeAlcanzado = totalCajas >= MAX_CASHIERS;
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -324,6 +335,8 @@ export default function AdminUsuariosPage() {
               />
             </div>
 
+            {/* Solo cajas: el sistema trabaja con un único inspector, cuya
+                cuenta ya está creada y protegida. El servidor lo valida igual. */}
             <div>
               <label className={labelClass}>Rol</label>
               <select
@@ -331,16 +344,22 @@ export default function AdminUsuariosPage() {
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
                 className={inputClass}
               >
-                <option value="INSPECTOR">Inspector</option>
                 <option value="CAJERO">Cajero (caja)</option>
               </select>
             </div>
           </div>
 
+          {topeAlcanzado && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{MAX_CASHIERS_MESSAGE}</span>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={guardando}
-            className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 px-5 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
+            disabled={guardando || topeAlcanzado}
+            className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 px-5 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
           >
             {guardando ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -374,7 +393,22 @@ export default function AdminUsuariosPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-850">
-                {staff.map((row) => (
+                {staff.map((row) => {
+                  // Siempre tiene que quedar una caja activa. Se mira cuántas
+                  // hay en este momento, así la regla sigue valiendo con una
+                  // Caja 3 o más.
+                  const cajasActivas = staff.filter(
+                    (u) => u.role === "CAJERO" && u.active
+                  ).length;
+
+                  const esUltimaCaja =
+                    row.role === "CAJERO" && row.active && cajasActivas <= 1;
+
+                  const noSeDesactiva =
+                    row.active &&
+                    (isProtectedFromDeactivation(row.email) || esUltimaCaja);
+
+                  return (
                   <tr key={row.id} className="hover:bg-slate-900/40">
                     <td className="px-5 py-3">
                       <p className="text-white font-semibold">{row.fullName}</p>
@@ -409,25 +443,48 @@ export default function AdminUsuariosPage() {
                           <UserCog className="w-4 h-4" />
                         </button>
 
+                        {/* No se apaga al inspector base (findInspectors solo
+                            devuelve activos) ni la última caja activa (sin
+                            ninguna no se puede cobrar). Reactivar siempre se
+                            puede. El servidor valida las dos reglas igual. */}
                         <button
                           onClick={() => alternarActivo(row)}
-                          title={row.active ? "Desactivar" : "Activar"}
-                          className="rounded-lg border border-slate-800 p-2 text-slate-400 transition hover:border-slate-600 hover:text-white"
+                          disabled={noSeDesactiva}
+                          title={
+                            !noSeDesactiva
+                              ? row.active
+                                ? "Desactivar"
+                                : "Activar"
+                              : esUltimaCaja
+                                ? "Es la única caja activa: tiene que quedar al menos una"
+                                : "Inspector base: no se puede desactivar"
+                          }
+                          className="rounded-lg border border-slate-800 p-2 text-slate-400 transition hover:border-slate-600 hover:text-white disabled:cursor-not-allowed disabled:text-slate-700 disabled:hover:border-slate-800 disabled:hover:text-slate-700"
                         >
                           <Power className="w-4 h-4" />
                         </button>
 
+                        {/* Tampoco se borran las cuentas base ni la última caja
+                            activa: borrarla deja el mismo hueco que apagarla. */}
                         <button
                           onClick={() => eliminar(row)}
-                          title="Eliminar"
-                          className="rounded-lg border border-rose-500/30 p-2 text-rose-400 transition hover:bg-rose-500/10"
+                          disabled={isProtectedStaff(row.email) || esUltimaCaja}
+                          title={
+                            isProtectedStaff(row.email)
+                              ? "Cuenta base del sistema: no se puede eliminar"
+                              : esUltimaCaja
+                                ? "Es la única caja activa: tiene que quedar al menos una"
+                                : "Eliminar"
+                          }
+                          className="rounded-lg border border-rose-500/30 p-2 text-rose-400 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:border-slate-800 disabled:text-slate-600 disabled:hover:bg-transparent"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

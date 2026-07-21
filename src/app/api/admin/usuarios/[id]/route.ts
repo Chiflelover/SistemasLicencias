@@ -68,7 +68,7 @@ export async function PATCH(
     }
 
     return NextResponse.json(
-      { error: "Nada para actualizar. Enviá password o active." },
+      { error: "Nada para actualizar. Envía password o active." },
       { status: 400 }
     );
   } catch (error: any) {
