@@ -12,6 +12,29 @@ inspección municipal y emitir la licencia en PDF.
 
 ## Cómo levantarlo en otra computadora
 
+### Atajo: un solo comando
+
+Después de clonar, en la raíz del proyecto:
+
+```powershell
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+```
+
+```bash
+# macOS, Linux o Git Bash
+bash scripts/setup.sh
+```
+
+Comprueba la versión de Node, instala las dependencias, genera el cliente de
+Prisma, crea el `.env` a partir de la plantilla y avisa qué variables faltan
+completar. Al terminar dice exactamente qué hacer.
+
+**No instala Node ni Git**: si faltan, muestra el comando para hacerlo y se
+detiene, porque eso afecta a toda la computadora y no solo a este proyecto.
+
+El resto de esta sección explica los mismos pasos a mano.
+
 ### 1. Requisitos
 
 - **Node.js 18.17 o superior** — comprobar con `node -v`
