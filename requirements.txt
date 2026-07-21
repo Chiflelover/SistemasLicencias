@@ -1,0 +1,158 @@
+===============================================================================
+ REQUISITOS DEL SISTEMA — Licencias Municipales, Trujillo
+===============================================================================
+
+ IMPORTANTE: este archivo es SOLO DOCUMENTACIÓN.
+
+ "requirements.txt" es el formato de Python (pip). Este proyecto es Node.js, así
+ que las dependencias reales viven en package.json y se instalan con:
+
+     npm install
+
+ Correr "pip install -r requirements.txt" no hace nada acá.
+
+
+-------------------------------------------------------------------------------
+ 1. QUÉ HACE FALTA TENER INSTALADO
+-------------------------------------------------------------------------------
+
+ Node.js        18.17 o superior      (comprobar con: node -v)
+ npm            viene con Node        (comprobar con: npm -v)
+ Git            cualquier versión     (comprobar con: git --version)
+
+ Base de datos  PostgreSQL. La del proyecto está alojada en Neon
+                (https://neon.com), plan gratuito. Sirve cualquier PostgreSQL
+                accesible por cadena de conexión.
+
+ Probado sobre Node 24.15.0 y npm 11.12.1, en Windows 10.
+
+
+-------------------------------------------------------------------------------
+ 2. CÓMO INSTALARLO
+-------------------------------------------------------------------------------
+
+ Hay un instalador que hace todos los pasos y avisa qué variables faltan:
+
+     Windows (PowerShell):
+         powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+
+     macOS, Linux o Git Bash:
+         bash scripts/setup.sh
+
+ A mano es lo mismo:
+
+     npm install                # instala las dependencias
+     cp .env.example .env       # y completar las variables
+     npm run db:setup           # migraciones + cuentas del seed
+     npm run dev                # levanta en http://localhost:3000
+
+ NOTA: los scripts no instalan Node ni Git. Si faltan, muestran el comando y se
+ detienen, porque eso afecta a toda la computadora y no solo a este proyecto.
+
+
+-------------------------------------------------------------------------------
+ 3. VARIABLES DE ENTORNO
+-------------------------------------------------------------------------------
+
+ Obligatorias:
+
+     DATABASE_URL           Cadena de conexión a PostgreSQL
+     APIPERU_TOKEN          Token de APIPERU. Sin esto no se puede iniciar
+                            ningún trámite: valida el RUC contra SUNAT
+     JWT_SECRET             Cadena larga y aleatoria para firmar la sesión
+
+ Necesaria en despliegue (Vercel):
+
+     TZ                     America/Lima
+
+ Opcionales (si faltan, esa función no se ejecuta y nada falla):
+
+     GMAIL_USER             Cuenta Gmail que envía los avisos al ciudadano
+     GMAIL_APP_PASSWORD     Contraseña de aplicación de esa cuenta
+     CALLMEBOT_PHONE        WhatsApp del inspector (con código de país)
+     CALLMEBOT_APIKEY       Clave de CallMeBot
+     FLOW_PAYMENT_URL       Enlace de cobro de Flow para el pago en línea
+     ENABLE_TIME_SIMULATOR  "true" habilita el simulador de fechas
+     NEXT_PUBLIC_APP_URL    URL pública de la aplicación
+
+ El detalle de cada una está en .env.example y en el README.
+
+
+-------------------------------------------------------------------------------
+ 4. DEPENDENCIAS DE PRODUCCIÓN
+-------------------------------------------------------------------------------
+
+ Las versiones son las declaradas en package.json. El "^" significa que npm
+ puede instalar una versión menor superior compatible.
+
+     next                   ^14.2.18     Framework (App Router)
+     react                  ^18.3.1      Interfaz
+     react-dom              ^18.3.1      Interfaz
+     @prisma/client         ^5.22.0      Cliente de base de datos
+     zod                    ^4.4.3       Validación de datos en el servidor
+     react-hook-form        ^7.76.1      Formularios
+     @hookform/resolvers    ^5.4.0       Une react-hook-form con zod
+     bcryptjs               ^3.0.3       Hash de contraseñas
+     jsonwebtoken           ^9.0.3       Token de sesión
+     nodemailer             ^9.0.3       Envío de correos al administrado
+     pdf-lib                ^1.17.1      Genera la licencia y la factura en PDF
+     qrcode                 ^1.5.4       Código QR de la factura
+     lucide-react           ^1.16.0      Iconos
+
+
+-------------------------------------------------------------------------------
+ 5. DEPENDENCIAS DE DESARROLLO
+-------------------------------------------------------------------------------
+
+     typescript             ^5.6.3       Lenguaje
+     prisma                 ^5.22.0      Migraciones y generación del cliente
+     tailwindcss            ^3.4.15      Estilos
+     postcss                ^8.4.49      Procesa el CSS de Tailwind
+     autoprefixer           ^10.4.20     Prefijos de navegador
+     eslint                 ^8.57.1      Análisis estático
+     eslint-config-next     ^14.2.18     Reglas de ESLint para Next.js
+     @types/node            ^20.17.0     Tipos
+     @types/react           ^18.3.12     Tipos
+     @types/react-dom       ^18.3.1      Tipos
+     @types/bcryptjs        ^2.4.6       Tipos
+     @types/jsonwebtoken    ^9.0.10      Tipos
+     @types/nodemailer      ^8.0.1       Tipos
+     @types/qrcode          ^1.5.6       Tipos
+
+
+-------------------------------------------------------------------------------
+ 6. SERVICIOS EXTERNOS
+-------------------------------------------------------------------------------
+
+     APIPERU        Consulta de RUC en SUNAT y de DNI en RENIEC.
+                    Obligatorio. Las respuestas se guardan en caché 30 días
+                    para no gastar cuota.
+
+     Neon           PostgreSQL alojado, plan gratuito.
+                    Suspende el cómputo a los 5 minutos de inactividad: la
+                    primera consulta después puede fallar. Reintentar.
+
+     Gmail          Envío de correos. Requiere contraseña de aplicación, no la
+                    contraseña de la cuenta. Opcional.
+
+     CallMeBot      Aviso por WhatsApp al inspector. Entrega a un único número
+                    fijo, el que autorizó el bot. Opcional.
+
+     Flow           Enlace de cobro en línea. No hay integración ni webhook:
+                    es un enlace que se abre en otra pestaña. Opcional.
+
+ Todos son gratuitos o tienen plan gratuito suficiente para el proyecto.
+
+
+-------------------------------------------------------------------------------
+ 7. CUENTAS DE PRUEBA (las crea npm run db:setup)
+-------------------------------------------------------------------------------
+
+     admin@muni.pe        Administrador     contraseña: 12345678
+     dev@muni.pe          Desarrollador     contraseña: 12345678
+     inspector@muni.pe    Inspector         contraseña: 12345678
+     cajero@muni.pe       Cajero, Caja 1    contraseña: 12345678
+     cajero2@muni.pe      Cajero, Caja 2    contraseña: 12345678
+
+ El ciudadano no tiene cuenta: entra por el flujo público y se identifica por
+ el enlace de su trámite.
