@@ -21,7 +21,8 @@ interface Caja {
   porMetodo: Array<{ metodo: string; operaciones: number; total: number }>;
 }
 
-const METODOS = ["EFECTIVO", "TARJETA", "YAPE", "PLIN"];
+/** Los mismos que ofrece la ventanilla: tarjeta y Plin ya no se cobran. */
+const METODOS = ["EFECTIVO", "YAPE"];
 
 export default function AdminCajasPage() {
   const [cajas, setCajas] = useState<Caja[]>([]);
