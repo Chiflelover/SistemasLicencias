@@ -89,7 +89,7 @@ export async function POST(
 
     if (archivos.length === 0) {
       return NextResponse.json(
-        { error: "Adjuntá al menos un documento corregido." },
+        { error: "Adjunta al menos un documento corregido." },
         { status: 400 }
       );
     }

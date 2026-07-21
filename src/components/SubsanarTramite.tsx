@@ -90,7 +90,7 @@ export default function SubsanarTramite() {
     setExito(null);
 
     if (!plano && !fichaRuc) {
-      setErrorSubida("Adjuntá al menos un documento corregido.");
+      setErrorSubida("Adjunta al menos un documento corregido.");
       return;
     }
 
@@ -196,7 +196,7 @@ export default function SubsanarTramite() {
             <p className="mt-1 text-sm text-amber-200">
               Trámite {resultado.number} ·{" "}
               {ETIQUETA_OBSERVADO[resultado.status] ?? "Observado"}.
-              {yaSubsanado ? "" : " Podés subir los documentos corregidos."}
+              {yaSubsanado ? "" : " Puedes subir los documentos corregidos."}
             </p>
 
             {yaSubsanado ? (
@@ -240,7 +240,7 @@ export default function SubsanarTramite() {
                 </label>
 
                 <p className="text-xs text-slate-500">
-                  Adjuntá el documento que el inspector observó. Podés subir uno
+                  Adjunta el documento que el inspector observó. Puedes subir uno
                   o los dos. La subsanación no tiene costo: no corresponde
                   cobrar nada.
                 </p>

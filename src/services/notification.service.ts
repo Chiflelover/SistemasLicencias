@@ -149,7 +149,7 @@ export class NotificationService {
     return this.notify({
       userId: params.applicantId,
       type: NotificationType.DOCUMENTS_TO_FIX,
-      title: "Debés corregir documentos",
+      title: "Debes corregir documentos",
       message:
         `El trámite ${params.applicationNumber} fue observado. ` +
         `La carga de documentos se habilitó nuevamente. ` +
@@ -170,7 +170,7 @@ export class NotificationService {
       userId: params.applicantId,
       type: NotificationType.LICENSE_EXPIRED,
       title: "Tu licencia venció",
-      message: `La licencia ${params.licenseNumber} está vencida. Debés iniciar el trámite de renovación.`,
+      message: `La licencia ${params.licenseNumber} está vencida. Debes iniciar el trámite de renovación.`,
       applicationId: params.applicationId,
       dedupeKey: `licencia-vencida:${params.applicationId}:${day}`,
     });
@@ -207,7 +207,7 @@ export class NotificationService {
     const creada = await this.notify({
       userId: params.applicantId,
       type: NotificationType.INSPECTION_TODAY,
-      title: "Hoy tenés inspección",
+      title: "Hoy tienes inspección",
       message: `El trámite ${params.applicationNumber} tiene inspección hoy a las ${hora}.`,
       applicationId: params.applicationId,
       dedupeKey: `inspeccion-hoy:${params.inspectionId}:${params.day}`,
@@ -269,7 +269,7 @@ export class NotificationService {
         const resumenCreado = await this.notify({
           userId,
           type: NotificationType.INSPECTOR_TODAY_AGENDA,
-          title: "Tenés inspecciones pendientes para hoy",
+          title: "Tienes inspecciones pendientes para hoy",
           message: `${pendientes} ${
             pendientes === 1 ? "inspección programada" : "inspecciones programadas"
           } para hoy.`,

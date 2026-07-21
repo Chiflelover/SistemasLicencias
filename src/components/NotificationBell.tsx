@@ -151,7 +151,7 @@ export default function NotificationBell() {
             ) : items.length === 0 ? (
               <div className="p-8 text-center text-sm text-slate-500">
                 <Bell className="mx-auto mb-3 h-7 w-7 opacity-30" />
-                No tenés notificaciones.
+                No tienes notificaciones.
               </div>
             ) : (
               <ul className="divide-y divide-slate-800">

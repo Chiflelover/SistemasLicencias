@@ -42,7 +42,7 @@ export default function ConsultaPage() {
               <p className="text-sm text-slate-400">Sobre el RUC</p>
 
               <p className="mt-3 text-slate-200 leading-relaxed">
-                Ingresá el RUC completo de 11 dígitos del negocio. La búsqueda
+                Ingresa el RUC completo de 11 dígitos del negocio. La búsqueda
                 es exacta: un RUC incompleto no arroja resultados.
               </p>
             </div>

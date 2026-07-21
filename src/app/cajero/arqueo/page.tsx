@@ -140,7 +140,7 @@ export default function ArqueoPage() {
 
         <h1 className="mt-4 text-2xl font-bold text-white">Arqueo de caja</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Abrí y cerrá tu turno, y consultá lo que cobraste desglosado por
+          Abre y cierra tu turno, y consulta lo que cobraste desglosado por
           método de pago.
         </p>
       </div>

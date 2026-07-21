@@ -152,7 +152,7 @@ export default function RegistroPresencialPage() {
       }
     } catch (error: any) {
       // No bloquea el registro: el cajero puede escribir el nombre a mano.
-      setErrorMessage(`${error.message} Podés escribir el nombre manualmente.`);
+      setErrorMessage(`${error.message} Puedes escribir el nombre manualmente.`);
     } finally {
       setBuscandoDni(false);
     }
@@ -322,7 +322,7 @@ export default function RegistroPresencialPage() {
               </button>
             </div>
             <p className="text-xs text-slate-500 mt-1.5">
-              Trae razón social y domicilio desde SUNAT. Podés editarlos después.
+              Trae razón social y domicilio desde SUNAT. Puedes editarlos después.
             </p>
           </div>
 

@@ -65,7 +65,7 @@ export class RucService {
     // llega a consumir cuota de APIPERU.
     if (!isValidRuc(ruc)) {
       throw new Error(
-        "El RUC ingresado no es válido. Verificá los dígitos, especialmente el último."
+        "El RUC ingresado no es válido. Verifica los dígitos, especialmente el último."
       );
     }
 

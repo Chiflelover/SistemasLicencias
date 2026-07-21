@@ -20,7 +20,7 @@ export default function RenovacionPage() {
           Renovación de licencia
         </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Verificá si una licencia venció para iniciar un trámite nuevo desde
+          Verifica si una licencia venció para iniciar un trámite nuevo desde
           cero.
         </p>
       </div>

@@ -92,7 +92,7 @@ export async function DELETE(
 
   if (params.id === user.id) {
     return NextResponse.json(
-      { error: "No podés eliminar tu propia cuenta." },
+      { error: "No puedes eliminar tu propia cuenta." },
       { status: 400 }
     );
   }

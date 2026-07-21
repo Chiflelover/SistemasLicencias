@@ -92,7 +92,7 @@ export default function PublicDocumentUploadForm({
       </div>
 
       <p className="mt-3 text-sm text-slate-400">
-        Elegí el archivo de cada requisito. Se sube automáticamente y, cuando
+        Elige el archivo de cada requisito. Se sube automáticamente y, cuando
         ambos estén listos, se habilita el pago.
       </p>
 
@@ -139,7 +139,7 @@ export default function PublicDocumentUploadForm({
                 </div>
 
                 <p className="mt-1 text-sm text-slate-400">
-                  {listo ? "Ya está subido. Podés reemplazarlo." : descripcion}
+                  {listo ? "Ya está subido. Puedes reemplazarlo." : descripcion}
                 </p>
               </div>
 

@@ -98,7 +98,7 @@ export default function DevSimulacionesPage() {
         <p className="text-slate-400 text-sm mt-1">
           Cada vez que se adelanta el reloj se abre una corrida y se anota toda
           escritura en la base. Al restablecer, esos cambios se deshacen y la
-          corrida queda archivada acá.
+          corrida queda archivada aquí.
         </p>
       </div>
 

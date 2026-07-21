@@ -217,7 +217,7 @@ export default function AdminUsuariosPage() {
           </Link>
           <h1 className="mt-4 text-2xl font-bold text-white">Personal del sistema</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Inspectores y cajeros. Los solicitantes no se gestionan desde acá.
+            Inspectores y cajeros. Los solicitantes no se gestionan desde aquí.
           </p>
         </div>
 

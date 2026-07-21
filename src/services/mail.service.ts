@@ -79,7 +79,7 @@ export class MailService {
       subject: "Tu licencia de funcionamiento venció",
       text:
         `La licencia ${licenseNumber} venció.\n\n` +
-        "Una licencia vencida no se renueva: debés iniciar un trámite nuevo " +
+        "Una licencia vencida no se renueva: debes iniciar un trámite nuevo " +
         "de licencia de funcionamiento en la Municipalidad Provincial de " +
         "Trujillo.",
     });
@@ -108,8 +108,8 @@ export class MailService {
       text:
         "La inspección de tu establecimiento fue observada.\n\n" +
         `Observación del inspector:\n${observations}\n\n` +
-        `Se reprogramó una segunda inspección para el ${cuando}. Tenés hasta ` +
-        "esa fecha para subsanar los documentos: volvé a subir los archivos " +
+        `Se reprogramó una segunda inspección para el ${cuando}. Tienes hasta ` +
+        "esa fecha para subsanar los documentos: vuelve a subir los archivos " +
         "corregidos desde la página de tu trámite.",
     });
   }
@@ -126,10 +126,10 @@ export class MailService {
 
     return this.send({
       to,
-      subject: "Hoy tenés la inspección de tu licencia",
+      subject: "Hoy tienes la inspección de tu licencia",
       text:
         `Hoy ${cuando} está programada la inspección municipal de tu ` +
-        "establecimiento.\n\nAsegurate de que el local esté abierto y con la " +
+        "establecimiento.\n\nAsegúrate de que el local esté abierto y con la " +
         "documentación a la vista.",
     });
   }

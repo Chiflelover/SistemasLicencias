@@ -43,14 +43,14 @@ export class CashSessionService {
     const abierta = await this.getOpenSession(params.cashierId);
 
     if (abierta) {
-      throw new Error("Ya tenés una caja abierta. Cerrala antes de abrir otra.");
+      throw new Error("Ya tienes una caja abierta. Ciérrala antes de abrir otra.");
     }
 
     const pendiente = await this.getPendingSession(params.cashierId);
 
     if (pendiente) {
       throw new Error(
-        "Tu último cierre quedó esperando la autorización del administrador. No podés abrir una caja nueva hasta que lo resuelva."
+        "Tu último cierre quedó esperando la autorización del administrador. No puedes abrir una caja nueva hasta que lo resuelva."
       );
     }
 
@@ -143,7 +143,7 @@ export class CashSessionService {
     const session = await this.getOpenSession(params.cashierId);
 
     if (!session) {
-      throw new Error("No tenés ninguna caja abierta.");
+      throw new Error("No tienes ninguna caja abierta.");
     }
 
     if (!Number.isFinite(params.countedAmount) || params.countedAmount < 0) {

@@ -399,13 +399,13 @@ export default function IniciarTramitePage() {
                 />
 
                 <p className="mt-2 text-xs text-slate-500">
-                  Obligatorio. Te avisaremos acá cuando tu licencia esté por
+                  Obligatorio. Te avisaremos aquí cuando tu licencia esté por
                   vencer y el día de tu inspección.
                 </p>
 
                 {correo.trim().length > 0 && !correoValido && (
                   <p className="mt-1 text-xs text-amber-300">
-                    Ingresá un correo válido.
+                    Ingresa un correo válido.
                   </p>
                 )}
               </label>
@@ -492,7 +492,7 @@ export default function IniciarTramitePage() {
 
                       <p className="mt-2 text-sm text-amber-100/70">
                         {tramiteExistente.motivo === "EN_PROCESO"
-                          ? "No podés iniciar otro trámite para el mismo RUC hasta que este finalice."
+                          ? "No puedes iniciar otro trámite para el mismo RUC hasta que este finalice."
                           : "No corresponde iniciar un trámite nuevo mientras la licencia esté vigente."}
                       </p>
 

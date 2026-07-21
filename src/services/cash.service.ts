@@ -64,12 +64,12 @@ export class CashService {
 
     if (!turno) {
       throw new Error(
-        "Tenés que abrir la caja antes de registrar un cobro."
+        "Tienes que abrir la caja antes de registrar un cobro."
       );
     }
 
     if (application.registeredById !== params.cashierId) {
-      throw new Error("Solo puedes cobrar trámites que registraste vos.");
+      throw new Error("Solo puedes cobrar trámites que registraste tú.");
     }
 
     const hasFloorPlan = application.documents.some((d) => d.type === "FLOOR_PLAN");

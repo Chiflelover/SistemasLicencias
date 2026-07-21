@@ -287,7 +287,7 @@ export default async function PagoPage() {
 
           {missingDocuments.length > 0 && (
             <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-              Antes de pagar debés completar la documentación pendiente.
+              Antes de pagar debes completar la documentación pendiente.
             </div>
           )}
         </section>

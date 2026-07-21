@@ -131,12 +131,12 @@ export default async function CajeroDashboard() {
             <p className="font-bold text-white">La caja está cerrada</p>
 
             <p className="mt-1 text-amber-200">
-              Mientras siga así no vas a poder registrar cobros.{" "}
+              Mientras siga así no podrás registrar cobros.{" "}
               <Link
                 href="/cajero/arqueo"
                 className="font-bold underline underline-offset-2 hover:text-amber-100"
               >
-                Abrila desde Arqueo de caja
+                Ábrela desde Arqueo de caja
               </Link>
               .
             </p>

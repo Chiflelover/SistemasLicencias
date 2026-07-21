@@ -20,7 +20,7 @@ export default function SubsanarPage() {
           Subsanar documentos de trámite
         </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Buscá un trámite observado en la inspección para volver a subir los
+          Busca un trámite observado en la inspección para volver a subir los
           documentos corregidos.
         </p>
       </div>

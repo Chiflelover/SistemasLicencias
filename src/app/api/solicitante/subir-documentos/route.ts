@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 
     if (target.applicantId !== user.id) {
       return NextResponse.json(
-        { error: "No podés subir documentos a un trámite que no es tuyo." },
+        { error: "No puedes subir documentos a un trámite que no es tuyo." },
         { status: 403 }
       );
     }

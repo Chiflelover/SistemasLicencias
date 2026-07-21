@@ -120,7 +120,7 @@ export default async function PublicUploadDocumentsPage({
             </h2>
             <p className="mt-2 text-sm text-amber-100/80">
               El inspector registró observaciones en la primera inspección.
-              Podés volver a adjuntar el plano del local y los certificados
+              Puedes volver a adjuntar el plano del local y los certificados
               antes de la segunda inspección, que ya está programada.
             </p>
           </div>

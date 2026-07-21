@@ -163,7 +163,7 @@ export class LicenseService {
     if (license.status === LicenseStatus.EXPIRED) {
       throw new Error(
         `La licencia ${license.licenseNumber} está vencida y no puede renovarse. ` +
-          "Debés iniciar un nuevo trámite de licencia de funcionamiento."
+          "Debes iniciar un nuevo trámite de licencia de funcionamiento."
       );
     }
 

@@ -183,7 +183,7 @@ export default function EstadoCaja() {
         {!data?.abierta && !data?.pendiente && (
           <div className="space-y-3">
             <p className="text-sm text-slate-400">
-              La caja está cerrada. Mientras siga así no vas a poder registrar
+              La caja está cerrada. Mientras siga así no podrás registrar
               cobros.
             </p>
 

@@ -30,11 +30,11 @@ export default function SubsanarPublico({
     setExito(null);
 
     if (!emailValido) {
-      setError("Ingresá el correo con el que se registró el trámite.");
+      setError("Ingresa el correo con el que se registró el trámite.");
       return;
     }
     if (!hayArchivo) {
-      setError("Adjuntá al menos un documento corregido.");
+      setError("Adjunta al menos un documento corregido.");
       return;
     }
 
@@ -83,7 +83,7 @@ export default function SubsanarPublico({
         Subsanar el trámite {applicationNumber}
       </p>
       <p className="mt-1 text-xs text-slate-400">
-        {legalName}. Por seguridad, ingresá el correo con el que se registró el
+        {legalName}. Por seguridad, ingresa el correo con el que se registró el
         trámite. Solo así se aceptan los documentos corregidos.
       </p>
 
@@ -132,7 +132,7 @@ export default function SubsanarPublico({
           </label>
 
           <p className="text-xs text-slate-500">
-            Adjuntá el documento que el inspector observó. Podés subir uno o los
+            Adjunta el documento que el inspector observó. Puedes subir uno o los
             dos.
           </p>
 

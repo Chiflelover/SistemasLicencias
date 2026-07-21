@@ -81,7 +81,7 @@ export function checkRucEligibility(data: RucEligibilityInput): RucEligibility {
       motivo:
         data.ruc && isPersonaNatural(data.ruc)
           ? "Este RUC corresponde a una persona natural sin negocio: SUNAT no registra domicilio fiscal ni ubicación. " +
-            "Para obtener una licencia de funcionamiento primero debés registrar tu actividad empresarial ante SUNAT."
+            "Para obtener una licencia de funcionamiento primero debes registrar tu actividad empresarial ante SUNAT."
           : "SUNAT no registra un domicilio fiscal para este RUC. Sin establecimiento declarado no es posible otorgar una licencia de funcionamiento.",
     };
   }

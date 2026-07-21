@@ -221,12 +221,12 @@ export default function CajeroPagoPage() {
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-200 text-sm flex gap-2">
           <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>
-            Tenés la caja cerrada, así que no vas a poder registrar cobros.{" "}
+            Tienes la caja cerrada, así que no podrás registrar cobros.{" "}
             <Link
               href="/cajero/arqueo"
               className="font-bold underline underline-offset-2 hover:text-amber-100"
             >
-              Abrila desde Arqueo de caja
+              Ábrela desde Arqueo de caja
             </Link>
             .
           </span>
@@ -598,7 +598,7 @@ export default function CajeroPagoPage() {
             Trámites pendientes de cobro
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Solo los que registraste vos y ya tienen la documentación completa.
+            Solo los que registraste tú y ya tienen la documentación completa.
           </p>
         </div>
 
