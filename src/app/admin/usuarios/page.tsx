@@ -115,7 +115,8 @@ export default function AdminUsuariosPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
 
-      setExito(`${form.role === "INSPECTOR" ? "Inspector" : "Cajero"} creado: ${form.email}`);
+      // Solo se dan de alta cajas, así que el rol no hace falta en el mensaje.
+      setExito(`Caja creada: ${form.email}`);
       setForm(FORM_INICIAL);
       setMostrarAlta(false);
       await cargar();
@@ -228,7 +229,8 @@ export default function AdminUsuariosPage() {
           </Link>
           <h1 className="mt-4 text-2xl font-bold text-white">Personal del sistema</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Inspectores y cajeros. Los solicitantes no se gestionan desde aquí.
+            El inspector y las cajas. Solo se dan de alta cajas: el sistema
+            trabaja con un único inspector.
           </p>
         </div>
 
@@ -237,7 +239,7 @@ export default function AdminUsuariosPage() {
           className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-5 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition"
         >
           {mostrarAlta ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4 stroke-[3]" />}
-          {mostrarAlta ? "Cancelar" : "Nuevo usuario"}
+          {mostrarAlta ? "Cancelar" : "Nueva caja"}
         </button>
       </div>
 
@@ -261,7 +263,7 @@ export default function AdminUsuariosPage() {
           className="rounded-2xl border border-slate-850 bg-slate-900/40 p-6 space-y-4"
         >
           <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-            Nuevo usuario
+            Nueva caja
           </h2>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -366,7 +368,7 @@ export default function AdminUsuariosPage() {
             ) : (
               <Plus className="w-4 h-4 stroke-[3]" />
             )}
-            Crear usuario
+            Crear caja
           </button>
         </form>
       )}
@@ -542,7 +544,7 @@ export default function AdminUsuariosPage() {
           <div className="border-t border-slate-800 pt-5">
             <p className={labelClass}>Restablecer contraseña</p>
             <p className="text-xs text-slate-500 mb-3">
-              Usá esto solo cuando el titular lo solicite. La contraseña anterior
+              Usa esto solo cuando el titular lo solicite. La contraseña anterior
               no se puede recuperar.
             </p>
 

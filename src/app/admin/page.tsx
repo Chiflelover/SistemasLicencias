@@ -33,7 +33,7 @@ export default async function AdminDashboard() {
           ¡Hola, {user.fullName}!
         </h1>
         <p className="text-slate-400 text-sm mt-1">
-          Gestioná el personal del sistema y controlá la recaudación de cada
+          Gestiona el personal del sistema y controla la recaudación de cada
           caja.
         </p>
       </div>
@@ -86,7 +86,7 @@ export default async function AdminDashboard() {
             <ArrowRight className="w-5 h-5 text-slate-600 transition group-hover:text-amber-400" />
           </div>
           <p className="mt-2 text-sm text-slate-400">
-            Dar de alta inspectores y cajeros, ver sus perfiles, restablecer
+            Dar de alta cajas, ver los perfiles del personal, restablecer
             contraseñas y dar de baja cuentas.
           </p>
         </Link>

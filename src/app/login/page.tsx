@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Shield, Mail, Lock, Loader2, ArrowRight } from "lucide-react";
+import { Mail, Lock, Loader2, ArrowRight } from "lucide-react";
 
 // Esquema de validación con Zod
 const loginSchema = z.object({
@@ -76,39 +76,9 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100">
-      {/* Lado Izquierdo: Branding Municipal (Oculto en móviles) */}
-      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12 overflow-hidden bg-cover bg-center" style={{ backgroundImage: "linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.95))" }}>
-        <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/30 to-amber-500/10 pointer-events-none" />
-        <div className="z-10 max-w-lg space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm font-medium">
-            <Shield className="w-4 h-4" />
-            Portal Oficial de Trujillo
-          </div>
-          <h1 className="text-4xl xl:text-5xl font-extrabold leading-tight tracking-tight text-white">
-            Sistema de Licencias Municipales de Trujillo
-          </h1>
-          <p className="text-lg text-slate-300">
-            Realiza tu trámite de forma digital, rápida y transparente. Sigue el estado de tu licencia, programa tus inspecciones y obtén tu licencia con validez legal.
-          </p>
-          <div className="border-t border-slate-700/50 pt-6 mt-8 flex gap-8">
-            <div>
-              <div className="text-2xl font-bold text-amber-400">100%</div>
-              <div className="text-sm text-slate-400">Digitalizado</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-amber-400">S/ 180.00</div>
-              <div className="text-sm text-slate-400">Costo de Trámite</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-amber-400"> Trujillo </div>
-              <div className="text-sm text-slate-400">Ciudad de la Primavera</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Lado Derecho: Formulario */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 md:p-16">
+      {/* Solo el formulario, centrado: el acceso es para el personal y no
+          necesita presentación institucional. */}
+      <div className="w-full flex items-center justify-center p-6 sm:p-12 md:p-16">
         <div className="w-full max-w-md space-y-8 bg-slate-900/40 backdrop-blur-md p-8 rounded-2xl border border-slate-800 shadow-2xl">
           <div className="space-y-2">
             <h2 className="text-3xl font-bold text-white tracking-tight">Iniciar Sesión</h2>
