@@ -146,9 +146,12 @@ export async function POST(
       document,
       application: updatedApplication,
       documentsComplete,
-      message: documentsComplete
-        ? "Documentos completos. Ya puedes continuar al pago."
-        : "Documento subido correctamente. Aún faltan documentos.",
+      // En subsanación no corresponde invitar a pagar: el trámite ya pagó.
+      message: enSubsanacion
+        ? "Documento corregido subido. El inspector lo revisará en la segunda inspección; subsanar no tiene costo."
+        : documentsComplete
+          ? "Documentos completos. Ya puedes continuar al pago."
+          : "Documento subido correctamente. Aún faltan documentos.",
     });
   } catch (error: any) {
     console.error("Error subiendo documento público:", error);

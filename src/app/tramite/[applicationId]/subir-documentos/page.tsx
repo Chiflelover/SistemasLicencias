@@ -6,6 +6,7 @@ import { canUploadDocuments, isUnderObservation } from "@/lib/documents";
 import {
   ArrowLeft,
   Building2,
+  CalendarDays,
   CheckCircle2,
   FileText,
   WalletCards,
@@ -316,11 +317,28 @@ export default async function PublicUploadDocumentsPage({
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                  <p className="font-bold text-slate-300">3. Pago</p>
+                {/* En subsanación el trámite ya pagó y ya tiene su segunda
+                    inspección agendada: los textos del armado inicial darían a
+                    entender que falta pagar de nuevo. */}
+                <div
+                  className={`rounded-2xl border p-4 ${
+                    enSubsanacion
+                      ? "border-emerald-500/30 bg-emerald-500/10"
+                      : "border-slate-800 bg-slate-950/70"
+                  }`}
+                >
+                  <p
+                    className={`font-bold ${
+                      enSubsanacion ? "text-emerald-300" : "text-slate-300"
+                    }`}
+                  >
+                    3. Pago
+                  </p>
 
                   <p className="mt-1 text-sm text-slate-400">
-                    Se habilitará cuando los documentos estén completos.
+                    {enSubsanacion
+                      ? "Ya pagado. Subsanar documentos no tiene ningún costo."
+                      : "Se habilitará cuando los documentos estén completos."}
                   </p>
                 </div>
 
@@ -328,12 +346,27 @@ export default async function PublicUploadDocumentsPage({
                   <p className="font-bold text-slate-300">4. Inspección</p>
 
                   <p className="mt-1 text-sm text-slate-400">
-                    Se programará después del pago.
+                    {enSubsanacion
+                      ? "La segunda inspección ya está programada."
+                      : "Se programará después del pago."}
                   </p>
                 </div>
               </div>
 
-              {documentsComplete ? (
+              {/* Un trámite observado siempre tiene plano y ficha RUC —pagó e
+                  hizo su primera inspección—, así que documentsComplete da
+                  true y el botón de pago salía igual. Lleva a un formulario que
+                  canPay() rechaza: viaje en falso y duda sobre si hay que
+                  pagar otra vez. */}
+              {enSubsanacion ? (
+                <Link
+                  href={`/tramite/${application.id}/inspecciones`}
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-6 py-3 font-bold text-amber-200 hover:bg-amber-500/20"
+                >
+                  <CalendarDays className="h-5 w-5" />
+                  Ver mi segunda inspección
+                </Link>
+              ) : documentsComplete ? (
                 <Link
                   href={`/tramite/${application.id}/pago`}
                   className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-6 py-3 font-bold text-slate-950 hover:bg-amber-400"
