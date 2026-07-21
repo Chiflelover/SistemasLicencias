@@ -150,6 +150,15 @@ export class InspectionService {
 
     let baseDate = now;
 
+    if (isSchedulingFirstInspection) {
+      // La visita nunca cae el mismo día del pago: el inspector arma su agenda
+      // con un día hábil de anticipación. Sin esto, pagar de madrugada
+      // programaba la inspección para esa misma mañana a las 8:00, porque la
+      // hora todavía era anterior al inicio de la jornada.
+      baseDate = addWorkDays(now, 1);
+      baseDate.setHours(WORK_START_HOUR, 0, 0, 0);
+    }
+
     if (isSchedulingSecondInspection) {
       inspectionNumber = InspectionNumber.SECOND;
       targetStatus = ApplicationStatus.SECOND_INSPECTION_SCHEDULED;

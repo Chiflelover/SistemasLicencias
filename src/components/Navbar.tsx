@@ -77,12 +77,24 @@ export default function Navbar({ userName, email, role }: NavbarProps) {
 
         {/* El cajero no recibe notificaciones: ningún aviso del sistema está
             dirigido a ese rol, así que la campana estaría siempre vacía. */}
-        {role !== "CAJERO" && (
-          <>
-            <NotificationBell />
-            <div className="h-6 w-px bg-slate-800 hidden sm:block" />
-          </>
-        )}
+        {role !== "CAJERO" &&
+          (role === "INSPECTOR" ? (
+            /* El inspector no necesita verla: su agenda del día le llega por
+               WhatsApp. Pero el componente se monta igual, oculto y a
+               propósito: su consulta a /api/notificaciones es el único
+               disparador de syncDailyNotifications, que es lo que manda ese
+               WhatsApp y los correos de "inspección de hoy" al administrado.
+               Sin tareas programadas, esto hace de cron. Desmontarlo los
+               dejaría a los dos sin enviarse. */
+            <div className="hidden" aria-hidden="true">
+              <NotificationBell />
+            </div>
+          ) : (
+            <>
+              <NotificationBell />
+              <div className="h-6 w-px bg-slate-800 hidden sm:block" />
+            </>
+          ))}
 
         {/* Dropdown de Usuario */}
         <div className="relative">
