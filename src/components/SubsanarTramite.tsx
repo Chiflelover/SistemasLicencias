@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { AlertCircle, FileUp, Loader2, Search } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileUp, Loader2, Search } from "lucide-react";
 
 type Resultado = {
   id: string;
@@ -26,6 +25,22 @@ export default function SubsanarTramite() {
   const [consultado, setConsultado] = useState<string | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
 
+  // Carga de los documentos corregidos, en esta misma pantalla: el cajero no
+  // debe terminar en la página del ciudadano, que le habla de tú y le ofrece
+  // continuar al pago.
+  const [plano, setPlano] = useState<File | null>(null);
+  const [fichaRuc, setFichaRuc] = useState<File | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [errorSubida, setErrorSubida] = useState<string | null>(null);
+  const [exito, setExito] = useState<string | null>(null);
+
+  const limpiarSubida = () => {
+    setPlano(null);
+    setFichaRuc(null);
+    setErrorSubida(null);
+    setExito(null);
+  };
+
   const consultar = async () => {
     if (ruc.length !== 11) {
       setError("El RUC debe tener 11 dígitos.");
@@ -36,6 +51,7 @@ export default function SubsanarTramite() {
     setError(null);
     setResultado(null);
     setConsultado(null);
+    limpiarSubida();
 
     try {
       const response = await fetch(
@@ -63,8 +79,48 @@ export default function SubsanarTramite() {
     }
   };
 
+  const subsanar = async () => {
+    if (!resultado) return;
+
+    setErrorSubida(null);
+    setExito(null);
+
+    if (!plano && !fichaRuc) {
+      setErrorSubida("Adjuntá al menos un documento corregido.");
+      return;
+    }
+
+    setSubiendo(true);
+
+    try {
+      const formData = new FormData();
+      if (plano) formData.append("plano", plano);
+      if (fichaRuc) formData.append("fichaRuc", fichaRuc);
+
+      const response = await fetch(`/api/cajero/subsanar/${resultado.id}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudieron subir los documentos.");
+      }
+
+      setExito(data.message);
+      setPlano(null);
+      setFichaRuc(null);
+    } catch (err: any) {
+      setErrorSubida(err.message);
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
   const observado = resultado && OBSERVADO.includes(resultado.status);
   const sinObservacion = consultado && (!resultado || !observado);
+  const hayArchivo = Boolean(plano || fichaRuc);
 
   return (
     <div className="rounded-2xl border border-slate-850 bg-slate-900/40 overflow-hidden">
@@ -91,6 +147,7 @@ export default function SubsanarTramite() {
               setResultado(null);
               setConsultado(null);
               setError(null);
+              limpiarSubida();
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") consultar();
@@ -134,13 +191,65 @@ export default function SubsanarTramite() {
               subir los documentos corregidos.
             </p>
 
-            <Link
-              href={`/tramite/${resultado.id}/subir-documentos`}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 py-2.5 text-sm font-bold transition"
-            >
-              <FileUp className="w-4 h-4" />
-              Subsanar documentos
-            </Link>
+            {exito ? (
+              <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{exito}</span>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <label className="block">
+                  <span className="text-xs uppercase tracking-wider text-slate-500 font-bold">
+                    Plano del local (corregido)
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setPlano(e.target.files?.[0] ?? null)}
+                    className="mt-1.5 w-full text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-slate-200"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs uppercase tracking-wider text-slate-500 font-bold">
+                    Ficha RUC (corregida)
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setFichaRuc(e.target.files?.[0] ?? null)}
+                    className="mt-1.5 w-full text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-slate-200"
+                  />
+                </label>
+
+                <p className="text-xs text-slate-500">
+                  Adjuntá el documento que el inspector observó. Podés subir uno
+                  o los dos. La subsanación no tiene costo: no corresponde
+                  cobrar nada.
+                </p>
+
+                {errorSubida && (
+                  <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{errorSubida}</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={subsanar}
+                  disabled={subiendo || !hayArchivo}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 px-5 py-2.5 text-sm font-bold transition"
+                >
+                  {subiendo ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileUp className="w-4 h-4" />
+                  )}
+                  Subir documentos corregidos
+                </button>
+              </div>
+            )}
           </div>
         )}
 

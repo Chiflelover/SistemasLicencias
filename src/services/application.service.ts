@@ -262,7 +262,10 @@ export class ApplicationService {
     if (existingApplication) {
       const tracked = await prisma.application.update({
         where: { id: existingApplication.id },
-        data: { registeredById: params.cashierId },
+        data: {
+          registeredById: params.cashierId,
+          contactEmail: params.email,
+        },
       });
 
       return { application: tracked, business };
@@ -276,6 +279,11 @@ export class ApplicationService {
         applicantId: applicant.id,
         businessId: business.id,
         registeredById: params.cashierId,
+        // El mismo correo que se guarda en el usuario va también al trámite:
+        // MailService y la subsanación pública leen contactEmail, no
+        // User.email. Sin esto el administrado atendido en ventanilla no
+        // recibía ningún aviso pese a haber dejado su correo.
+        contactEmail: params.email,
         createdAt: now,
         updatedAt: now,
       },
