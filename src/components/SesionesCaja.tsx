@@ -13,6 +13,7 @@ import {
   Wallet,
   XCircle,
 } from "lucide-react";
+import { INTERVALO_SONDEO_MS, useSondeo } from "@/lib/use-sondeo";
 
 type Estado =
   | "PENDING_OPEN"
@@ -122,6 +123,16 @@ export default function SesionesCaja() {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // Las solicitudes del cajero llegan en cualquier momento y esta es la
+  // pantalla donde se resuelven: sin sondeo el administrador tendría que
+  // recargar cada tanto para ver si alguien lo está esperando.
+  //
+  // Se calla mientras hay una acción en curso: recargar las listas debajo de un
+  // botón que se acaba de apretar mueve la pantalla justo cuando no se debe. Lo
+  // que el administrador tiene tipeado no se pierde —los motivos y los montos
+  // viven aparte de las listas, indexados por turno.
+  useSondeo(cargar, INTERVALO_SONDEO_MS, !resolviendo);
 
   const moverEfectivo = async (
     sessionId: string,

@@ -3,6 +3,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { isUnderRenewal } from "@/lib/documents";
 import { AuditService } from "@/services/audit.service";
+import {
+  CAJA_CERRADA_MENSAJE,
+  CashSessionService,
+} from "@/services/cash-session.service";
 import { DocumentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +42,14 @@ export async function POST(
 
   if (!user || user.role !== "CAJERO") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  // La renovación termina en un cobro por esta misma ventanilla: sin caja
+  // abierta no tiene sentido empezar a cargar los documentos actualizados.
+  const turno = await CashSessionService.getOpenSession(user.id);
+
+  if (!turno) {
+    return NextResponse.json({ error: CAJA_CERRADA_MENSAJE }, { status: 409 });
   }
 
   try {

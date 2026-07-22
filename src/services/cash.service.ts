@@ -53,13 +53,7 @@ export class CashService {
     // Sin turno abierto no hay dónde asentar el dinero: el cobro quedaría
     // fuera de todo arqueo y el cierre no cuadraría nunca. Una apertura
     // solicitada todavía no está OPEN, así que tampoco habilita el cobro.
-    const turno = await CashSessionService.getOpenSession(params.cashierId);
-
-    if (!turno) {
-      throw new Error(
-        "No tienes ninguna caja abierta. Solicita la apertura y espera a que el administrador la autorice."
-      );
-    }
+    const turno = await CashSessionService.requireOpenSession(params.cashierId);
 
     // La renovación es de mostrador y llega cualquiera: el contribuyente va a
     // la ventanilla que esté libre, y su licencia pudo haber salido del flujo

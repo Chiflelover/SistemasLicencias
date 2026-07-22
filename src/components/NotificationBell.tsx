@@ -7,9 +7,12 @@ import {
   CheckCheck,
   FileWarning,
   Loader2,
+  LockOpen,
   ShieldAlert,
   CalendarDays,
+  Wallet,
 } from "lucide-react";
+import { INTERVALO_SONDEO_MS, useSondeo } from "@/lib/use-sondeo";
 
 interface NotificationItem {
   id: string;
@@ -28,6 +31,8 @@ const ICONOS: Record<string, typeof Bell> = {
   LICENSE_EXPIRED: ShieldAlert,
   INSPECTOR_TODAY_AGENDA: CalendarDays,
   INSPECTOR_NEW_ASSIGNMENT: CalendarClock,
+  ADMIN_CASH_OPEN_REQUEST: LockOpen,
+  ADMIN_CASH_CLOSE_REQUEST: Wallet,
 };
 
 export default function NotificationBell() {
@@ -58,6 +63,36 @@ export default function NotificationBell() {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  /**
+   * Sondeo: sin esto la campana preguntaba una sola vez, al cargar la página, y
+   * después quedaba muda. El administrador tenía que apretar F5 para enterarse
+   * de que un cajero le pidió abrir la caja.
+   *
+   * Pregunta por el contador, que es una sola cuenta, y solo pide la lista
+   * entera cuando el número cambió: el endpoint completo vence licencias y
+   * recalcula los avisos del día, y eso no puede correr cada 20 segundos.
+   */
+  const revisar = useCallback(async () => {
+    try {
+      const response = await fetch("/api/notificaciones/contador", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      setSinLeer((previo) => {
+        if (data.unreadCount !== previo) cargar();
+        return data.unreadCount;
+      });
+    } catch {
+      // Igual que la carga: la campana nunca debe romper la página.
+    }
+  }, [cargar]);
+
+  useSondeo(revisar, INTERVALO_SONDEO_MS);
 
   // Cerrar al hacer clic fuera del panel.
   useEffect(() => {

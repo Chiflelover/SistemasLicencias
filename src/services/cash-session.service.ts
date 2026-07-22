@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentSystemDate } from "@/lib/date";
 import { AuditService } from "@/services/audit.service";
+import { NotificationService } from "@/services/notification.service";
 import {
   CashMovementType,
   CashSessionStatus,
@@ -9,6 +10,15 @@ import {
 
 /** Fondo con el que se sugiere abrir la caja. */
 export const DEFAULT_OPENING_AMOUNT = 500.0;
+
+/**
+ * Lo que se responde en toda la ventanilla cuando no hay caja abierta.
+ *
+ * Vive acá y no repetido en cada ruta para que el cajero lea siempre lo mismo,
+ * cobre o registre un trámite.
+ */
+export const CAJA_CERRADA_MENSAJE =
+  "No tienes ninguna caja abierta. Solicita la apertura y espera a que el administrador la autorice.";
 
 /** Mínimo del motivo de un movimiento de efectivo. */
 const MIN_REASON_LENGTH = 5;
@@ -34,6 +44,24 @@ export class CashSessionService {
       where: { cashierId, status: CashSessionStatus.OPEN },
       orderBy: { openedAt: "desc" },
     });
+  }
+
+  /**
+   * Devuelve el turno abierto o lanza. La usa toda operación de ventanilla.
+   *
+   * Con la caja cerrada la ventanilla no atiende: no solo el cobro, tampoco el
+   * alta de un trámite. Dejarla registrar y frenar recién en el cobro era peor
+   * que prohibirlo de entrada, porque el trámite a medias **toma el RUC** y no
+   * se puede volver a registrar hasta cobrarlo.
+   */
+  static async requireOpenSession(cashierId: string) {
+    const turno = await this.getOpenSession(cashierId);
+
+    if (!turno) {
+      throw new Error(CAJA_CERRADA_MENSAJE);
+    }
+
+    return turno;
   }
 
   /** Apertura solicitada, esperando que el administrador la autorice. */
@@ -123,6 +151,20 @@ export class CashSessionService {
         solicitadaEn: solicitadaEn.toISOString(),
       },
     });
+
+    // Aviso al administrador, que es quien tiene que autorizar. Auxiliar: si
+    // falla, la solicitud ya quedó registrada y él la ve igual en /admin/cajas.
+    try {
+      await NotificationService.notifyAdminsCashRequest({
+        tipo: "APERTURA",
+        cashierId: params.cashierId,
+        detalle: `pidió abrir su caja con un fondo de S/ ${params.openingAmount.toFixed(
+          2
+        )}.`,
+      });
+    } catch (error) {
+      console.error("No se pudo avisar la apertura al administrador:", error);
+    }
 
     return session;
   }
@@ -463,6 +505,22 @@ export class CashSessionService {
         cuadra,
       },
     });
+
+    try {
+      await NotificationService.notifyAdminsCashRequest({
+        tipo: "CIERRE",
+        cashierId: params.cashierId,
+        detalle: cuadra
+          ? `pidió cerrar su caja con S/ ${params.countedAmount.toFixed(
+              2
+            )} contados. Cuadra con el sistema.`
+          : `pidió cerrar su caja. ${
+              diferencia > 0 ? "Sobran" : "Faltan"
+            } S/ ${Math.abs(diferencia).toFixed(2)}.`,
+      });
+    } catch (error) {
+      console.error("No se pudo avisar el cierre al administrador:", error);
+    }
 
     return { session: actualizada, cuadra, diferencia, totales };
   }

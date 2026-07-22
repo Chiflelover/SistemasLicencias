@@ -9,6 +9,10 @@ import {
   OUT_OF_DISTRICT_MESSAGE,
 } from "@/lib/territory";
 import { checkRucEligibility } from "@/lib/ruc-eligibility";
+import {
+  CAJA_CERRADA_MENSAJE,
+  CashSessionService,
+} from "@/services/cash-session.service";
 import { ApplicationStatus, DocumentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +66,15 @@ export async function POST(request: Request) {
 
   if (!user || user.role !== "CAJERO") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  // Con la caja cerrada la ventanilla no atiende. Se comprueba antes de leer el
+  // formulario: el alta consulta SUNAT y guarda dos archivos, y el trámite que
+  // quedaría a medias **toma el RUC** hasta que se cobre.
+  const turno = await CashSessionService.getOpenSession(user.id);
+
+  if (!turno) {
+    return NextResponse.json({ error: CAJA_CERRADA_MENSAJE }, { status: 409 });
   }
 
   try {

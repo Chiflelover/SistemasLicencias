@@ -3,6 +3,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { isUnderObservation } from "@/lib/documents";
 import { AuditService } from "@/services/audit.service";
+import {
+  CAJA_CERRADA_MENSAJE,
+  CashSessionService,
+} from "@/services/cash-session.service";
 import { DocumentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +58,14 @@ export async function POST(
 
   if (!user || user.role !== "CAJERO") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  // Atender en el mostrador con la caja cerrada no corresponde, aunque la
+  // subsanación no cobre nada: la ventanilla está abierta o no lo está.
+  const turno = await CashSessionService.getOpenSession(user.id);
+
+  if (!turno) {
+    return NextResponse.json({ error: CAJA_CERRADA_MENSAJE }, { status: 409 });
   }
 
   try {

@@ -158,6 +158,52 @@ export class NotificationService {
     });
   }
 
+  /**
+   * A los administradores: un cajero pidió abrir o cerrar su caja.
+   *
+   * Las dos puntas del turno las autoriza el administrador, así que sin este
+   * aviso tendría que entrar a `/admin/cajas` cada tanto a ver si alguien lo
+   * está esperando.
+   *
+   * **Sin clave de deduplicación, a propósito.** Los avisos que la usan se
+   * recalculan en cada consulta y hay que frenarlos; estos salen de un clic del
+   * cajero, uno por evento. Además el mismo turno puede pedir el cierre más de
+   * una vez —si el administrador lo rechaza vuelve a `OPEN`—, y una clave
+   * armada con el id del turno se comería el segundo pedido.
+   */
+  static async notifyAdminsCashRequest(params: {
+    tipo: "APERTURA" | "CIERRE";
+    cashierId: string;
+    detalle: string;
+  }) {
+    const [cajero, admins] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: params.cashierId },
+        select: { fullName: true },
+      }),
+      prisma.user.findMany({
+        where: { role: Role.ADMIN, active: true },
+        select: { id: true },
+      }),
+    ]);
+
+    const apertura = params.tipo === "APERTURA";
+    const quien = cajero?.fullName ?? "Un cajero";
+
+    for (const admin of admins) {
+      await this.notify({
+        userId: admin.id,
+        type: apertura
+          ? NotificationType.ADMIN_CASH_OPEN_REQUEST
+          : NotificationType.ADMIN_CASH_CLOSE_REQUEST,
+        title: apertura
+          ? "Un cajero pidió abrir su caja"
+          : "Un cajero pidió cerrar su caja",
+        message: `${quien}: ${params.detalle}`,
+      });
+    }
+  }
+
   /** Al administrado: su licencia venció. */
   static async notifyLicenseExpired(params: {
     applicantId: string;

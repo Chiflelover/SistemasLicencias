@@ -249,6 +249,9 @@ enum NotificationType {
   // Dirigidas al inspector
   INSPECTOR_TODAY_AGENDA
   INSPECTOR_NEW_ASSIGNMENT
+  // Dirigidas al administrador
+  ADMIN_CASH_OPEN_REQUEST
+  ADMIN_CASH_CLOSE_REQUEST
 }
 
 model Notification {
