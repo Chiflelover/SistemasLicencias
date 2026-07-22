@@ -38,6 +38,7 @@ const ETIQUETAS: Record<string, string> = {
   RENEWAL_AVAILABLE: "Licencia por vencer",
   DEFINITIVELY_REJECTED: "Rechazado definitivo",
   EXPIRED: "Licencia vencida",
+  CANCELLED: "Licencia dada de baja",
 };
 
 export default function RenovacionLicencia() {

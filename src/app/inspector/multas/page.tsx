@@ -31,13 +31,18 @@ function formatMoney(value: number | string | null | undefined) {
   return amount.toFixed(2);
 }
 
+/**
+ * Estado de la MULTA, no el de la licencia.
+ *
+ * Ojo con `CANCELLED`: acá significa "multa anulada". El mismo valor existe en
+ * `LicenseStatus` con otro sentido —licencia dada de baja— y este mapa no debe
+ * mezclarlos.
+ */
 function formatStatus(status: string) {
   const statuses: Record<string, string> = {
     PENDING: "PENDIENTE",
     PAID: "PAGADA",
     CANCELLED: "ANULADA",
-    ACTIVE: "ACTIVA",
-    EXPIRED: "VENCIDA",
   };
 
   return statuses[status] || status;

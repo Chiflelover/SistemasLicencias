@@ -161,19 +161,23 @@ function formatDate(date: Date): string {
 }
 
 /**
- * Estampa una marca de agua diagonal "VENCIDA" sobre un PDF ya emitido.
+ * Estampa una marca de agua diagonal sobre un PDF ya emitido.
  *
  * Trabaja sobre una copia en memoria y devuelve bytes nuevos: el PDF guardado
  * en la base no se toca. Así una licencia que vuelve a estar vigente tras una
  * renovación no queda marcada, y las licencias vigentes nunca se modifican.
+ *
+ * El texto es parámetro porque hay dos casos: "VENCIDA" y "DADA DE BAJA". El
+ * tamaño se calcula contra el ancho de la hoja, así que el segundo —bastante
+ * más largo— entra igual sin desbordar.
  */
 export async function addExpiredWatermark(
-  originalPdf: Uint8Array | Buffer
+  originalPdf: Uint8Array | Buffer,
+  texto = "VENCIDA"
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(originalPdf);
   const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  const texto = "VENCIDA";
   const rojo = rgb(0.75, 0.1, 0.12);
 
   for (const page of pdfDoc.getPages()) {

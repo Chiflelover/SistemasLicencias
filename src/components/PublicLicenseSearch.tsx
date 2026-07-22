@@ -57,6 +57,7 @@ const ESTADO_TRAMITE: Record<string, string> = {
   DEFINITIVELY_REJECTED: "Rechazado definitivo",
   RENEWAL_AVAILABLE: "Licencia por vencer",
   EXPIRED: "Licencia vencida",
+  CANCELLED: "Licencia dada de baja",
 };
 
 function formatApplicationStatus(status: string) {

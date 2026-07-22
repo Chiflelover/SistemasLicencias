@@ -15,7 +15,8 @@ import {
   Menu,
   X,
   RefreshCw,
-  FileUp
+  FileUp,
+  ShieldOff
 } from "lucide-react";
 import { useState } from "react";
 
@@ -77,6 +78,11 @@ export default function Sidebar({ role, userName }: SidebarProps) {
       label: "Subsanar Documentos",
       href: "/cajero/subsanar",
       icon: FileUp,
+    },
+    {
+      label: "Dar de Baja Licencia",
+      href: "/cajero/baja-licencia",
+      icon: ShieldOff,
     },
   ];
 

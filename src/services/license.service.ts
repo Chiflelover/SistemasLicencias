@@ -9,6 +9,15 @@ import { MailService } from "@/services/mail.service";
 import { prisma } from "@/lib/db/prisma";
 import { ApplicationStatus, LicenseStatus } from "@prisma/client";
 
+/**
+ * Mínimo del motivo de una baja.
+ *
+ * Mismo criterio que el motivo de un movimiento de efectivo: una licencia que
+ * termina antes de tiempo sin razón anotada es lo primero que se pincha en una
+ * revisión.
+ */
+const MIN_MOTIVO_BAJA = 10;
+
 export class LicenseService {
   static async createLicenseForApplication(applicationId: string) {
     const application = await ApplicationRepository.findById(applicationId);
@@ -76,6 +85,15 @@ export class LicenseService {
 
     const estadoTramite = persistido.status;
     const estadoLicencia = persistido.license.status;
+
+    // Una baja es definitiva y no depende de fechas. Sin este corte, la sola
+    // consulta la resucitaba: más abajo el estado se recalcula contra
+    // `expiresAt` y una licencia dada de baja con fecha futura volvía a ACTIVE
+    // sola, con el RUC bloqueado otra vez. Y esta función la llaman la búsqueda
+    // pública, la campana y la descarga del PDF, así que pasaba enseguida.
+    if (estadoLicencia === LicenseStatus.CANCELLED) {
+      return;
+    }
 
     const now = await getCurrentSystemDate();
     const expirationTime = license.expiresAt.getTime();
@@ -217,6 +235,111 @@ export class LicenseService {
     return renewed;
   }
 
+  /**
+   * Baja de la licencia a pedido del titular, en ventanilla.
+   *
+   * El caso típico es la mudanza: la licencia vale para el establecimiento y no
+   * para la empresa (Ley 28976), así que cambiar de local obliga a terminar la
+   * que existe y tramitar otra. **No cuesta nada** — el cese es gratuito, y
+   * además nadie ganaría plata usándolo para esquivar la renovación: el trámite
+   * nuevo cobra la misma tarifa y encima pasa por inspección.
+   *
+   * Vale sobre los tres estados en los que la licencia existe: vigente, por
+   * vencer y vencida. Bloquearla en las vencidas dejaría al negocio que se mudó
+   * obligado a renovar —y pagar— una licencia de un local donde ya no está,
+   * para recién después poder darla de baja.
+   *
+   * El efecto que importa: `CANCELLED` no figura en `OPEN_APPLICATION_STATUSES`
+   * ni en `LICENSED_STATUSES`, así que **el RUC queda libre solo**, sin tocar
+   * `findBlockingApplicationByRuc`.
+   */
+  static async cancelLicense(params: {
+    applicationId: string;
+    cashierId: string;
+    motivo: string;
+  }) {
+    const motivo = params.motivo.trim();
+
+    if (motivo.length < MIN_MOTIVO_BAJA) {
+      throw new Error(
+        `Explica el motivo de la baja con al menos ${MIN_MOTIVO_BAJA} caracteres. Queda registrado en la auditoría.`
+      );
+    }
+
+    const application = await ApplicationRepository.findById(params.applicationId);
+
+    if (!application?.license) {
+      throw new Error("Este trámite no tiene una licencia que dar de baja.");
+    }
+
+    const license = application.license;
+
+    if (license.status === LicenseStatus.CANCELLED) {
+      throw new Error(
+        `La licencia ${license.licenseNumber} ya fue dada de baja.`
+      );
+    }
+
+    const ahora = await getCurrentSystemDate();
+
+    // Las dos filas en una transacción: si el trámite quedara licenciado con la
+    // licencia ya de baja, el RUC seguiría bloqueado y no habría forma de
+    // arreglarlo desde ninguna pantalla.
+    await prisma.$transaction([
+      prisma.license.update({
+        where: { id: license.id },
+        data: { status: LicenseStatus.CANCELLED },
+      }),
+      prisma.application.update({
+        where: { id: application.id },
+        data: { status: ApplicationStatus.CANCELLED },
+      }),
+    ]);
+
+    // Una inopinada agendada sobre una licencia que ya no existe mandaría al
+    // inspector a un local sin licencia. Se cancela junto con la baja.
+    const inopinadasCanceladas = await prisma.inspection.deleteMany({
+      where: { applicationId: application.id, status: "SCHEDULED" },
+    });
+
+    await AuditService.log({
+      action: "LICENCIA_DADA_DE_BAJA",
+      entityType: "License",
+      entityId: license.id,
+      userId: params.cashierId,
+      details: {
+        licenseNumber: license.licenseNumber,
+        applicationNumber: application.number,
+        ruc: application.business.ruc,
+        estadoPrevio: license.status,
+        motivo,
+        inspeccionesCanceladas: inopinadasCanceladas.count,
+        fecha: ahora.toISOString(),
+      },
+    });
+
+    // Auxiliar, como el resto de los avisos: la baja ya está hecha y un fallo
+    // del correo no puede deshacerla.
+    try {
+      if (application.contactEmail) {
+        await MailService.notifyLicenseCancelled(
+          application.contactEmail,
+          license.licenseNumber,
+          motivo
+        );
+      }
+    } catch (error) {
+      console.error("No se pudo avisar la baja al administrado:", error);
+    }
+
+    return {
+      licenseNumber: license.licenseNumber,
+      applicationNumber: application.number,
+      ruc: application.business.ruc,
+      inspeccionesCanceladas: inopinadasCanceladas.count,
+    };
+  }
+
   static async getLicenseByApplication(applicationId: string) {
     return LicenseRepository.findByApplicationId(applicationId);
   }
@@ -235,7 +358,10 @@ export class LicenseService {
     const vencidas = await prisma.license.findMany({
       where: {
         expiresAt: { lte: now },
-        status: { not: LicenseStatus.EXPIRED },
+        // Las dadas de baja quedan afuera junto con las ya vencidas: no hay
+        // que vencer algo que ya terminó, y recorrerlas en cada consulta sería
+        // trabajo al pedo.
+        status: { notIn: [LicenseStatus.EXPIRED, LicenseStatus.CANCELLED] },
       },
       select: { id: true, applicationId: true },
     });

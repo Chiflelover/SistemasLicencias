@@ -87,6 +87,29 @@ export class MailService {
   }
 
   /**
+   * Aviso al administrado de que su licencia fue dada de baja en ventanilla.
+   *
+   * Se manda aunque la baja la haya pedido él mismo: termina una licencia antes
+   * de tiempo y conviene que quede constancia escrita de cuándo y por qué.
+   */
+  static async notifyLicenseCancelled(
+    to: string,
+    licenseNumber: string,
+    motivo: string
+  ) {
+    return this.send({
+      to,
+      subject: "Tu licencia de funcionamiento fue dada de baja",
+      text:
+        `La licencia ${licenseNumber} fue dada de baja en ventanilla.\n\n` +
+        `Motivo registrado: ${motivo}\n\n` +
+        "Desde ahora el local no cuenta con licencia de funcionamiento. Si vas " +
+        "a operar en un local nuevo, inicia un trámite desde el portal o " +
+        "acércate a una ventanilla: tu RUC quedó habilitado para hacerlo.",
+    });
+  }
+
+  /**
    * Aviso al administrado de que su primera inspección fue observada, con el
    * motivo del inspector y la fecha de la segunda visita.
    */

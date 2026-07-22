@@ -36,15 +36,27 @@ export async function GET(
 
   // La marca de agua se aplica al vuelo, sobre una copia. El PDF guardado
   // queda intacto: si la licencia se renueva, vuelve a descargarse limpia.
-  const pdfBytes =
+  //
+  // Una licencia dada de baja se sigue pudiendo descargar —es el respaldo de
+  // que existió y de hasta cuándo valió—, pero marcada, para que no se pueda
+  // exhibir como si estuviera en vigor.
+  const marca =
     license.status === LicenseStatus.EXPIRED
-      ? await addExpiredWatermark(license.pdfContent)
-      : new Uint8Array(license.pdfContent);
+      ? "VENCIDA"
+      : license.status === LicenseStatus.CANCELLED
+        ? "DADA DE BAJA"
+        : null;
 
-  const fileName =
-    license.status === LicenseStatus.EXPIRED
-      ? license.pdfFileName.replace(/\.pdf$/i, "-VENCIDA.pdf")
-      : license.pdfFileName;
+  const pdfBytes = marca
+    ? await addExpiredWatermark(license.pdfContent, marca)
+    : new Uint8Array(license.pdfContent);
+
+  const fileName = marca
+    ? license.pdfFileName.replace(
+        /\.pdf$/i,
+        `-${marca.replaceAll(" ", "-")}.pdf`
+      )
+    : license.pdfFileName;
 
   return new Response(pdfBytes, {
     status: 200,

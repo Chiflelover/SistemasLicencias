@@ -27,6 +27,7 @@ function formatStatus(status: string) {
     DEFINITIVELY_REJECTED: "RECHAZADO DEFINITIVO",
     RENEWAL_AVAILABLE: "LICENCIA POR VENCER",
     EXPIRED: "VENCIDA",
+    CANCELLED: "DADA DE BAJA",
   };
 
   return statuses[status] || status.replaceAll("_", " ");

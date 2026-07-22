@@ -161,6 +161,13 @@ export class ApplicationRepository {
       return application;
     }
 
+    // Una licencia dada de baja terminó, y no vuelve a depender de fechas. Sin
+    // este corte, una con vencimiento ya pasado se leía como EXPIRED y el PDF
+    // salía con la marca equivocada ("VENCIDA" en vez de "DADA DE BAJA").
+    if (application.license.status === "CANCELLED") {
+      return application;
+    }
+
     const simulatedDate = await getCurrentSystemDate();
     const expiresAt = new Date(application.license.expiresAt);
 

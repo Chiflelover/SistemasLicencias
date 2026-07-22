@@ -29,12 +29,20 @@ enum ApplicationStatus {
   DEFINITIVELY_REJECTED
   RENEWAL_AVAILABLE
   EXPIRED
+  // Licencia dada de baja en ventanilla. No entra en OPEN_APPLICATION_STATUSES
+  // ni en LICENSED_STATUSES, y por eso el RUC queda libre para un trámite
+  // nuevo sin tocar findBlockingApplicationByRuc.
+  CANCELLED
 }
 
 enum LicenseStatus {
   ACTIVE
   RENEWAL_AVAILABLE
   EXPIRED
+  // Baja a pedido del titular: la licencia termina antes de tiempo. Es lo que
+  // corresponde cuando el negocio se muda de local, porque la licencia vale
+  // para el establecimiento y no para la empresa (Ley 28976).
+  CANCELLED
 }
 
 enum DocumentType {
