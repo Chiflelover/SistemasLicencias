@@ -68,6 +68,14 @@ export default function IniciarTramitePage() {
   const [correo, setCorreo] = useState("");
   const [dni, setDni] = useState("");
 
+  // Local elegido en la tarjeta de anexos. Vacío = el domicilio fiscal, que es
+  // el comportamiento de siempre. El servidor lo vuelve a verificar.
+  //
+  // El código va aparte porque hay RUCs con varios anexos en la misma
+  // dirección: es lo único que distingue cuál se marcó.
+  const [establecimiento, setEstablecimiento] = useState("");
+  const [establecimientoCodigo, setEstablecimientoCodigo] = useState("");
+
   // Nombre que devuelve el padrón al completar los 8 dígitos. Es confirmación
   // visual: el servidor lo vuelve a consultar y no confía en lo que llegue.
   const [nombreDni, setNombreDni] = useState<string | null>(null);
@@ -216,6 +224,7 @@ export default function IniciarTramitePage() {
           activityType: rubro.trim(),
           contactEmail: correo.trim(),
           representativeDni: dni,
+          commercialAddress: establecimiento,
         }),
       });
 
@@ -378,6 +387,26 @@ export default function IniciarTramitePage() {
                   />
                 </div>
               </label>
+
+              {/* El local para el que se pide la licencia. Por defecto es el
+                  domicilio fiscal; cambia al tocar un anexo de la tarjeta. Sin
+                  este campo el clic no se refleja en ningún lado y parece que
+                  no hizo nada. */}
+              {rucData && (
+                <label className="block space-y-2 text-sm text-slate-300">
+                  <span className="font-semibold">
+                    Dirección del establecimiento
+                  </span>
+
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+                    <input
+                      value={establecimiento || rucData.fiscalAddress || ""}
+                      readOnly
+                      className="w-full cursor-not-allowed bg-transparent text-slate-400 outline-none"
+                    />
+                  </div>
+                </label>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="space-y-2 text-sm text-slate-300">
@@ -735,7 +764,19 @@ export default function IniciarTramitePage() {
 
             {/* Locales del RUC en SUNAT. Solo informativa: no valida nada y si
                 la consulta falla no se dibuja. */}
-            <EstablecimientosAnexos ruc={rucData?.ruc ?? null} />
+            <EstablecimientosAnexos
+              ruc={rucData?.ruc ?? null}
+              seleccionado={establecimiento}
+              seleccionadoCodigo={establecimientoCodigo}
+              // Al deshacer la elección se manda el domicilio fiscal explícito:
+              // para el servidor, "sin campo" significa dejar lo que ya estaba.
+              onSeleccionar={(local) => {
+                setEstablecimiento(
+                  local ? local.direccion : rucData?.fiscalAddress || ""
+                );
+                setEstablecimientoCodigo(local ? local.codigo : "");
+              }}
+            />
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-5">

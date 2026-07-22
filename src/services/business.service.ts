@@ -26,7 +26,6 @@ export class BusinessService {
     const details = {
       legalName: data.legalName,
       fiscalAddress: data.fiscalAddress,
-      commercialAddress: data.commercialAddress || data.fiscalAddress,
       activityType: data.activityType || "No registrado",
       representativeName: data.representativeName || "No registrado",
       representativeDni: data.representativeDni || "",
@@ -36,8 +35,18 @@ export class BusinessService {
 
     return prisma.business.upsert({
       where: { ruc: data.ruc },
-      update: details,
-      create: { ruc: data.ruc, ...details },
+      // El local elegido solo se pisa si vino uno nuevo: al retomar un trámite
+      // sin volver a tocar la tarjeta de anexos, el que ya estaba se conserva.
+      // Sin esto, continuar en ventanilla devolvía la licencia al domicilio
+      // fiscal sin que nadie lo hubiera pedido.
+      update: data.commercialAddress
+        ? { ...details, commercialAddress: data.commercialAddress }
+        : details,
+      create: {
+        ruc: data.ruc,
+        ...details,
+        commercialAddress: data.commercialAddress || data.fiscalAddress,
+      },
     });
   }
 
@@ -45,6 +54,8 @@ export class BusinessService {
     legalName: string;
     ruc: string;
     fiscalAddress: string;
+    /** Local para el que se pide la licencia. Sin esto, el domicilio fiscal. */
+    commercialAddress?: string;
     activityType?: string;
     representativeDni?: string;
     representativeName?: string;
@@ -60,7 +71,15 @@ export class BusinessService {
         activityType?: string;
         representativeDni?: string;
         representativeName?: string;
+        commercialAddress?: string;
       } = {};
+
+      if (
+        data.commercialAddress &&
+        data.commercialAddress !== existingBusiness.commercialAddress
+      ) {
+        cambios.commercialAddress = data.commercialAddress;
+      }
 
       if (data.activityType && data.activityType !== existingBusiness.activityType) {
         cambios.activityType = data.activityType;
@@ -94,7 +113,8 @@ export class BusinessService {
       legalName: data.legalName,
       ruc: data.ruc,
       fiscalAddress: data.fiscalAddress,
-      commercialAddress: data.fiscalAddress,
+      // Sin local elegido, el establecimiento es el domicilio fiscal.
+      commercialAddress: data.commercialAddress || data.fiscalAddress,
       activityType: data.activityType || "No registrado",
       // El relleno solo queda si el padrón no resolvió el nombre; en ese caso la
       // licencia imprime únicamente el DNI (ver formatRepresentative).

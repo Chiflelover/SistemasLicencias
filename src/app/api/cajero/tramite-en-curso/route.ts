@@ -49,6 +49,7 @@ export async function GET(request: Request) {
           select: {
             legalName: true,
             fiscalAddress: true,
+            commercialAddress: true,
             activityType: true,
             representativeName: true,
             representativeDni: true,
@@ -80,6 +81,13 @@ export async function GET(request: Request) {
         contactEmail: application.contactEmail || "",
         // De dónde vino: cambia el texto que ve el cajero.
         origen: application.registeredById ? "VENTANILLA" : "WEB",
+        // El local elegido, si no es el domicilio fiscal: así la tarjeta lo
+        // muestra ya seleccionado al retomar el trámite.
+        commercialAddress:
+          application.business.commercialAddress ===
+          application.business.fiscalAddress
+            ? ""
+            : application.business.commercialAddress,
         activityType: sinRelleno(application.business.activityType),
         representativeName: sinRelleno(application.business.representativeName),
         representativeDni: sinRelleno(application.business.representativeDni),

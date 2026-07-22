@@ -4,6 +4,7 @@ import { RucService } from "@/services/ruc.service";
 import { DniService } from "@/services/dni.service";
 import { belongsToDistrictTrujillo } from "@/lib/territory";
 import { checkRucEligibility } from "@/lib/ruc-eligibility";
+import { resolverEstablecimiento } from "@/lib/establecimiento";
 
 export const dynamic = "force-dynamic";
 
@@ -139,11 +140,26 @@ export async function POST(request: Request) {
       representativeName = undefined;
     }
 
+    // Local elegido en la tarjeta de anexos. Se verifica contra los anexos
+    // reales del RUC: la pantalla solo deja tocar los del distrito, pero esta
+    // dirección termina impresa en la licencia.
+    //
+    // Sin campo, `undefined`: no se pisa el local que el negocio ya tuviera.
+    const elegidoPublico = String(body.commercialAddress || "").trim();
+    const commercialAddress = elegidoPublico
+      ? await resolverEstablecimiento({
+          ruc: rucData.ruc,
+          fiscalAddress: rucData.fiscalAddress,
+          elegido: elegidoPublico,
+        })
+      : undefined;
+
     const { application, business } =
       await ApplicationService.startPublicApplication({
         ruc: rucData.ruc,
         legalName: rucData.legalName,
         fiscalAddress: rucData.fiscalAddress,
+        commercialAddress,
         activityType,
         contactEmail,
         representativeDni,

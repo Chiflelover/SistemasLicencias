@@ -43,6 +43,7 @@ type TramiteEnCurso = {
   status: string;
   origen: "WEB" | "VENTANILLA";
   contactEmail: string;
+  commercialAddress: string;
   activityType: string;
   representativeName: string;
   representativeDni: string;
@@ -87,6 +88,8 @@ const CAMPOS_INICIALES = {
   representativeRole: "Representante Legal",
   activityType: "",
   email: "",
+  // Local elegido en la tarjeta de anexos. Vacío = el domicilio fiscal.
+  commercialAddress: "",
 };
 
 export default function RegistroPresencialPage() {
@@ -102,6 +105,11 @@ export default function RegistroPresencialPage() {
   const [tramiteEnCurso, setTramiteEnCurso] = useState<TramiteEnCurso | null>(
     null
   );
+
+  // Código del local elegido. Fuera de `campos` porque no se manda al servidor:
+  // solo sirve para saber cuál tarjeta marcar cuando hay varios anexos con la
+  // misma dirección.
+  const [establecimientoCodigo, setEstablecimientoCodigo] = useState("");
 
   const [buscandoRuc, setBuscandoRuc] = useState(false);
   const [buscandoDni, setBuscandoDni] = useState(false);
@@ -246,6 +254,8 @@ export default function RegistroPresencialPage() {
           representativeRole:
             enCurso.representativeRole || previo.representativeRole,
           email: enCurso.contactEmail || previo.email,
+          commercialAddress:
+            enCurso.commercialAddress || previo.commercialAddress,
         }));
       }
     } catch (error: any) {
@@ -420,6 +430,20 @@ export default function RegistroPresencialPage() {
               className={inputClass}
             />
           </div>
+
+          {/* El local para el que se pide la licencia. Por defecto el domicilio
+              fiscal; cambia al tocar un anexo de la tarjeta. Sin este campo el
+              clic no se refleja en ningún lado. */}
+          {sunat && (
+            <div>
+              <label className={labelClass}>Dirección del establecimiento</label>
+              <input
+                value={campos.commercialAddress || campos.fiscalAddress}
+                readOnly
+                className={`${inputClass} cursor-not-allowed text-slate-400`}
+              />
+            </div>
+          )}
 
           {/* SUNAT no informa el giro: lo declara el contribuyente y el
               cajero lo transcribe. Va impreso en la licencia. */}
@@ -711,7 +735,20 @@ export default function RegistroPresencialPage() {
             de locales es justo lo que tiene que preguntarle al contribuyente. */}
         <aside className="space-y-4 xl:sticky xl:top-6">
           {sunat ? (
-            <EstablecimientosAnexos ruc={sunat.ruc} />
+            <EstablecimientosAnexos
+              ruc={sunat.ruc}
+              seleccionado={campos.commercialAddress}
+              seleccionadoCodigo={establecimientoCodigo}
+              // Deshacer la elección manda el domicilio fiscal explícito: para
+              // el servidor, "sin campo" significa dejar el local que ya tenía.
+              onSeleccionar={(local) => {
+                actualizar(
+                  "commercialAddress",
+                  local ? local.direccion : campos.fiscalAddress
+                );
+                setEstablecimientoCodigo(local ? local.codigo : "");
+              }}
+            />
           ) : (
             <div className="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-5">
               <div className="mb-3 flex items-center gap-3 text-amber-300">

@@ -11,6 +11,7 @@ import {
 } from "@/lib/territory";
 import { checkRucEligibility } from "@/lib/ruc-eligibility";
 import { isAssemblingExpedient } from "@/lib/documents";
+import { resolverEstablecimiento } from "@/lib/establecimiento";
 import {
   CAJA_CERRADA_MENSAJE,
   CashSessionService,
@@ -245,6 +246,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: fileError.message }, { status: 400 });
     }
 
+    // Local elegido en la tarjeta de anexos, verificado contra los anexos
+    // reales del RUC.
+    //
+    // `undefined` cuando la petición no trae el campo, y ahí es distinto de
+    // "el domicilio fiscal": significa **no tocar el que ya estaba**. Si
+    // mandara el fiscal, retomar un trámite sin abrir la tarjeta devolvería la
+    // licencia al domicilio fiscal sin que nadie lo hubiera pedido. Para
+    // volver al fiscal, la pantalla lo manda explícito.
+    const elegido = read("commercialAddress");
+    const commercialAddress = elegido
+      ? await resolverEstablecimiento({ ruc, fiscalAddress, elegido })
+      : undefined;
+
     // 1. Alta del negocio, el solicitante y el trámite. Si el RUC ya tenía uno
     //    a medio armar —típicamente empezado por la web— lo adopta en vez de
     //    crear otro, y le sobrescribe rubro, DNI y correo con lo que el cajero
@@ -255,6 +269,7 @@ export async function POST(request: Request) {
         legalName,
         ruc,
         fiscalAddress,
+        commercialAddress,
         representativeName,
         representativeDni,
         representativeRole,

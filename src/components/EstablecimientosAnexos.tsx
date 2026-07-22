@@ -23,16 +23,37 @@ type Respuesta = {
 /**
  * Locales que la empresa tiene declarados en SUNAT además del domicilio fiscal.
  *
- * **Es informativa y nada más.** No valida, no bloquea y no participa de
- * ninguna regla: el trámite se inicia por el domicilio fiscal, igual que
- * antes. Si la consulta falla, la tarjeta no se dibuja y la pantalla queda como
- * si no existiera.
+ * Con `onSeleccionar` los locales **del distrito de Trujillo** se vuelven
+ * elegibles: el que se elija es el establecimiento para el que se emite la
+ * licencia. Los de otro distrito no son clicables — esa licencia la emite otra
+ * municipalidad, y es la misma regla que decide si el trámite arranca.
+ *
+ * Sin `onSeleccionar` la tarjeta es informativa, como nació. Si la consulta
+ * falla no se dibuja nada y la pantalla queda como si no existiera.
  *
  * Se muestra porque la Ley 28976 pide una licencia **por establecimiento**, así
  * que ver los locales del RUC ayuda al ciudadano a darse cuenta de cuántos
  * trámites le van a hacer falta, y al cajero a preguntarlo en el mostrador.
  */
-export default function EstablecimientosAnexos({ ruc }: { ruc: string | null }) {
+export default function EstablecimientosAnexos({
+  ruc,
+  seleccionado,
+  seleccionadoCodigo,
+  onSeleccionar,
+}: {
+  ruc: string | null;
+  /** Dirección del local elegido. Vacío = el domicilio fiscal. */
+  seleccionado?: string;
+  /**
+   * Código del local elegido. Es lo que marca cuál está seleccionado.
+   *
+   * No alcanza con la dirección: hay RUCs con **varios anexos en la misma
+   * dirección exacta** —la UNT tiene tres— y marcando por dirección se
+   * encendían todos juntos.
+   */
+  seleccionadoCodigo?: string;
+  onSeleccionar?: (local: { codigo: string; direccion: string } | null) => void;
+}) {
   const [data, setData] = useState<Respuesta | null>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -81,6 +102,15 @@ export default function EstablecimientosAnexos({ ruc }: { ruc: string | null }) 
   // igual que antes de que esto existiera.
   if (!data) return null;
 
+  // Código del local marcado. Si no vino —al retomar un trámite solo se guardó
+  // la dirección— se toma el primero que coincida: entre locales de la misma
+  // dirección da igual cuál se marque, la licencia imprime lo mismo.
+  const codigoMarcado =
+    seleccionadoCodigo ||
+    (seleccionado
+      ? data.establecimientos.find((l) => l.direccion === seleccionado)?.codigo
+      : undefined);
+
   return (
     <div className="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-5">
       <div className="mb-3 flex items-center gap-3 text-amber-300">
@@ -120,11 +150,11 @@ export default function EstablecimientosAnexos({ ruc }: { ruc: string | null }) 
                 local.distrito.toUpperCase() === "TRUJILLO" &&
                 local.provincia.toUpperCase() === "TRUJILLO";
 
-              return (
-                <li
-                  key={local.codigo || local.direccion}
-                  className="rounded-xl border border-slate-800 bg-slate-900/40 p-3"
-                >
+              const elegible = Boolean(onSeleccionar) && enTrujillo && Boolean(local.direccion);
+              const activo = elegible && codigoMarcado === local.codigo;
+
+              const contenido = (
+                <>
                   <div className="flex items-start justify-between gap-2">
                     {/* Sin `uppercase`: al lado va el distrito en mayúsculas y
                         los dos gritando se leen peor. */}
@@ -154,6 +184,43 @@ export default function EstablecimientosAnexos({ ruc }: { ruc: string | null }) 
                       {local.actividad}
                     </p>
                   )}
+                </>
+              );
+
+              const base = "rounded-xl border p-3 transition";
+
+              if (!elegible) {
+                return (
+                  <li
+                    key={local.codigo || local.direccion}
+                    className={`${base} border-slate-800 bg-slate-900/40`}
+                  >
+                    {contenido}
+                  </li>
+                );
+              }
+
+              return (
+                <li key={local.codigo || local.direccion}>
+                  <button
+                    type="button"
+                    // Volver a tocar el elegido deshace la elección y el trámite
+                    // vuelve al domicilio fiscal, que es el valor por defecto.
+                    onClick={() =>
+                      onSeleccionar!(
+                        activo
+                          ? null
+                          : { codigo: local.codigo, direccion: local.direccion }
+                      )
+                    }
+                    className={`${base} w-full text-left ${
+                      activo
+                        ? "border-emerald-500/60 bg-emerald-500/10"
+                        : "border-slate-800 bg-slate-900/40 hover:border-emerald-500/40"
+                    }`}
+                  >
+                    {contenido}
+                  </button>
                 </li>
               );
             })}
@@ -161,8 +228,7 @@ export default function EstablecimientosAnexos({ ruc }: { ruc: string | null }) 
 
           <p className="mt-4 flex items-start gap-2 text-[11px] leading-5 text-slate-500">
             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            Referencial. El trámite se inicia por el domicilio fiscal; cada local
-            necesita su propia licencia (Ley 28976).
+            Cada local necesita su propia licencia (Ley 28976).
           </p>
         </>
       )}

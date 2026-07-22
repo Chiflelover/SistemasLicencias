@@ -143,6 +143,9 @@ export class ApplicationService {
     legalName: string;
     ruc: string;
     fiscalAddress: string;
+    // Local para el que se pide la licencia. La ruta lo resuelve contra los
+    // anexos del RUC; si no se eligió ninguno, es el domicilio fiscal.
+    commercialAddress?: string;
     activityType?: string;
     contactEmail?: string;
     representativeDni?: string;
@@ -156,6 +159,7 @@ export class ApplicationService {
       legalName: params.legalName,
       ruc: params.ruc,
       fiscalAddress: params.fiscalAddress,
+      commercialAddress: params.commercialAddress,
       activityType: params.activityType,
       representativeDni: params.representativeDni,
       representativeName: params.representativeName,
@@ -240,6 +244,8 @@ export class ApplicationService {
     representativeRole?: string;
     activityType?: string;
     email: string;
+    /** Local para el que se pide la licencia. Sin esto, el domicilio fiscal. */
+    commercialAddress?: string;
   }): Promise<{ application: Application; business: Business }> {
     const now = await getCurrentSystemDate();
 
@@ -250,6 +256,7 @@ export class ApplicationService {
       legalName: params.legalName,
       ruc: params.ruc,
       fiscalAddress: params.fiscalAddress,
+      commercialAddress: params.commercialAddress,
       activityType: params.activityType,
       representativeName: params.representativeName,
       representativeDni: params.representativeDni,
