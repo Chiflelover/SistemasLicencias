@@ -11,6 +11,7 @@ import {
   DollarSign,
   FileText,
   Loader2,
+  Receipt,
   Smartphone,
 } from "lucide-react";
 
@@ -437,6 +438,19 @@ export default function CajeroPagoPage() {
           >
             <FileText className="w-4 h-4" />
             Descargar factura
+          </a>
+
+          {/* El documento que en la realidad entrega una municipalidad por una
+              tasa: el derecho de trámite no obliga a emitir comprobante de pago
+              (ver src/lib/receipt.ts). Va en segundo plano y no escondido: la
+              factura es la principal, como se pidió, pero el sistema emite las
+              dos y eso conviene que se vea. */}
+          <a
+            href={`/api/cajero/pago/${comprobante.id}/recibo`}
+            className="mt-3 flex items-center gap-1.5 text-xs text-emerald-300/60 hover:text-emerald-200 transition"
+          >
+            <Receipt className="h-3.5 w-3.5" />
+            Descargar recibo de caja
           </a>
         </div>
       )}
