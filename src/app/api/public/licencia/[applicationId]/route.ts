@@ -11,9 +11,18 @@ export const dynamic = "force-dynamic";
  * Sin sesión a propósito: el titular del flujo público y el del presencial no
  * pueden iniciar sesión (su passwordHash es un literal inutilizable), así que
  * la ruta autenticada les es inalcanzable y quedaban sin forma de obtener su
- * propia licencia. La licencia de funcionamiento además es un documento
- * público —la Ley 28976 obliga a exhibirla en el local— y la consulta pública
- * ya muestra razón social, RUC, dirección y número de licencia.
+ * propia licencia.
+ *
+ * Que el contenido sea público lo confirmó el profesor, y se sostiene solo: el
+ * negocio está obligado a exhibir la licencia en el local a la vista de
+ * cualquiera, así que es difícil sostener que sea reservada, y la consulta
+ * pública ya muestra razón social, RUC, dirección y número de licencia.
+ *
+ * **Esa obligación NO sale de la Ley 28976**, como decía antes este comentario.
+ * Su art. 16 solo obliga a la *municipalidad* a exhibir el plano de
+ * zonificación, el índice de usos y la estructura de costos. La del negocio
+ * viene de la Ley Orgánica de Municipalidades (27972) y de las ordenanzas de
+ * cada municipalidad.
  */
 export async function GET(
   _request: Request,

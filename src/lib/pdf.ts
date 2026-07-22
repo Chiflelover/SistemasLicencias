@@ -19,6 +19,109 @@ interface LicenseData {
 /** Texto de relleno que guardan los flujos que no relevan al representante. */
 const SIN_DATO = "No registrado";
 
+// ── DATO FIJO DE LA DEMOSTRACIÓN ────────────────────────────────────────────
+// Cambiar el número y listo:
+//
+//   const AREA_ESTABLECIMIENTO = "85.00 m²";
+//
+// El área del local es un dato con peso real —según el TUO de la Ley 28976
+// decide si el establecimiento es "módulo" (hasta 100 m²) o "puesto" (hasta
+// 35 m², sin ITSE previa)— pero **el sistema no lo releva en ningún punto de
+// alta**: no está en el formulario público, ni en el registro presencial, ni
+// en `Business`. Pedirlo de verdad sería una migración más dos formularios.
+//
+// Va fijo por decisión del usuario, con el mismo criterio que el profesor
+// aceptó para los documentos ("suban una foto cualquiera, es para la
+// demostración"). Consecuencia a tener presente: **todas las licencias salen
+// con el mismo número**, así que dos licencias puestas lado a lado lo muestran.
+const AREA_ESTABLECIMIENTO = "120.00 m²";
+
+// ── DATO FIJO DE LA DEMOSTRACIÓN ────────────────────────────────────────────
+// En la realidad el nivel de riesgo sale de la matriz del Reglamento de
+// Inspecciones Técnicas de Seguridad y depende del área, el aforo y la
+// actividad. Con el área fija daría siempre lo mismo, así que se deja escrito.
+const NIVEL_DE_RIESGO = "Bajo";
+
+/**
+ * Zonificaciones y las palabras que las delatan en el giro declarado.
+ *
+ * **Es una aproximación para la demostración, no la regla real.** La
+ * zonificación es un dato del *terreno* y sale del plano de zonificación
+ * municipal; la compatibilidad con el giro la evalúa la municipalidad contra
+ * su Índice de Usos (TUO de la Ley 28976, arts. 2 y 6). No existe fuente
+ * pública consultable, así que acá se infiere del rubro para que la licencia
+ * se lea coherente: una bodega sale comercio vecinal y una universidad sale
+ * educación, en vez de repetir siempre el mismo valor.
+ *
+ * El orden importa: se recorre de la familia más específica a la más general,
+ * porque "panificadora industrial" tiene que caer en industria y no en
+ * panadería.
+ *
+ * **Solo van palabras inequívocas.** Ante una que pueda ir en dos familias
+ * —"laboratorio" es clínico o químico según el caso— se prefiere no ponerla y
+ * dejar que caiga en el texto de abajo. Es lo mismo que decidió el usuario para
+ * el caso sin coincidencia: mejor decir de dónde sale el dato que inventarlo.
+ */
+const ZONIFICACIONES: Array<{ codigo: string; nombre: string; claves: string[] }> = [
+  {
+    codigo: "E",
+    nombre: "Educación",
+    claves: ["educa", "universi", "colegio", "nido", "instituto", "academia", "escuela"],
+  },
+  {
+    codigo: "H",
+    nombre: "Salud",
+    claves: ["hospital", "clinic", "salud", "consultorio", "posta medica"],
+  },
+  {
+    codigo: "I2",
+    nombre: "Industria Liviana",
+    claves: [
+      "taller", "fabrica", "industri", "planta", "almacen", "deposito",
+      "metal", "carpinter", "fundic", "manufactur",
+    ],
+  },
+  {
+    codigo: "CM",
+    nombre: "Comercio Metropolitano",
+    claves: ["discoteca", "hotel", "cine", "centro comercial", "casino"],
+  },
+  {
+    codigo: "CZ",
+    nombre: "Comercio Zonal",
+    claves: ["restauran", "banco", "gimnasio", "minimarket", "supermercado", "oficina", "agencia"],
+  },
+  {
+    codigo: "CV",
+    nombre: "Comercio Vecinal",
+    claves: ["bodega", "abarrote", "peluquer", "panader", "farmacia", "botica", "bazar", "librer", "ferreter"],
+  },
+];
+
+/**
+ * Zonificación deducida del giro, o de dónde sale si no se puede deducir.
+ *
+ * **Sin coincidencia devuelve "Según plano municipal"**, y es deliberado: el
+ * plano que se sube en la demostración es una foto cualquiera, así que afirmar
+ * una zonificación concreta sacada de la nada sería decir de más. Decir de
+ * dónde sale el dato es más defendible que inventarlo, y nunca deja la licencia
+ * con un campo vacío.
+ */
+function deducirZonificacion(giro: string): string {
+  const limpio = (giro || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+
+  for (const zona of ZONIFICACIONES) {
+    if (zona.claves.some((clave) => limpio.includes(clave))) {
+      return `${zona.nombre} (${zona.codigo})`;
+    }
+  }
+
+  return "Según plano municipal";
+}
+
 /**
  * Arma la línea del representante con lo que haya.
  *
@@ -98,7 +201,10 @@ export async function generateLicensePdf(data: LicenseData): Promise<Uint8Array>
     ["RUC:", data.ruc],
     ["Domicilio Fiscal:", data.fiscalAddress],
     ["Dirección del Establecimiento:", data.commercialAddress],
+    ["Área del Establecimiento:", AREA_ESTABLECIMIENTO],
     ["Giro o Actividad Comercial:", data.activityType],
+    ["Zonificación:", deducirZonificacion(data.activityType)],
+    ["Nivel de Riesgo:", NIVEL_DE_RIESGO],
     ["Titular / Representante Legal:", formatRepresentative(data)],
     ["Fecha de Emisión:", formatDate(data.issuedAt)],
     ["Fecha de Vencimiento:", formatDate(data.expiresAt)],
