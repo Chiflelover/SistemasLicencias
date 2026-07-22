@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import DocumentosDelTramite from "@/components/DocumentosDelTramite";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -35,7 +36,7 @@ interface ApplicationRow {
   number: string;
   status: string;
   business: { legalName: string; ruc: string };
-  documents: Array<{ id: string; type: string }>;
+  documents: Array<{ id: string; type: string; name: string }>;
   payments: Array<{ id: string; operationNumber: string }>;
 }
 
@@ -797,7 +798,9 @@ export default function CajeroPagoPage() {
             Trámites pendientes de cobro
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Solo los que registraste tú y ya tienen la documentación completa.
+            Los que tienes asignados y las licencias vencidas por renovar. Si el
+            contribuyente empezó por la web, consulta su RUC en Registrar
+            solicitud presencial para revisarlo y continuarlo.
           </p>
         </div>
 
@@ -848,6 +851,17 @@ export default function CajeroPagoPage() {
                         <AlertTriangle className="w-3.5 h-3.5" />
                         Faltan el plano del local o los certificados
                       </p>
+                    )}
+
+                    {/* El cajero abre los archivos y se los muestra al
+                        contribuyente antes de cobrarle. En la renovación no va:
+                        esos documentos tienen su propia pantalla. */}
+                    {application.status === "PENDING_PAYMENT" && (
+                      <DocumentosDelTramite
+                        applicationId={application.id}
+                        documentos={application.documents}
+                        onReemplazado={cargarSolicitudes}
+                      />
                     )}
                   </div>
 

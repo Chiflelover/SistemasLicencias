@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { checkRucEligibility } from "@/lib/ruc-eligibility";
 import EstablecimientosAnexos from "@/components/EstablecimientosAnexos";
+import DocumentosDelTramite from "@/components/DocumentosDelTramite";
 import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
+  FileText,
   FileUp,
   Loader2,
   Search,
@@ -32,6 +34,20 @@ type SunatData = {
   provincia?: string;
   departamento?: string;
   tramiteExistente?: TramiteExistente | null;
+};
+
+/** Trámite del mismo RUC que todavía se está armando, para retomarlo. */
+type TramiteEnCurso = {
+  id: string;
+  number: string;
+  status: string;
+  origen: "WEB" | "VENTANILLA";
+  contactEmail: string;
+  activityType: string;
+  representativeName: string;
+  representativeDni: string;
+  representativeRole: string;
+  documents: Array<{ id: string; type: string; name: string }>;
 };
 
 const ETIQUETAS_ESTADO: Record<string, string> = {
@@ -71,7 +87,6 @@ const CAMPOS_INICIALES = {
   representativeRole: "Representante Legal",
   activityType: "",
   email: "",
-  phone: "",
 };
 
 export default function RegistroPresencialPage() {
@@ -80,6 +95,13 @@ export default function RegistroPresencialPage() {
   const [campos, setCampos] = useState(CAMPOS_INICIALES);
   const [plano, setPlano] = useState<File | null>(null);
   const [certificados, setCertificados] = useState<File | null>(null);
+
+  // Trámite a medio armar que ya existía para ese RUC. Si hay uno, la pantalla
+  // deja de ser un alta y pasa a ser "retomar": los datos vienen cargados y los
+  // archivos ya subidos no se vuelven a pedir.
+  const [tramiteEnCurso, setTramiteEnCurso] = useState<TramiteEnCurso | null>(
+    null
+  );
 
   const [buscandoRuc, setBuscandoRuc] = useState(false);
   const [buscandoDni, setBuscandoDni] = useState(false);
@@ -98,13 +120,21 @@ export default function RegistroPresencialPage() {
   const tramiteExistente = sunat?.tramiteExistente ?? null;
 
   // El cajero no puede registrar lo que el sistema rechazaría igual, ni abrir
-  // un segundo trámite para un RUC que ya tiene uno en curso.
+  // un segundo trámite para un RUC que ya tiene uno en curso. La excepción es
+  // el trámite que todavía se está armando: ese no se duplica, se retoma.
   const puedeRegistrar =
     Boolean(sunat) &&
     elegibilidad.elegible &&
     enJurisdiccion &&
-    !tramiteExistente &&
+    (!tramiteExistente || Boolean(tramiteEnCurso)) &&
     campos.activityType.trim().length >= 3;
+
+  const tienePlanoSubido = Boolean(
+    tramiteEnCurso?.documents.some((d) => d.type === "FLOOR_PLAN")
+  );
+  const tieneFichaSubida = Boolean(
+    tramiteEnCurso?.documents.some((d) => d.type === "RUC_RECORD")
+  );
 
   const actualizar = (campo: keyof typeof CAMPOS_INICIALES, valor: string) => {
     setCampos((previo) => ({ ...previo, [campo]: valor }));
@@ -128,8 +158,8 @@ export default function RegistroPresencialPage() {
   /**
    * Autocompleta el nombre del representante al completar los 8 dígitos.
    *
-   * El correo y el teléfono no vienen del padrón: los releva el cajero, pero
-   * siguen siendo obligatorios.
+   * El correo no viene del padrón: lo releva el cajero y es obligatorio, porque
+   * es por donde se le avisa al administrado.
    */
   const buscarDni = async (dni: string) => {
     const limpio = dni.replace(/\D/g, "");
@@ -190,8 +220,37 @@ export default function RegistroPresencialPage() {
         legalName: data.legalName,
         fiscalAddress: data.fiscalAddress,
       }));
+
+      // Si el RUC ya tiene un trámite a medio armar —el ciudadano empezó por la
+      // web y se quedó sin conexión— se trae lo que declaró para revisarlo con
+      // él en el mostrador. Los campos quedan editables: la gracia es
+      // corregirlos, no solo verlos.
+      const respuestaTramite = await fetch(
+        `/api/cajero/tramite-en-curso?ruc=${cleanRuc}`,
+        { cache: "no-store" }
+      );
+
+      const datosTramite = await respuestaTramite.json();
+      const enCurso = respuestaTramite.ok ? datosTramite.tramite : null;
+
+      setTramiteEnCurso(enCurso);
+
+      if (enCurso) {
+        setCampos((previo) => ({
+          ...previo,
+          activityType: enCurso.activityType || previo.activityType,
+          representativeName:
+            enCurso.representativeName || previo.representativeName,
+          representativeDni:
+            enCurso.representativeDni || previo.representativeDni,
+          representativeRole:
+            enCurso.representativeRole || previo.representativeRole,
+          email: enCurso.contactEmail || previo.email,
+        }));
+      }
     } catch (error: any) {
       setSunat(null);
+      setTramiteEnCurso(null);
       setErrorMessage(error.message);
     } finally {
       setBuscandoRuc(false);
@@ -201,8 +260,12 @@ export default function RegistroPresencialPage() {
   const registrar = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!plano || !certificados) {
-      setErrorMessage("Adjunta el plano del local y los certificados.");
+    // Solo se exigen los que el trámite no tenga ya subidos: al retomar uno
+    // empezado por la web, el archivo que está bien no se vuelve a pedir.
+    if ((!plano && !tienePlanoSubido) || (!certificados && !tieneFichaSubida)) {
+      setErrorMessage(
+        "Adjunta el plano del local y los certificados que falten."
+      );
       return;
     }
 
@@ -217,8 +280,8 @@ export default function RegistroPresencialPage() {
         formData.append(clave, valor);
       });
 
-      formData.append("plano", plano);
-      formData.append("certificados", certificados);
+      if (plano) formData.append("plano", plano);
+      if (certificados) formData.append("certificados", certificados);
 
       const response = await fetch("/api/cajero/registro-presencial", {
         method: "POST",
@@ -232,12 +295,16 @@ export default function RegistroPresencialPage() {
       }
 
       setSuccessMessage(
-        `Solicitud ${data.application.number} registrada. Te llevamos al cobro...`
+        tramiteEnCurso
+          ? `Trámite ${data.application.number} actualizado. Te llevamos al cobro...`
+          : `Solicitud ${data.application.number} registrada. Te llevamos al cobro...`
       );
 
       setCampos(CAMPOS_INICIALES);
       setPlano(null);
       setCertificados(null);
+      setTramiteEnCurso(null);
+      setSunat(null);
       (event.target as HTMLFormElement).reset();
 
       // Al cobro automáticamente. Un instante para que el cajero vea la
@@ -422,7 +489,52 @@ export default function RegistroPresencialPage() {
                 </div>
               </div>
 
-              {tramiteExistente ? (
+              {/* Trámite a medio armar: no es un choque, es el mismo trámite
+                  que se retoma. Los datos ya vienen cargados arriba. */}
+              {tramiteEnCurso ? (
+                <div className="space-y-3 rounded-xl border border-sky-500/40 bg-sky-500/10 p-3 text-sm text-sky-100">
+                  <div className="flex items-start gap-2">
+                    <FileText className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                    <span>
+                      {tramiteEnCurso.origen === "WEB"
+                        ? "Este RUC tiene un trámite iniciado por la web"
+                        : "Este RUC tiene un trámite a medio registrar"}
+                      :{" "}
+                      <strong className="font-mono">
+                        {tramiteEnCurso.number}
+                      </strong>{" "}
+                      ·{" "}
+                      {ETIQUETAS_ESTADO[tramiteEnCurso.status] ??
+                        tramiteEnCurso.status.replaceAll("_", " ")}
+                      .{" "}
+                      <strong className="font-semibold text-white">
+                        Se continúa ese mismo, no se crea otro.
+                      </strong>{" "}
+                      Los datos que declaró están cargados arriba: revísalos con
+                      el contribuyente y corrige lo que haga falta.
+                    </span>
+                  </div>
+
+                  {tramiteEnCurso.documents.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-sky-300/80">
+                        Documentos que ya subió
+                      </p>
+
+                      <DocumentosDelTramite
+                        applicationId={tramiteEnCurso.id}
+                        documentos={tramiteEnCurso.documents}
+                        onReemplazado={() => buscarRuc(campos.ruc)}
+                      />
+
+                      <p className="mt-1 text-xs text-sky-200/70">
+                        Ábrelos y muéstraselos. Los que estén bien no hace falta
+                        volver a adjuntarlos más abajo.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : tramiteExistente ? (
                 <div className="flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
                   <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                   <span>
@@ -510,6 +622,9 @@ export default function RegistroPresencialPage() {
               />
             </div>
 
+            {/* No se pide teléfono: el sistema no manda nada por ahí. Los
+                avisos al administrado van por correo y el WhatsApp está
+                reservado a la agenda del inspector, contra un número fijo. */}
             <div>
               <label className={labelClass}>Correo electrónico</label>
               <input
@@ -521,21 +636,6 @@ export default function RegistroPresencialPage() {
                 className={inputClass}
               />
             </div>
-
-            <div>
-              <label className={labelClass}>Teléfono</label>
-              <input
-                value={campos.phone}
-                onChange={(e) =>
-                  actualizar("phone", e.target.value.replace(/\D/g, "").slice(0, 9))
-                }
-                required
-                maxLength={9}
-                placeholder="987654321"
-                inputMode="tel"
-                className={inputClass}
-              />
-            </div>
           </div>
         </section>
 
@@ -544,24 +644,40 @@ export default function RegistroPresencialPage() {
             Documentos requeridos
           </h2>
 
+          {/* `required` sale del input cuando el trámite ya trae ese archivo:
+              si no, el navegador frena el envío pidiendo algo que ya está. */}
           <div>
-            <label className={labelClass}>Plano del local</label>
+            <label className={labelClass}>
+              Plano del local
+              {tienePlanoSubido && (
+                <span className="ml-2 font-normal normal-case text-sky-300">
+                  ya subido — adjunta solo si hay que reemplazarlo
+                </span>
+              )}
+            </label>
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
               onChange={(e) => setPlano(e.target.files?.[0] || null)}
-              required
+              required={!tienePlanoSubido}
               className="w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-800 file:text-slate-200 file:text-xs file:font-bold hover:file:bg-slate-700 cursor-pointer"
             />
           </div>
 
           <div>
-            <label className={labelClass}>Certificados</label>
+            <label className={labelClass}>
+              Certificados
+              {tieneFichaSubida && (
+                <span className="ml-2 font-normal normal-case text-sky-300">
+                  ya subidos — adjunta solo si hay que reemplazarlos
+                </span>
+              )}
+            </label>
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
               onChange={(e) => setCertificados(e.target.files?.[0] || null)}
-              required
+              required={!tieneFichaSubida}
               className="w-full text-sm text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-800 file:text-slate-200 file:text-xs file:font-bold hover:file:bg-slate-700 cursor-pointer"
             />
           </div>
@@ -585,7 +701,9 @@ export default function RegistroPresencialPage() {
           ) : (
             <FileUp className="w-4 h-4" />
           )}
-          Registrar solicitud presencial
+          {tramiteEnCurso
+            ? "Continuar el trámite"
+            : "Registrar solicitud presencial"}
         </button>
       </form>
 

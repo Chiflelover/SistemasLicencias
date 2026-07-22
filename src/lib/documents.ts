@@ -71,6 +71,19 @@ export function isUnderObservation(status: ApplicationStatus): boolean {
   return OBSERVED_UPLOAD_STATUSES.includes(status);
 }
 
+/**
+ * True si el expediente todavía se está armando: se puede reemplazar un
+ * archivo equivocado antes de pagar.
+ *
+ * Se distingue de la subsanación a propósito. Son dos actos distintos: uno
+ * corrige un archivo mal subido, el otro responde a una observación del
+ * inspector — y solo el segundo lleva "subsanado" en el nombre del documento,
+ * que es lo que la consulta pública y el panel del inspector detectan.
+ */
+export function isAssemblingExpedient(status: ApplicationStatus): boolean {
+  return INITIAL_UPLOAD_STATUSES.includes(status);
+}
+
 /** Tipos admitidos en el estado actual. Vacío si la carga está cerrada. */
 export function allowedDocumentTypes(
   status: ApplicationStatus

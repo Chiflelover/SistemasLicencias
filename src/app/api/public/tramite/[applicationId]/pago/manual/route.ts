@@ -153,6 +153,36 @@ export async function POST(
 
     const randomInspector = inspectors[Math.floor(Math.random() * inspectors.length)];
 
+    // ── Reclamo del trámite, antes de escribir nada ─────────────────────────
+    // La comprobación de estado de más arriba es una lectura, y entre esa
+    // lectura y la escritura hay una ventana: si el cajero cobra en el
+    // mostrador en ese mismo instante, los dos ven "pago pendiente" y los dos
+    // siguen. Pasó de verdad: dos pagos de la tasa completa y dos primeras
+    // inspecciones para el mismo trámite.
+    //
+    // Lo decide la base con un update condicional. El que gana se lleva
+    // `count: 1`; el que pierde corta acá, sin `Payment` y sin comprobante
+    // guardado. Va después de las validaciones que pueden rechazar la
+    // petición: reclamar antes dejaría el trámite marcado como pagado por un
+    // pedido que termina en error.
+    const reclamado = await prisma.application.updateMany({
+      where: {
+        id: application.id,
+        status: ApplicationStatus.PENDING_PAYMENT,
+      },
+      data: { status: ApplicationStatus.PAYMENT_COMPLETED },
+    });
+
+    if (reclamado.count === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Este trámite ya fue pagado. Si acabas de pagar en ventanilla, actualiza la página para ver el estado.",
+        },
+        { status: 409 }
+      );
+    }
+
     // 2. Procesar el archivo del comprobante
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
@@ -188,18 +218,16 @@ export async function POST(
       paidAt: now,
     });
 
-    // 4. Cambiar el estado del trámite y programar inspección (o renovación)
+    // 4. Programar la inspección. El estado ya quedó en PAYMENT_COMPLETED con
+    //    el reclamo de más arriba, que es lo que habilita este paso.
     let updatedApplication;
     if (paymentType === PaymentType.INITIAL_APPLICATION) {
-      updatedApplication = await prisma.application.update({
-        where: { id: application.id },
-        data: {
-          status: ApplicationStatus.PAYMENT_COMPLETED,
-        },
-      });
-
-      // Programar la inspección forzando al inspector seleccionado de forma aleatoria
+      // Se fuerza el inspector elegido al azar más arriba.
       await InspectionService.scheduleInspection(application.id, randomInspector.id);
+
+      updatedApplication = await prisma.application.findUnique({
+        where: { id: application.id },
+      });
     } else {
       updatedApplication = await LicenseService.renewLicense(application.id);
     }

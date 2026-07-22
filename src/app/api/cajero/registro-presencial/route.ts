@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/db/prisma";
 import { ApplicationService } from "@/services/application.service";
 import { ApplicationRepository } from "@/repositories/application.repository";
 import { DocumentRepository } from "@/repositories/document.repository";
@@ -9,6 +10,7 @@ import {
   OUT_OF_DISTRICT_MESSAGE,
 } from "@/lib/territory";
 import { checkRucEligibility } from "@/lib/ruc-eligibility";
+import { isAssemblingExpedient } from "@/lib/documents";
 import {
   CAJA_CERRADA_MENSAJE,
   CashSessionService,
@@ -90,7 +92,6 @@ export async function POST(request: Request) {
     const representativeRole = read("representativeRole");
     const activityType = read("activityType");
     const email = read("email").toLowerCase();
-    const phone = read("phone");
 
     if (!/^\d{11}$/.test(ruc)) {
       return NextResponse.json(
@@ -142,12 +143,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!/^\d{9}$/.test(phone)) {
-      return NextResponse.json(
-        { error: "El teléfono debe tener exactamente 9 dígitos." },
-        { status: 400 }
-      );
-    }
+    // El teléfono ya no se pide: el sistema no envía nada por ahí. Al
+    // administrado se le avisa por correo (`contactEmail`) y el WhatsApp está
+    // reservado a la agenda del inspector, que va a un número fijo.
 
     // Regla territorial: el cajero no puede saltearse el filtro de distrito.
     // Sale del caché de RUC, así que normalmente no gasta cuota de APIPERU.
@@ -188,7 +186,12 @@ export async function POST(request: Request) {
     const tramiteExistente =
       await ApplicationService.findBlockingApplicationByRuc(ruc);
 
-    if (tramiteExistente) {
+    // Un trámite que todavía se está armando no bloquea: la ventanilla lo
+    // **retoma**. Es el caso del que empezó por la web y se quedó sin conexión:
+    // el cajero revisa con él lo que declaró, corrige lo que haga falta y sigue
+    // sobre el mismo expediente. Los estados que sí frenan son los de un
+    // trámite ya pagado, observado o con licencia.
+    if (tramiteExistente && !isAssemblingExpedient(tramiteExistente.status)) {
       return NextResponse.json(
         {
           error:
@@ -220,17 +223,32 @@ export async function POST(request: Request) {
     // PENDING_PAYMENT si no hay ninguno. Ver también el `documentsComplete` de
     // src/app/api/public/tramite/[applicationId]/documentos/route.ts, que lista
     // los demás puntos donde se exigen documentos.
-    let planoFile: File;
-    let certificadoFile: File;
+    // Los archivos dejaron de ser obligatorios en la petición: si se está
+    // retomando un trámite que ya los tiene subidos por la web, no hay que
+    // volver a pedirlos. Lo que se exige, más abajo, es que el trámite termine
+    // con los dos —vengan de donde vengan—.
+    let planoFile: File | null = null;
+    let certificadoFile: File | null = null;
 
     try {
-      planoFile = validateFile(formData.get("plano"), "el plano del local");
-      certificadoFile = validateFile(formData.get("certificados"), "los certificados");
+      if (formData.get("plano") instanceof File) {
+        planoFile = validateFile(formData.get("plano"), "el plano del local");
+      }
+
+      if (formData.get("certificados") instanceof File) {
+        certificadoFile = validateFile(
+          formData.get("certificados"),
+          "los certificados"
+        );
+      }
     } catch (fileError: any) {
       return NextResponse.json({ error: fileError.message }, { status: 400 });
     }
 
-    // 1. Alta del negocio, el solicitante y el trámite (queda en DRAFT).
+    // 1. Alta del negocio, el solicitante y el trámite. Si el RUC ya tenía uno
+    //    a medio armar —típicamente empezado por la web— lo adopta en vez de
+    //    crear otro, y le sobrescribe rubro, DNI y correo con lo que el cajero
+    //    acaba de relevar.
     const { application, business } =
       await ApplicationService.registerInPersonApplication({
         cashierId: user.id,
@@ -242,39 +260,92 @@ export async function POST(request: Request) {
         representativeRole,
         activityType,
         email,
-        phone,
       });
+
+    const documentosPrevios = await prisma.document.findMany({
+      where: { applicationId: application.id },
+      select: { type: true },
+    });
+
+    const tienePlano =
+      Boolean(planoFile) ||
+      documentosPrevios.some((d) => d.type === DocumentType.FLOOR_PLAN);
+    const tieneCertificados =
+      Boolean(certificadoFile) ||
+      documentosPrevios.some((d) => d.type === DocumentType.RUC_RECORD);
+
+    // ── PARA HACER LOS DOCUMENTOS OPCIONALES ────────────────────────────────
+    // Este es el bloque que los exige. Para no pedir ninguno, borrarlo entero;
+    // para exigir uno solo, quitar la mitad de la condición. Ver también el
+    // `documentsComplete` de
+    // src/app/api/public/tramite/[applicationId]/documentos/route.ts.
+    if (!tienePlano || !tieneCertificados) {
+      return NextResponse.json(
+        {
+          error: !tienePlano && !tieneCertificados
+            ? "Adjunta el plano del local y los certificados."
+            : !tienePlano
+              ? "Falta el plano del local."
+              : "Faltan los certificados.",
+        },
+        { status: 400 }
+      );
+    }
 
     // 2. Documentos. Se escriben directo con el repositorio, sin pasar por
     //    DocumentService.uploadDocument: ese hace un findById pesado (negocio,
-    //    pagos, inspecciones, licencia) por cada archivo, y acá no hace falta
-    //    —el trámite recién se creó en DRAFT y la carga siempre está permitida
-    //    en ese estado—. Buffers y escrituras van en paralelo.
-    const [planoBuffer, certificadoBuffer] = await Promise.all([
-      planoFile.arrayBuffer(),
-      certificadoFile.arrayBuffer(),
-    ]);
+    //    pagos, inspecciones, licencia) por cada archivo. Buffers y escrituras
+    //    van en paralelo.
+    //
+    //    Un archivo subido acá sobre un trámite que ya lo tenía es un
+    //    reemplazo: se agrega y el viejo queda archivado, igual que en la web.
+    const escrituras: Array<Promise<unknown>> = [];
 
-    await Promise.all([
-      DocumentRepository.create({
-        applicationId: application.id,
-        type: DocumentType.FLOOR_PLAN,
-        name: "Plano del local",
-        fileName: planoFile.name,
-        mimeType: planoFile.type,
-        size: planoFile.size,
-        content: Buffer.from(planoBuffer),
-      }),
-      DocumentRepository.create({
-        applicationId: application.id,
-        type: DocumentType.RUC_RECORD,
-        name: "Certificados",
-        fileName: certificadoFile.name,
-        mimeType: certificadoFile.type,
-        size: certificadoFile.size,
-        content: Buffer.from(certificadoBuffer),
-      }),
-    ]);
+    if (planoFile) {
+      const nombre = documentosPrevios.some(
+        (d) => d.type === DocumentType.FLOOR_PLAN
+      )
+        ? "Plano (reemplazado en ventanilla)"
+        : "Plano del local";
+
+      escrituras.push(
+        planoFile.arrayBuffer().then((buffer) =>
+          DocumentRepository.create({
+            applicationId: application.id,
+            type: DocumentType.FLOOR_PLAN,
+            name: nombre,
+            fileName: planoFile!.name,
+            mimeType: planoFile!.type,
+            size: planoFile!.size,
+            content: Buffer.from(buffer),
+          })
+        )
+      );
+    }
+
+    if (certificadoFile) {
+      const nombre = documentosPrevios.some(
+        (d) => d.type === DocumentType.RUC_RECORD
+      )
+        ? "Ficha RUC (reemplazada en ventanilla)"
+        : "Certificados";
+
+      escrituras.push(
+        certificadoFile.arrayBuffer().then((buffer) =>
+          DocumentRepository.create({
+            applicationId: application.id,
+            type: DocumentType.RUC_RECORD,
+            name: nombre,
+            fileName: certificadoFile!.name,
+            mimeType: certificadoFile!.type,
+            size: certificadoFile!.size,
+            content: Buffer.from(buffer),
+          })
+        )
+      );
+    }
+
+    await Promise.all(escrituras);
 
     // El trámite tiene los dos documentos obligatorios: queda listo para el
     // cobro. Es la transición que DocumentService haría sola en el flujo normal.

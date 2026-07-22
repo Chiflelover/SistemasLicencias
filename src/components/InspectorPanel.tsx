@@ -412,8 +412,15 @@ export function InspectorPanel() {
                 </div>
                 <div className="text-slate-400 text-xs">
                   {details?.application.applicant?.email}
-                  <br />
-                  {details?.application.applicant?.phone}
+                  {/* Ningún punto de alta pide teléfono, así que el campo lleva
+                      el relleno "000000000". Mostrarlo parece un dato roto. */}
+                  {details?.application.applicant?.phone &&
+                    details.application.applicant.phone !== "000000000" && (
+                      <>
+                        <br />
+                        {details.application.applicant.phone}
+                      </>
+                    )}
                 </div>
               </div>
             </div>

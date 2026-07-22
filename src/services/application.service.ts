@@ -4,7 +4,14 @@ import { getCurrentSystemDate } from "@/lib/date";
 import { prisma } from "@/lib/db/prisma";
 import { Application, ApplicationStatus, Business, Role } from "@prisma/client";
 
-/** Estados en los que un trámite sigue vigente y no corresponde crear otro. */
+/**
+ * Estados en los que un trámite sigue vivo y hay que retomarlo en vez de crear
+ * otro.
+ *
+ * Ojo con la diferencia respecto de `BLOCKING_STATUSES`: acá **sí** está
+ * `DRAFT`, porque un borrador es un trámite que se reanuda. Lo que no hace es
+ * bloquear el RUC.
+ */
 export const OPEN_APPLICATION_STATUSES = [
   ApplicationStatus.DRAFT,
   ApplicationStatus.DOCUMENTS_COMPLETE,
@@ -31,18 +38,42 @@ const LICENSED_STATUSES: ApplicationStatus[] = [
   ApplicationStatus.EXPIRED,
 ];
 
+/**
+ * Estados que impiden empezar un trámite nuevo con ese RUC.
+ *
+ * Es `OPEN_APPLICATION_STATUSES` **menos `DRAFT`**, y esa resta es el punto.
+ * Un borrador está vacío: no tiene documentos, ni pago, ni inspección. Lo único
+ * que guarda es el correo y el DNI de quien lo creó, así que si alguien se
+ * equivoca de RUC —o abandona a medio camino— el trámite queda tomando un RUC
+ * ajeno para siempre: no había ninguna pantalla que lo borrara.
+ *
+ * Con el borrador fuera de esta lista, el que llegue después lo reutiliza y lo
+ * pisa con sus propios datos: `findOpenApplication` lo sigue encontrando —por
+ * eso la constante de arriba no se toca— y tanto el flujo público como el
+ * presencial actualizan correo, DNI y rubro al retomarlo. En cuanto sube el
+ * primer par de documentos el trámite deja de ser borrador y el RUC vuelve a
+ * quedar tomado.
+ */
+const BLOCKING_STATUSES: ApplicationStatus[] = [
+  ...OPEN_APPLICATION_STATUSES.filter(
+    (status) => status !== ApplicationStatus.DRAFT
+  ),
+  ...LICENSED_STATUSES,
+];
+
 export class ApplicationService {
   /**
    * Busca por RUC un trámite que impida iniciar uno nuevo.
    *
-   * Devuelve null si el negocio no existe, si nunca tramitó, o si su último
-   * trámite terminó vencido o rechazado en forma definitiva.
+   * Devuelve null si el negocio no existe, si nunca tramitó, si su último
+   * trámite terminó rechazado en forma definitiva o si quedó en borrador
+   * (ver `BLOCKING_STATUSES`).
    */
   static async findBlockingApplicationByRuc(ruc: string) {
     const application = await prisma.application.findFirst({
       where: {
         business: { ruc },
-        status: { in: [...OPEN_APPLICATION_STATUSES, ...LICENSED_STATUSES] },
+        status: { in: BLOCKING_STATUSES },
       },
       select: {
         id: true,
@@ -78,6 +109,25 @@ export class ApplicationService {
     return prisma.application.findFirst({
       where: {
         applicantId,
+        businessId,
+        status: { in: OPEN_APPLICATION_STATUSES },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  /**
+   * Trámite vigente de ese negocio, sea de quien sea la fila del solicitante.
+   *
+   * La ventanilla necesita mirar por negocio y no por solicitante: el trámite
+   * que empezó por la web quedó a nombre del usuario sintético
+   * (`tramite-{ruc}@municipalidad.local`), mientras que acá el solicitante se
+   * busca por el correo que tipea el cajero. Con la versión de arriba no lo
+   * encontraría y abriría un **segundo** trámite para el mismo RUC.
+   */
+  private static async findOpenApplicationByBusiness(businessId: string) {
+    return prisma.application.findFirst({
+      where: {
         businessId,
         status: { in: OPEN_APPLICATION_STATUSES },
       },
@@ -190,10 +240,12 @@ export class ApplicationService {
     representativeRole?: string;
     activityType?: string;
     email: string;
-    phone: string;
   }): Promise<{ application: Application; business: Business }> {
     const now = await getCurrentSystemDate();
 
+    // Sin teléfono: la ventanilla dejó de pedirlo porque el sistema no manda
+    // nada por ahí. `User.phone` y `Business.representativePhone` son NOT NULL,
+    // así que llevan el mismo relleno que ya usa el flujo público.
     const business = await BusinessService.upsertBusinessDetails({
       legalName: params.legalName,
       ruc: params.ruc,
@@ -202,14 +254,12 @@ export class ApplicationService {
       representativeName: params.representativeName,
       representativeDni: params.representativeDni,
       representativeRole: params.representativeRole,
-      representativePhone: params.phone,
     });
 
     const applicant = await prisma.user.upsert({
       where: { email: params.email },
       update: {
         fullName: params.representativeName,
-        phone: params.phone,
         active: true,
       },
       create: {
@@ -218,21 +268,24 @@ export class ApplicationService {
         passwordHash: `presencial-sin-acceso-${params.ruc}`,
         fullName: params.representativeName,
         dni: params.representativeDni || "00000000",
-        phone: params.phone,
+        phone: "000000000",
         role: Role.APPLICANT,
         active: true,
       },
     });
 
-    const existingApplication = await ApplicationService.findOpenApplication(
-      applicant.id,
-      business.id
-    );
+    const existingApplication =
+      await ApplicationService.findOpenApplicationByBusiness(business.id);
 
     if (existingApplication) {
+      // Se adopta el trámite que ya existía —típicamente un borrador que quedó
+      // de un intento por la web— en vez de abrir otro. El solicitante pasa a
+      // ser el que el cajero acaba de relevar: es el que dio la cara en el
+      // mostrador y el correo con el que se le va a avisar.
       const tracked = await prisma.application.update({
         where: { id: existingApplication.id },
         data: {
+          applicantId: applicant.id,
           registeredById: params.cashierId,
           contactEmail: params.email,
         },

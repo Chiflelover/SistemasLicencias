@@ -61,15 +61,21 @@ export class CashService {
     // solicitada todavía no está OPEN, así que tampoco habilita el cobro.
     const turno = await CashSessionService.requireOpenSession(params.cashierId);
 
-    // La renovación es de mostrador y llega cualquiera: el contribuyente va a
-    // la ventanilla que esté libre, y su licencia pudo haber salido del flujo
-    // web, donde `registeredById` es null y ningún cajero podría cobrarla. El
-    // alta presencial sí conserva la restricción: ahí el cajero armó el
-    // expediente y es el que responde por él.
     const isRenewal = application.status === ApplicationStatus.EXPIRED;
 
-    if (!isRenewal && application.registeredById !== params.cashierId) {
-      throw new Error("Solo puedes cobrar trámites que registraste tú.");
+    // El candado es contra el trámite que armó OTRA caja: ese expediente es
+    // suyo y es la que responde por él. Un trámite **sin** cajero
+    // —`registeredById` en null— nació en la web, no tiene dueño y lo cobra el
+    // que esté libre: es el mismo criterio que la renovación. Sin esto, quien
+    // empezó por internet y no pudo pagar quedaba trabado por las dos puntas.
+    if (
+      !isRenewal &&
+      application.registeredById !== null &&
+      application.registeredById !== params.cashierId
+    ) {
+      throw new Error(
+        "Este trámite lo registró otra caja. Solo puede cobrarlo la que lo dio de alta."
+      );
     }
 
     const hasFloorPlan = application.documents.some((d) => d.type === "FLOOR_PLAN");
@@ -201,6 +207,39 @@ export class CashService {
     }
 
     const paidAt = await getCurrentSystemDate();
+
+    // ── Reclamo del trámite, antes de escribir un solo peso ────────────────
+    // Todo lo de arriba es "leer y comprobar", y entre esa lectura y la
+    // escritura hay una ventana: dos cobros simultáneos —la web y la
+    // ventanilla, o dos cajas— leían los dos "pago pendiente" y los dos
+    // seguían. Pasó de verdad: un trámite terminó con dos pagos de la tasa
+    // completa y dos primeras inspecciones agendadas.
+    //
+    // El update condicional lo decide la base y no la aplicación: el que gana
+    // se lleva `count: 1`, el que pierde recibe 0 y corta acá. Mismo truco que
+    // usa `ensureRenewalState` para no mandar dos veces el correo de
+    // vencimiento.
+    //
+    // La renovación se reclama igual, sobre `EXPIRED`: ahí el estado final lo
+    // pone `renewLicense`, así que solo se marca que este cobro es el que va.
+    const reclamado = await prisma.application.updateMany({
+      where: {
+        id: application.id,
+        status: isRenewal
+          ? ApplicationStatus.EXPIRED
+          : ApplicationStatus.PENDING_PAYMENT,
+      },
+      data: isRenewal
+        ? { updatedAt: paidAt }
+        : { status: ApplicationStatus.PAYMENT_COMPLETED, updatedAt: paidAt },
+    });
+
+    if (reclamado.count === 0) {
+      throw new Error(
+        "Este trámite ya fue cobrado. Actualiza la lista antes de volver a intentarlo."
+      );
+    }
+
     // Único comprobante que se emite. El campo se conserva para dejar asentado
     // que el cobro generó comprobante; los pagos anteriores a la factura lo
     // tienen en null.
@@ -246,13 +285,8 @@ export class CashService {
     if (isRenewal) {
       await LicenseService.renewLicense(application.id);
     } else {
-      // PAYMENT_COMPLETED es el estado "pagado" del sistema; desde acá el
-      // trámite queda habilitado para la programación de la inspección.
-      await prisma.application.update({
-        where: { id: application.id },
-        data: { status: ApplicationStatus.PAYMENT_COMPLETED, updatedAt: paidAt },
-      });
-
+      // El estado ya quedó en PAYMENT_COMPLETED con el reclamo de más arriba;
+      // acá solo falta la inspección, que es lo que ese estado habilita.
       await InspectionService.scheduleInspection(application.id);
     }
 

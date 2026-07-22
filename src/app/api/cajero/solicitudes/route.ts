@@ -8,12 +8,22 @@ export const dynamic = "force-dynamic";
 /**
  * Trámites que puede cobrar este cajero.
  *
- * Los que registró él —el alta se hace en /api/cajero/registro-presencial, que
- * releva todos los datos y adjunta la documentación— y **todas las licencias
- * vencidas**, sin importar quién las tramitó: la renovación es de mostrador y
- * el contribuyente llega a la ventanilla que esté libre. Una licencia que salió
- * del flujo web no tiene cajero asociado, así que sin esto no la podría cobrar
- * nadie.
+ * Dos grupos:
+ *
+ * 1. Los que tiene asignados —el alta se hace en /api/cajero/registro-presencial,
+ *    que releva todos los datos y adjunta la documentación—.
+ * 2. **Todas las licencias vencidas**, sin importar quién las tramitó: la
+ *    renovación es de mostrador y el contribuyente llega a la ventanilla que
+ *    esté libre. Una licencia que salió del flujo web no tiene cajero asociado,
+ *    así que sin esto no la podría cobrar nadie. Ahí no hay nada que revisar:
+ *    los datos y los documentos son los del trámite original.
+ *
+ * **El trámite iniciado por la web no entra acá a propósito.** Llega por
+ * "Registrar solicitud presencial": el cajero consulta el RUC, ve lo que el
+ * contribuyente declaró, lo revisa con él y recién ahí el trámite pasa a ser de
+ * su caja y aparece en esta lista. Si se listara solo, se podría cobrar sin
+ * haber mirado de quién es ni qué archivos trae, que es justo donde se cometen
+ * los errores en una ventanilla.
  */
 export async function GET() {
   const user = await getCurrentUser();
@@ -31,7 +41,8 @@ export async function GET() {
     },
     include: {
       business: true,
-      documents: { select: { id: true, type: true } },
+      // El nombre lo usa la pantalla para marcar los que se reemplazaron.
+      documents: { select: { id: true, type: true, name: true } },
       payments: {
         select: { id: true, amount: true, operationNumber: true, paidAt: true },
       },
