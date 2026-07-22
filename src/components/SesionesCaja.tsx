@@ -623,11 +623,14 @@ export default function SesionesCaja() {
         <div className="p-5 border-b border-slate-850 flex items-center gap-2">
           <Wallet className="w-4 h-4 text-slate-400" />
           <h2 className="text-lg font-bold text-white">Historial de cajas</h2>
+          {/* Solo turnos terminados: los vivos están en las tres secciones de
+              arriba, con sus totales al día. */}
+          <span className="text-xs text-slate-500">· turnos cerrados</span>
         </div>
 
         {historial.length === 0 ? (
           <div className="p-8 text-center text-slate-500 text-sm">
-            Todavía no se abrió ninguna caja.
+            Todavía no se cerró ninguna caja.
           </div>
         ) : (
           <div className="overflow-x-auto">

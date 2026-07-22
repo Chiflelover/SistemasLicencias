@@ -641,14 +641,36 @@ export class CashSessionService {
     return reabierta;
   }
 
-  /** Historial de turnos, para el panel del administrador. */
+  /**
+   * Historial de turnos **terminados**, para el panel del administrador.
+   *
+   * Solo `CLOSED` y `REJECTED`. Antes devolvía todos, y un turno abierto salía
+   * con guiones en efectivo, digital y diferencia: esas tres columnas se
+   * escriben recién al cerrar, así que mientras el turno vive valen `null` y la
+   * tabla parecía rota. Peor todavía, el mismo turno ya figuraba más arriba en
+   * *Cajas abiertas* con sus totales en vivo, así que se veía dos veces —una
+   * con los números buenos y otra con guiones—.
+   *
+   * Los turnos vivos tienen sus tres secciones propias: `listPendingOpenings`,
+   * `listPendingCloses` y `listOpenSessions`.
+   *
+   * En una apertura rechazada los guiones **sí** significan algo: es un turno
+   * que nunca llegó a operar.
+   */
   static async listHistory(limit = 30) {
     return prisma.cashSession.findMany({
+      where: {
+        status: {
+          in: [CashSessionStatus.CLOSED, CashSessionStatus.REJECTED],
+        },
+      },
       include: {
         cashier: { select: { fullName: true, email: true } },
         closedBy: { select: { fullName: true } },
       },
-      orderBy: { openedAt: "desc" },
+      // Por cuándo se resolvió, que es el orden en que pasaron las cosas. Un
+      // turno abierto ayer y cerrado hoy va antes que uno abierto hoy.
+      orderBy: { closedAt: "desc" },
       take: limit,
     });
   }
