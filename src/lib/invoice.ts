@@ -36,8 +36,9 @@ export const COMPROBANTE = {
   docCode: "6",
 };
 
-/** El derecho de trámite se cobra con IGV incluido. */
-export const IGV_RATE = 0.18;
+// IGV_RATE y desglosarIgv se eliminaron: el derecho de trámite es una tasa
+// municipal y no está gravado con IGV, así que no hay nada que desglosar. El
+// comprobante lo declara como operación inafecta por el importe completo.
 
 export interface InvoiceData {
   correlativo: number;
@@ -118,14 +119,6 @@ export function importeEnLetras(monto: number): string {
   )}/100 SOLES`;
 }
 
-/** Desglosa un importe que ya incluye IGV. */
-export function desglosarIgv(total: number) {
-  const gravado = Math.round((total / (1 + IGV_RATE)) * 100) / 100;
-  const igv = Math.round((total - gravado) * 100) / 100;
-
-  return { gravado, igv, total };
-}
-
 export function numeroComprobante(correlativo: number): string {
   return `${COMPROBANTE.serie}-${String(correlativo).padStart(8, "0")}`;
 }
@@ -144,7 +137,11 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
 
   const comprobante = COMPROBANTE;
   const numero = numeroComprobante(data.correlativo);
-  const { gravado, igv, total } = desglosarIgv(data.total);
+  // El derecho de trámite es una TASA municipal, o sea un tributo: no está
+  // gravado con IGV. Por eso el importe va entero como operación inafecta y el
+  // impuesto queda en cero, en lugar de partirse en base + 18 %.
+  const total = data.total;
+  const igv = 0;
 
   // El adquirente es siempre la empresa titular del RUC: el derecho de trámite
   // lo paga el negocio, no el representante.
@@ -238,8 +235,10 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   y -= 26;
   texto("1", 55, y);
   texto("Derecho de trámite - Licencia de funcionamiento", 100, y, 8);
-  texto(gravado.toFixed(2), width - 160, y);
-  texto(gravado.toFixed(2), width - 95, y);
+  // Sin desglose: en una operación inafecta el importe es el total, no una
+  // base a la que después se le suma el impuesto.
+  texto(total.toFixed(2), width - 160, y);
+  texto(total.toFixed(2), width - 95, y);
 
   y -= 14;
   texto(`Expediente ${data.applicationNumber}`, 100, y, 7, regular, gris);
@@ -249,8 +248,8 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   y -= 50;
 
   const totales: Array<[string, string, boolean]> = [
-    ["Operaciones gravadas", `S/ ${gravado.toFixed(2)}`, false],
-    [`IGV (${(IGV_RATE * 100).toFixed(0)}%)`, `S/ ${igv.toFixed(2)}`, false],
+    ["Operaciones inafectas", `S/ ${total.toFixed(2)}`, false],
+    ["IGV", `S/ ${igv.toFixed(2)}`, false],
     ["IMPORTE TOTAL", `S/ ${total.toFixed(2)}`, true],
   ];
 
@@ -288,6 +287,18 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   // ── Importe en letras ─────────────────────────────────────────────────────
   y -= 10;
   texto(importeEnLetras(total), 40, y, 9, bold, navy);
+
+  // Motivo de la inafectación, dicho en el documento: sin esto, un comprobante
+  // con IGV en cero parece un error de cálculo y no una regla tributaria.
+  y -= 14;
+  texto(
+    "Operación inafecta al IGV: el derecho de trámite es una tasa municipal.",
+    40,
+    y,
+    7,
+    regular,
+    gris
+  );
 
   // ── Forma de pago ─────────────────────────────────────────────────────────
   // Una sola línea con el método, o el desglose si fue pago mixto.
