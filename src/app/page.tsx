@@ -5,6 +5,7 @@ import {
   Shield,
   ShieldCheck,
   ArrowRight,
+  BookOpen,
   ClipboardCheck,
   Sparkles,
   SearchCheck,
@@ -174,6 +175,24 @@ export default async function HomePage() {
             >
               <FileText className="w-3.5 h-3.5" />
               Soporte TUPA
+            </a>
+
+            {/* El libro de reclamaciones de una entidad pública **no se
+                implementa acá**: el D.S. 007-2020-PCM lo centralizó en la
+                plataforma del Estado y prohíbe que cada entidad arme el suyo
+                en versión digital. Lo que corresponde es enlazarlo.
+
+                Ojo con la URL: `gob.pe/libro-de-reclamaciones` da 404. La
+                plataforma viva es esta, y arranca preguntando en qué entidad
+                ocurrió el hecho. */}
+            <a
+              href="https://reclamos.servicios.gob.pe/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 hover:text-slate-300 transition"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Libro de reclamaciones
             </a>
 
             <Link
