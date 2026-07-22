@@ -81,6 +81,9 @@ export async function GET(
   const formasPago = grupo.map((p) => ({
     method: p.method ? PAYMENT_METHOD_LABELS[p.method] : "No especificado",
     amount: Number(p.amount),
+    // Solo lo tienen los tramos por Yape. Es lo único que distingue dos
+    // operaciones del mismo medio en el comprobante.
+    operacion: p.externalReference,
   }));
 
   // El vuelto vive en la fila de efectivo del grupo, si la hay.

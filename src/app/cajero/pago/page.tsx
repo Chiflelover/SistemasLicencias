@@ -42,7 +42,7 @@ interface Comprobante {
   id: string;
   operationNumber: string;
   total: number;
-  formasPago: Array<{ method: string; amount: number }>;
+  formasPago: Array<{ method: string; amount: number; operacion?: string | null }>;
   paidAt: string;
   applicationNumber: string;
   receivedAmount: number | null;
@@ -61,11 +61,37 @@ export default function CajeroPagoPage() {
   // Tarifa vigente, que fija el administrador.
   const [tarifa, setTarifa] = useState<number>(TARIFA_POR_DEFECTO);
 
-  // Pago mixto: dos métodos cuyos montos suman la tasa. En mixto no hay vuelto.
-  const [mixto, setMixto] = useState(false);
+  /**
+   * Cómo se compone el cobro.
+   *
+   * - `simple`: un solo medio por el importe completo.
+   * - `mixto`: dos medios distintos cuyos montos suman la tasa.
+   * - `yape-multiple`: dos transferencias de Yape, cada una con su código.
+   *
+   * Los dos últimos comparten toda la mecánica —dos tramos que suman exacto y
+   * sin vuelto—, así que se tratan igual salvo por qué medios admiten.
+   */
+  const [modo, setModo] = useState<"simple" | "mixto" | "yape-multiple">("simple");
+  const mixto = modo !== "simple";
+
   const [metodo2, setMetodo2] = useState<string>("YAPE");
   const [monto1, setMonto1] = useState<string>(String(TARIFA_POR_DEFECTO / 2));
   const [monto2, setMonto2] = useState<string>(String(TARIFA_POR_DEFECTO / 2));
+
+  // Código que muestra la app del contribuyente. Obligatorio en cada tramo por
+  // Yape: es lo único que permite conciliar el cobro contra la cuenta.
+  const [operacion1, setOperacion1] = useState("");
+  const [operacion2, setOperacion2] = useState("");
+
+  const elegirModo = (nuevo: "simple" | "mixto" | "yape-multiple") => {
+    setModo(nuevo);
+
+    // Yape múltiple es, por definición, Yape en los dos tramos.
+    if (nuevo === "yape-multiple") {
+      setMetodo("YAPE");
+      setMetodo2("YAPE");
+    }
+  };
 
   // Al llegar la tarifa real se reacomodan los montos propuestos: si no, el
   // mixto arrancaría con una suma que no da y el cajero tendría que corregir
@@ -149,12 +175,7 @@ export default function CajeroPagoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           applicationId: seleccionado.id,
-          formasPago: mixto
-            ? [
-                { method: metodo, amount: Number(monto1) },
-                { method: metodo2, amount: Number(monto2) },
-              ]
-            : [{ method: metodo, amount: tarifa }],
+          formasPago: tramos,
           receivedAmount:
             !mixto && metodo === "EFECTIVO" ? Number(recibido) : undefined,
         }),
@@ -206,12 +227,36 @@ export default function CajeroPagoPage() {
     efectivoEnCaja !== null &&
     Math.round(vuelto * 100) > Math.round(efectivoEnCaja * 100);
 
-  // Validación del pago mixto: dos métodos distintos cuyos montos suman la tasa.
+  /**
+   * Los tramos del cobro, tal como van a viajar al servidor.
+   *
+   * Se arman una sola vez y de acá salen todas las validaciones: así lo que se
+   * comprueba en pantalla y lo que se manda no pueden desincronizarse.
+   */
+  const tramos = mixto
+    ? [
+        { method: metodo, amount: Number(monto1) || 0, operacion: operacion1 },
+        { method: metodo2, amount: Number(monto2) || 0, operacion: operacion2 },
+      ]
+    : [{ method: metodo, amount: tarifa, operacion: operacion1 }];
+
+  // Validación del pago en dos tramos: la suma tiene que dar la tasa exacta.
   const sumaMixto = (Number(monto1) || 0) + (Number(monto2) || 0);
   const sumaMixtoOk = Math.round(sumaMixto * 100) === Math.round(tarifa * 100);
-  const metodosDistintos = metodo !== metodo2;
+
+  // Repetir el medio solo vale para Yape: son dos transferencias distintas.
+  // Dos tramos en efectivo serían un único pago partido sin motivo.
+  const metodosCompatibles =
+    metodo !== metodo2 || (metodo === "YAPE" && metodo2 === "YAPE");
+
+  // Todo tramo por Yape necesita su código de operación, sea el pago simple,
+  // mixto o múltiple.
+  const faltaOperacionYape = tramos.some(
+    (tramo) => tramo.method === "YAPE" && !tramo.operacion.trim()
+  );
+
   const mixtoValido =
-    metodosDistintos &&
+    metodosCompatibles &&
     sumaMixtoOk &&
     Number(monto1) > 0 &&
     Number(monto2) > 0;
@@ -314,18 +359,31 @@ export default function CajeroPagoPage() {
             </div>
             <div>
               <p className="text-emerald-500/70 text-xs uppercase tracking-wider font-bold">
-                {comprobante.formasPago.length > 1 ? "Pago mixto" : "Método"}
+                {comprobante.formasPago.length > 1 ? "Medios de pago" : "Medio"}
               </p>
               {comprobante.formasPago.length > 1 ? (
                 <div className="space-y-0.5">
                   {comprobante.formasPago.map((f, i) => (
                     <p key={i} className="text-white text-sm">
                       {f.method} · S/ {f.amount.toFixed(2)}
+                      {/* Con dos Yapes el monto no alcanza para distinguirlos:
+                          el código de operación es lo único que los separa. */}
+                      {f.operacion && (
+                        <span className="text-emerald-200/70"> · Op. {f.operacion}</span>
+                      )}
                     </p>
                   ))}
                 </div>
               ) : (
-                <p className="text-white">{comprobante.formasPago[0]?.method}</p>
+                <p className="text-white">
+                  {comprobante.formasPago[0]?.method}
+                  {comprobante.formasPago[0]?.operacion && (
+                    <span className="text-emerald-200/70">
+                      {" "}
+                      · Op. {comprobante.formasPago[0].operacion}
+                    </span>
+                  )}
+                </p>
               )}
             </div>
             <div>
@@ -401,34 +459,72 @@ export default function CajeroPagoPage() {
             </span>
           </div>
 
+          {/* Cómo se compone el cobro. Yape múltiple va como opción propia y
+              no escondida dentro del mixto: es el caso que el cajero busca por
+              su nombre cuando el contribuyente pagó en dos transferencias. */}
+          <div>
+            <p className="text-xs uppercase tracking-wider font-bold text-slate-500 mb-3">
+              Forma de cobro
+            </p>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {(
+                [
+                  ["simple", "Pago simple", "Un solo medio"],
+                  ["mixto", "Pago mixto", "2 medios distintos"],
+                  ["yape-multiple", "Yape Múltiple", "2 operaciones de Yape"],
+                ] as const
+              ).map(([valor, titulo, detalle]) => {
+                const activo = modo === valor;
+
+                return (
+                  <button
+                    key={valor}
+                    type="button"
+                    onClick={() => elegirModo(valor)}
+                    className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                      activo
+                        ? "border-amber-400 bg-amber-500/10"
+                        : "border-slate-800 bg-slate-950/50 hover:border-slate-600"
+                    }`}
+                  >
+                    <span
+                      className={`block text-sm font-bold ${
+                        activo ? "text-amber-300" : "text-slate-200"
+                      }`}
+                    >
+                      {titulo}
+                    </span>
+                    <span className="block text-[11px] text-slate-500">
+                      {detalle}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs uppercase tracking-wider font-bold text-slate-500">
-                {mixto ? "Método 1" : "Método de pago"}
+                {mixto ? "Medio 1" : "Medio de pago"}
               </p>
-
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={mixto}
-                  onChange={(e) => setMixto(e.target.checked)}
-                  className="accent-amber-500"
-                />
-                Pago mixto (2 métodos)
-              </label>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {METODOS.map((m) => {
                 const Icono = m.icon;
                 const activo = metodo === m.value;
+                // En Yape múltiple los dos tramos son Yape por definición.
+                const bloqueado = modo === "yape-multiple";
 
                 return (
                   <button
                     key={m.value}
                     type="button"
                     onClick={() => setMetodo(m.value)}
-                    className={`py-3 px-3 rounded-xl text-sm font-bold flex flex-col items-center gap-2 border transition ${
+                    disabled={bloqueado}
+                    className={`py-3 px-3 rounded-xl text-sm font-bold flex flex-col items-center gap-2 border transition disabled:cursor-not-allowed disabled:opacity-40 ${
                       activo
                         ? "bg-amber-500 text-slate-950 border-amber-400"
                         : "bg-slate-950/50 text-slate-300 border-slate-800 hover:border-slate-600"
@@ -441,13 +537,30 @@ export default function CajeroPagoPage() {
               })}
             </div>
 
+            {/* Yape simple: el código va acá, fuera del bloque del mixto. */}
+            {!mixto && metodo === "YAPE" && (
+              <label className="mt-4 block">
+                <span className="text-xs uppercase tracking-wider font-bold text-slate-500">
+                  N° de operación del Yape
+                </span>
+                <input
+                  value={operacion1}
+                  onChange={(e) => setOperacion1(e.target.value)}
+                  placeholder="El código que muestra la app"
+                  className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 font-mono text-slate-100 outline-none focus:border-amber-400"
+                />
+              </label>
+            )}
+
             {/* Pago mixto: monto del método 1, luego el método 2 y su monto.
                 Los dos deben sumar la tasa exacta; no hay vuelto. */}
             {mixto && (
               <div className="mt-4 space-y-4 rounded-xl border border-slate-800 bg-slate-950/50 p-4">
                 <label className="block">
                   <span className="text-xs uppercase tracking-wider font-bold text-slate-500">
-                    Monto en {metodo.toLowerCase()}
+                    {modo === "yape-multiple"
+                      ? "Monto del Yape 1"
+                      : `Monto en ${metodo.toLowerCase()}`}
                   </span>
                   <input
                     value={monto1}
@@ -459,36 +572,55 @@ export default function CajeroPagoPage() {
                   />
                 </label>
 
-                <div>
-                  <p className="text-xs uppercase tracking-wider font-bold text-slate-500 mb-2">
-                    Método 2
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {METODOS.map((m) => {
-                      const Icono = m.icon;
-                      const activo = metodo2 === m.value;
-                      return (
-                        <button
-                          key={m.value}
-                          type="button"
-                          onClick={() => setMetodo2(m.value)}
-                          className={`py-3 px-3 rounded-xl text-sm font-bold flex flex-col items-center gap-2 border transition ${
-                            activo
-                              ? "bg-amber-500 text-slate-950 border-amber-400"
-                              : "bg-slate-950/50 text-slate-300 border-slate-800 hover:border-slate-600"
-                          }`}
-                        >
-                          <Icono className="w-5 h-5" />
-                          {m.label}
-                        </button>
-                      );
-                    })}
+                {metodo === "YAPE" && (
+                  <label className="block">
+                    <span className="text-xs uppercase tracking-wider font-bold text-slate-500">
+                      N° de operación del Yape {modo === "yape-multiple" ? "1" : ""}
+                    </span>
+                    <input
+                      value={operacion1}
+                      onChange={(e) => setOperacion1(e.target.value)}
+                      placeholder="El código que muestra la app"
+                      className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 font-mono text-slate-100 outline-none focus:border-amber-400"
+                    />
+                  </label>
+                )}
+
+                {/* En Yape múltiple el medio 2 no se elige: ya está fijado. */}
+                {modo === "mixto" && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wider font-bold text-slate-500 mb-2">
+                      Medio 2
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {METODOS.map((m) => {
+                        const Icono = m.icon;
+                        const activo = metodo2 === m.value;
+                        return (
+                          <button
+                            key={m.value}
+                            type="button"
+                            onClick={() => setMetodo2(m.value)}
+                            className={`py-3 px-3 rounded-xl text-sm font-bold flex flex-col items-center gap-2 border transition ${
+                              activo
+                                ? "bg-amber-500 text-slate-950 border-amber-400"
+                                : "bg-slate-950/50 text-slate-300 border-slate-800 hover:border-slate-600"
+                            }`}
+                          >
+                            <Icono className="w-5 h-5" />
+                            {m.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <label className="block">
                   <span className="text-xs uppercase tracking-wider font-bold text-slate-500">
-                    Monto en {metodo2.toLowerCase()}
+                    {modo === "yape-multiple"
+                      ? "Monto del Yape 2"
+                      : `Monto en ${metodo2.toLowerCase()}`}
                   </span>
                   <input
                     value={monto2}
@@ -499,6 +631,20 @@ export default function CajeroPagoPage() {
                     className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-slate-100 outline-none focus:border-amber-400"
                   />
                 </label>
+
+                {metodo2 === "YAPE" && (
+                  <label className="block">
+                    <span className="text-xs uppercase tracking-wider font-bold text-slate-500">
+                      N° de operación del Yape {modo === "yape-multiple" ? "2" : ""}
+                    </span>
+                    <input
+                      value={operacion2}
+                      onChange={(e) => setOperacion2(e.target.value)}
+                      placeholder="El código que muestra la app"
+                      className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 font-mono text-slate-100 outline-none focus:border-amber-400"
+                    />
+                  </label>
+                )}
 
                 <div className="flex items-center justify-between rounded-lg bg-slate-900/60 px-4 py-3">
                   <span className="text-sm text-slate-400">Suma</span>
@@ -511,14 +657,19 @@ export default function CajeroPagoPage() {
                   </span>
                 </div>
 
-                {!metodosDistintos && (
+                {!metodosCompatibles && (
                   <p className="text-sm font-semibold text-rose-300">
-                    Los dos métodos deben ser distintos.
+                    Los dos medios deben ser distintos. Solo Yape admite dos
+                    operaciones.
                   </p>
                 )}
-                {metodosDistintos && !sumaMixtoOk && (
+
+                {/* El texto que pidió el profesor. El monto va interpolado
+                    porque la tarifa la cambia el administrador: escribirlo a
+                    mano lo volvería falso en cuanto la toque. */}
+                {metodosCompatibles && !sumaMixtoOk && (
                   <p className="text-sm font-semibold text-rose-300">
-                    Los montos deben sumar exactamente S/{" "}
+                    Monto insuficiente o excedido. El total debe ser S/{" "}
                     {tarifa.toFixed(2)}.
                   </p>
                 )}
@@ -595,6 +746,9 @@ export default function CajeroPagoPage() {
               disabled={
                 cobrando ||
                 cajaAbierta === false ||
+                // Sin el código de operación no se habilita el cobro, en
+                // cualquiera de los tres modos.
+                faltaOperacionYape ||
                 (mixto
                   ? !mixtoValido
                   : metodo === "EFECTIVO" &&

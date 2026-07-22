@@ -36,7 +36,11 @@ export async function POST(request: Request) {
       ? body.formasPago
       : [{ method: body.method, amount: await getTupaAmount() }];
 
-    const formasPago = [] as Array<{ method: any; amount: number }>;
+    const formasPago = [] as Array<{
+      method: any;
+      amount: number;
+      operacion?: string;
+    }>;
 
     for (const forma of formasCrudas) {
       const method = String(forma?.method || "").trim().toUpperCase();
@@ -48,7 +52,11 @@ export async function POST(request: Request) {
         );
       }
 
-      formasPago.push({ method, amount: Number(forma?.amount) });
+      formasPago.push({
+        method,
+        amount: Number(forma?.amount),
+        operacion: String(forma?.operacion || "").trim(),
+      });
     }
 
     // Solo se usa en un pago único en efectivo; el servicio lo ignora si no.
@@ -80,6 +88,7 @@ export async function POST(request: Request) {
         formasPago: pagos.map((p) => ({
           method: p.method,
           amount: Number(p.amount),
+          operacion: p.externalReference,
         })),
         receiptType: payment.receiptType,
         receivedAmount:

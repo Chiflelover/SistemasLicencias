@@ -237,6 +237,14 @@ model Payment {
   // serie del documento, así que no puede decidirse recién al descargarlo.
   receiptType ReceiptType?
 
+  // Código de operación que muestra la app del contribuyente al yapear.
+  //
+  // Va aparte de `operationNumber`, que es el identificador interno de la
+  // municipalidad y es @unique: un código ajeno mal tipeado que chocara con
+  // otro haría fallar el cobro entero. Acá no hay restricción de unicidad
+  // porque el dato lo transcribe una persona mirando un celular.
+  externalReference String?
+
   application  Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   registeredBy User?       @relation("CashierPayments", fields: [registeredById], references: [id], onDelete: SetNull)
 

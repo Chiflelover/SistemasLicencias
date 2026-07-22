@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
+import { createHash } from "crypto";
 
 /**
  * Comprobante de pago del derecho de trámite.
@@ -40,13 +41,37 @@ export const COMPROBANTE = {
 // municipal y no está gravado con IGV, así que no hay nada que desglosar. El
 // comprobante lo declara como operación inafecta por el importe completo.
 
+/**
+ * Resumen (código hash) del comprobante.
+ *
+ * En una emisión real es el digest del XML **firmado**, y por eso acredita que
+ * el documento no se alteró. Acá no hay firma —eso exige certificado digital y
+ * un OSE, los dos de pago—, así que se calcula sobre la cadena que identifica
+ * al comprobante.
+ *
+ * Lo importante es que **no sea aleatorio**: un hash es el mismo mientras el
+ * contenido no cambie. Descargar dos veces la misma factura y obtener códigos
+ * distintos delataría enseguida que es de adorno. Así, en cambio, se comporta
+ * como lo que dice ser: estable por comprobante y distinto en cuanto cambia un
+ * dato.
+ */
+function calcularResumen(contenido: string): string {
+  return createHash("sha256")
+    .update(contenido, "utf8")
+    .digest("base64")
+    // Los resúmenes reales rondan esta longitud; el base64 completo se iría
+    // del ancho de la hoja.
+    .slice(0, 28);
+}
+
 export interface InvoiceData {
   correlativo: number;
   operationNumber: string;
   paidAt: Date;
   total: number;
-  // Una o dos formas de pago (pago mixto). Cada una con su etiqueta y monto.
-  formasPago: Array<{ method: string; amount: number }>;
+  // Una o dos formas de pago (pago mixto, o dos operaciones de Yape). Cada una
+  // con su etiqueta, su monto y —si fue Yape— el código de la operación.
+  formasPago: Array<{ method: string; amount: number; operacion?: string | null }>;
   receivedAmount: number | null;
   changeGiven: number | null;
   applicationNumber: string;
@@ -301,20 +326,45 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   );
 
   // ── Forma de pago ─────────────────────────────────────────────────────────
-  // Una sola línea con el método, o el desglose si fue pago mixto.
+  // "Forma de pago" en SUNAT significa **Contado o Crédito**, y es obligatoria
+  // desde la RS 193-2020 (vigente 1/9/2021). Acá siempre es contado: el cajero
+  // cobra y emite en el mismo acto. Antes esta etiqueta llevaba el medio de
+  // pago, que es otra cosa y va debajo.
   y -= 28;
+  texto("FORMA DE PAGO:", 40, y, 8, bold, gris);
+  texto("Contado", 130, y, 8);
+
+  // El medio no es un requisito del comprobante —la bancarización recién se
+  // exige desde S/ 3,500—, pero se informa igual: al cajero le sirve para
+  // conciliar, y con dos operaciones de Yape es lo único que las distingue.
+  y -= 14;
+  texto("MEDIO DE PAGO:", 40, y, 8, bold, gris);
 
   if (data.formasPago.length <= 1) {
-    texto("FORMA DE PAGO:", 40, y, 8, bold, gris);
-    texto(data.formasPago[0]?.method ?? "No especificado", 130, y, 8);
+    const forma = data.formasPago[0];
+    texto(forma?.method ?? "No especificado", 130, y, 8);
+
+    if (forma?.operacion) {
+      y -= 13;
+      texto(`  Op. ${forma.operacion}`, 40, y, 7, regular, gris);
+    }
   } else {
-    texto("FORMA DE PAGO:", 40, y, 8, bold, gris);
-    texto("Pago mixto", 130, y, 8);
+    // Dos tramos del mismo medio (dos Yapes) o de medios distintos: en los dos
+    // casos se listan uno por línea con su monto y su código.
+    const mismoMedio = data.formasPago.every(
+      (forma) => forma.method === data.formasPago[0].method
+    );
+
+    texto(mismoMedio ? data.formasPago[0].method : "Pago mixto", 130, y, 8);
 
     for (const forma of data.formasPago) {
       y -= 13;
       texto(`  ${forma.method}`, 40, y, 8, regular, gris);
       texto(`S/ ${forma.amount.toFixed(2)}`, 130, y, 8);
+
+      if (forma.operacion) {
+        texto(`Op. ${forma.operacion}`, 200, y, 7, regular, gris);
+      }
     }
   }
 
@@ -347,12 +397,23 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
     adquirente.doc,
   ].join("|");
 
+  // El resumen se calcula sobre esa misma cadena, que es lo que identifica al
+  // comprobante. Ver `calcularResumen` para por qué no es aleatorio.
+  const resumen = calcularResumen(contenidoQr);
+
   const qrDataUrl = await QRCode.toDataURL(contenidoQr, { margin: 1, width: 220 });
   const qrImage = await pdf.embedPng(qrDataUrl);
 
   page.drawImage(qrImage, { x: width - 140, y: 90, width: 100, height: 100 });
 
   // ── Pie ───────────────────────────────────────────────────────────────────
+  // El resumen va impreso y **no** dentro del QR: las fuentes no coinciden en
+  // si el décimo campo corresponde, y un campo de más se ve al escanear
+  // mientras que uno de menos no lo nota nadie. En el pie es correcto según
+  // cualquier lectura de la norma.
+  texto("Resumen (código hash):", 40, 84, 7, bold, gris);
+  texto(resumen, 130, 84, 7, regular, negro);
+
   texto(
     "Representación impresa de la factura electrónica.",
     40,

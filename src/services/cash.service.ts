@@ -38,7 +38,13 @@ export class CashService {
     cashierId: string;
     applicationId: string;
     // Una o dos formas de pago (pago mixto). Sus montos deben sumar la tasa.
-    formasPago: Array<{ method: PaymentMethod; amount: number }>;
+    // `operacion` es el código que muestra la app al yapear: obligatorio en
+    // cada tramo por Yape, ignorado en efectivo.
+    formasPago: Array<{
+      method: PaymentMethod;
+      amount: number;
+      operacion?: string;
+    }>;
     receivedAmount?: number;
   }) {
     const application = await prisma.application.findUnique({
@@ -107,8 +113,29 @@ export class CashService {
       }
     }
 
-    if (formas.length === 2 && formas[0].method === formas[1].method) {
-      throw new Error("En un pago mixto los dos métodos deben ser distintos.");
+    // Repetir el método solo tiene sentido con Yape: son dos transferencias
+    // distintas, cada una con su código de operación. Dos tramos en efectivo
+    // serían un único pago en efectivo partido al pedo.
+    if (
+      formas.length === 2 &&
+      formas[0].method === formas[1].method &&
+      formas[0].method !== PaymentMethod.YAPE
+    ) {
+      throw new Error(
+        "En un pago mixto los dos métodos deben ser distintos. Solo Yape admite dos operaciones."
+      );
+    }
+
+    // El código de operación es lo único que permite conciliar un Yape contra
+    // la cuenta de la municipalidad: sin él, el cobro queda sin respaldo.
+    for (const forma of formas) {
+      if (forma.method !== PaymentMethod.YAPE) continue;
+
+      if (!String(forma.operacion || "").trim()) {
+        throw new Error(
+          "Falta el número de operación del Yape. Es el código que aparece en la app del contribuyente."
+        );
+      }
     }
 
     // La tarifa se lee al cobrar, no al iniciar el trámite: rige la vigente
@@ -122,8 +149,10 @@ export class CashService {
     );
 
     if (totalCentimos !== Math.round(tarifa * 100)) {
+      // El monto va interpolado y no escrito a mano: la tarifa la cambia el
+      // administrador, así que un "S/ 180.00" fijo mentiría en cuanto la toque.
       throw new Error(
-        `Los montos deben sumar exactamente S/ ${tarifa.toFixed(2)}.`
+        `Monto insuficiente o excedido. El total debe ser S/ ${tarifa.toFixed(2)}.`
       );
     }
 
@@ -194,6 +223,11 @@ export class CashService {
           type,
           amount: forma.amount,
           operationNumber,
+          // El código que el contribuyente ve en su app. Solo en Yape.
+          externalReference:
+            forma.method === PaymentMethod.YAPE
+              ? String(forma.operacion || "").trim()
+              : null,
           paidAt,
           method: forma.method,
           registeredById: params.cashierId,
