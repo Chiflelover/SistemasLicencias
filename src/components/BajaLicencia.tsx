@@ -268,9 +268,11 @@ export default function BajaLicencia() {
                   className="mt-1.5 w-full resize-none rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-slate-100 outline-none focus:border-amber-400"
                 />
 
+                {/* No se menciona ningún correo: la baja no manda aviso, porque
+                    el titular la está pidiendo en el mostrador. */}
                 <span className="mt-1 block text-xs text-slate-500">
                   Mínimo {MIN_MOTIVO} caracteres. Queda registrado en la
-                  auditoría y se le informa al administrado por correo.
+                  auditoría.
                 </span>
               </label>
 
