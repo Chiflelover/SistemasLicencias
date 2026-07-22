@@ -443,6 +443,17 @@ model RucCache {
   @@index([fetchedAt])
 }
 
+// Establecimientos anexos del RUC. Va en su propia tabla y no dentro de
+// RucCache porque sale de otro endpoint de APIPERU, con su propio consumo de
+// cuota: mezclarlos obligaría a pedir los dos cada vez que vence uno.
+model RucAnexosCache {
+  ruc       String   @id
+  payload   Json
+  fetchedAt DateTime @default(now())
+
+  @@index([fetchedAt])
+}
+
 // Caché de consultas de DNI a RENIEC (mismo ahorro de cuota que el RUC)
 model DniCache {
   dni       String   @id

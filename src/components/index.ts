@@ -6,3 +6,4 @@ export { default as DevPanel } from "./DevPanel";
 export { default as ManualPaymentForm } from "./ManualPaymentForm";
 export { default as NotificationBell } from "./NotificationBell";
 export { default as AperturaCajaModal } from "./AperturaCajaModal";
+export { default as EstablecimientosAnexos } from "./EstablecimientosAnexos";

@@ -6,9 +6,10 @@ import { Role } from "@prisma/client";
  * Devuelve el sistema al estado inicial de una demostración.
  *
  * Borra todos los datos de negocio y deja en pie lo que hace falta para volver
- * a empezar: las cuentas del personal y el caché de RUC/DNI. El caché se
- * conserva a propósito — no guarda nada de trámites y evita gastar cuota de
- * APIPERU en cada RUC que ya se consultó alguna vez.
+ * a empezar: las cuentas del personal y los cachés de RUC, DNI y
+ * establecimientos anexos. Los cachés se conservan a propósito — no guardan
+ * nada de trámites y evitan gastar cuota de APIPERU en cada RUC que ya se
+ * consultó alguna vez.
  *
  * No es lo mismo que deshacer una simulación. El registro de `SimulationChange`
  * solo anota lo que pasó *mientras* había una corrida abierta, y una corrida se

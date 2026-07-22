@@ -42,8 +42,34 @@ export interface RucBusinessData {
   es_buen_contribuyente: string;
 }
 
+/**
+ * SUNAT devuelve el tipo con su código adelante: "SU. SUCURSAL",
+ * "AL. ALMACEN", "OF. OFICINA ADMINISTRATIVA". Se le saca el código y se deja
+ * en capitular, que es lo que va a leer el ciudadano.
+ */
+function limpiarTipoEstablecimiento(valor: unknown): string {
+  const texto = String(valor || "").trim();
+  if (!texto) return "Establecimiento anexo";
+
+  const sinCodigo = texto.replace(/^[A-Z]{2}\.\s*/, "");
+
+  return sinCodigo.charAt(0) + sinCodigo.slice(1).toLowerCase();
+}
+
+/** Un local declarado en SUNAT además del domicilio fiscal. */
+export interface RucEstablishment {
+  codigo: string;
+  tipo: string;
+  actividad: string;
+  direccion: string;
+  distrito: string;
+  provincia: string;
+  departamento: string;
+}
+
 export class RucService {
   private static API_URL = "https://apiperu.dev/api/ruc";
+  private static ANEXOS_URL = "https://apiperu.dev/api/ruc-establecimientos-anexos";
   private static TOKEN = process.env.APIPERU_TOKEN;
 
   /** Días que una consulta cacheada se considera vigente. */
@@ -156,6 +182,116 @@ export class RucService {
         result.data.es_agente_percepcion_combustible || "NO",
       es_buen_contribuyente: result.data.es_buen_contribuyente || "NO",
     };
+  }
+
+  /**
+   * Locales anexos declarados en SUNAT, además del domicilio fiscal.
+   *
+   * Es información **solo visual**: no entra en ninguna regla de elegibilidad
+   * ni frena un trámite. Por eso nunca lanza — si la API falla, si el plan no
+   * tiene acceso al endpoint o si el token venció, devuelve lista vacía y la
+   * tarjeta simplemente no se dibuja. Una caída de un dato decorativo no puede
+   * tumbar el inicio de un trámite.
+   *
+   * Consume cuota aparte de `/api/ruc`, así que va con su propio caché de 30
+   * días: sin eso, cada RUC costaría dos consultas en vez de una.
+   */
+  static async getEstablishments(ruc: string): Promise<RucEstablishment[]> {
+    if (!/^\d{11}$/.test(ruc) || !isValidRuc(ruc)) {
+      return [];
+    }
+
+    const cached = await this.readAnexosFromCache(ruc);
+    if (cached) {
+      return cached;
+    }
+
+    if (!this.TOKEN) {
+      return [];
+    }
+
+    try {
+      const response = await fetch(this.ANEXOS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.TOKEN}`,
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ ruc }),
+        cache: "no-store",
+      });
+
+      const result = await response.json();
+
+      // PLAN_DENIED cuando el plan no cubre el endpoint. No es un error del
+      // sistema y no tiene por qué verse en pantalla: se anota y se sigue.
+      if (!response.ok || !result?.success || !Array.isArray(result.data)) {
+        console.error(
+          "APIPERU no devolvió establecimientos anexos:",
+          result?.code || response.status,
+          result?.message || ""
+        );
+        return [];
+      }
+
+      const anexos: RucEstablishment[] = result.data.map((item: any) => ({
+        codigo: String(item?.codigo || ""),
+        tipo: limpiarTipoEstablecimiento(item?.tipo_de_establecimiento),
+        // SUNAT la devuelve vacía en la mayoría de los casos.
+        actividad: String(item?.actividad_economica || "").trim(),
+        direccion: String(item?.direccion_completa || item?.direccion || "").trim(),
+        distrito: String(item?.distrito || "").trim(),
+        provincia: String(item?.provincia || "").trim(),
+        departamento: String(item?.departamento || "").trim(),
+      }));
+
+      await this.writeAnexosToCache(ruc, anexos);
+
+      return anexos;
+    } catch (error) {
+      console.error("No se pudieron consultar los establecimientos anexos:", error);
+      return [];
+    }
+  }
+
+  private static async readAnexosFromCache(
+    ruc: string
+  ): Promise<RucEstablishment[] | null> {
+    try {
+      const cached = await prisma.rucAnexosCache.findUnique({ where: { ruc } });
+      if (!cached) {
+        return null;
+      }
+
+      // Fecha real, no la simulada del DevPanel: el vencimiento depende de la
+      // API externa y no del reloj del trámite.
+      const ageInDays =
+        (Date.now() - cached.fetchedAt.getTime()) / (1000 * 60 * 60 * 24);
+
+      if (ageInDays > this.CACHE_TTL_DAYS) {
+        return null;
+      }
+
+      return cached.payload as unknown as RucEstablishment[];
+    } catch {
+      return null;
+    }
+  }
+
+  private static async writeAnexosToCache(
+    ruc: string,
+    anexos: RucEstablishment[]
+  ) {
+    try {
+      await prisma.rucAnexosCache.upsert({
+        where: { ruc },
+        update: { payload: anexos as any, fetchedAt: new Date() },
+        create: { ruc, payload: anexos as any, fetchedAt: new Date() },
+      });
+    } catch {
+      // Sin caché la consulta se repite: cuesta cuota, no rompe nada.
+    }
   }
 
   private static async readFromCache(ruc: string): Promise<RucBusinessData | null> {

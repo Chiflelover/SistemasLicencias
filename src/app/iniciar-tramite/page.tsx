@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { checkRucEligibility } from "@/lib/ruc-eligibility";
+import EstablecimientosAnexos from "@/components/EstablecimientosAnexos";
 import { AlertTriangle, ArrowLeft, Building2, BriefcaseBusiness, CheckCircle2, Loader2, MapPin, Search, ShieldCheck } from "lucide-react";
 
 type TramiteExistente = {
@@ -731,6 +732,10 @@ export default function IniciarTramitePage() {
                 </div>
               )}
             </div>
+
+            {/* Locales del RUC en SUNAT. Solo informativa: no valida nada y si
+                la consulta falla no se dibuja. */}
+            <EstablecimientosAnexos ruc={rucData?.ruc ?? null} />
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-5">

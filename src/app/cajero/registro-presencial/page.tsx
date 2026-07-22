@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { checkRucEligibility } from "@/lib/ruc-eligibility";
+import EstablecimientosAnexos from "@/components/EstablecimientosAnexos";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -11,6 +12,7 @@ import {
   FileUp,
   Loader2,
   Search,
+  Store,
 } from "lucide-react";
 
 type TramiteExistente = {
@@ -254,8 +256,8 @@ export default function RegistroPresencialPage() {
     "block text-xs uppercase tracking-wider font-bold text-slate-500 mb-1.5";
 
   return (
-    <div className="space-y-6 animate-fadeIn max-w-3xl">
-      <div>
+    <div className="space-y-6 animate-fadeIn max-w-6xl">
+      <div className="max-w-3xl">
         <Link
           href="/cajero"
           className="text-sm text-slate-400 hover:text-white inline-flex items-center gap-1.5"
@@ -287,6 +289,10 @@ export default function RegistroPresencialPage() {
         </div>
       )}
 
+      {/* Dos columnas: el formulario a la izquierda y los datos que trae SUNAT
+          al costado. La barra lateral del cajero se come 256px, así que recién
+          en xl hay ancho para separarlas; más abajo se apilan. */}
+      <div className="grid gap-6 items-start xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.85fr)]">
       <form onSubmit={registrar} className="space-y-6">
         <section className="rounded-2xl border border-slate-850 bg-slate-900/40 p-6 space-y-4">
           <h2 className="text-sm font-bold text-white uppercase tracking-wider">
@@ -582,6 +588,29 @@ export default function RegistroPresencialPage() {
           Registrar solicitud presencial
         </button>
       </form>
+
+        {/* Queda a la vista mientras el cajero baja por el formulario: la lista
+            de locales es justo lo que tiene que preguntarle al contribuyente. */}
+        <aside className="space-y-4 xl:sticky xl:top-6">
+          {sunat ? (
+            <EstablecimientosAnexos ruc={sunat.ruc} />
+          ) : (
+            <div className="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-5">
+              <div className="mb-3 flex items-center gap-3 text-amber-300">
+                <Store className="h-5 w-5" />
+                <h3 className="text-sm font-bold text-white">
+                  Establecimientos anexos
+                </h3>
+              </div>
+
+              <p className="text-sm leading-6 text-slate-400">
+                Consulta el RUC y acá van a aparecer los locales que la empresa
+                tiene declarados en SUNAT, además del domicilio fiscal.
+              </p>
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }
