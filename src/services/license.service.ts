@@ -252,11 +252,17 @@ export class LicenseService {
    * El efecto que importa: `CANCELLED` no figura en `OPEN_APPLICATION_STATUSES`
    * ni en `LICENSED_STATUSES`, así que **el RUC queda libre solo**, sin tocar
    * `findBlockingApplicationByRuc`.
+   *
+   * **Exige el DNI del representante del trámite como llave.** Sin eso,
+   * cualquiera que supiera el RUC —que es público— podía presentarse en la
+   * ventanilla y terminar la licencia de otro. Es el mismo criterio que usa la
+   * subsanación pública, que pide el correo registrado.
    */
   static async cancelLicense(params: {
     applicationId: string;
     cashierId: string;
     motivo: string;
+    dni: string;
   }) {
     const motivo = params.motivo.trim();
 
@@ -277,6 +283,27 @@ export class LicenseService {
     if (license.status === LicenseStatus.CANCELLED) {
       throw new Error(
         `La licencia ${license.licenseNumber} ya fue dada de baja.`
+      );
+    }
+
+    // Solo los dígitos: el DNI se transcribe a mano y un espacio de más no
+    // debería frenar una baja legítima.
+    const declarado = (params.dni || "").replace(/\D/g, "");
+    const registrado = (application.business.representativeDni || "").replace(/\D/g, "");
+
+    if (!registrado) {
+      // No debería pasar: los dos puntos de alta exigen el DNI. Si igual
+      // ocurre, se frena en vez de dejar pasar cualquier cosa — una licencia
+      // sin llave es justamente lo que este control viene a impedir.
+      throw new Error(
+        "Este trámite no tiene registrado el DNI del representante, así que no se puede verificar la baja. Deriva el caso al administrador."
+      );
+    }
+
+    if (declarado !== registrado) {
+      // El mensaje NO dice cuál era el correcto: sería regalar la llave.
+      throw new Error(
+        "El DNI no coincide con el del representante legal registrado en el trámite. La baja solo puede pedirla el titular."
       );
     }
 
@@ -313,24 +340,19 @@ export class LicenseService {
         ruc: application.business.ruc,
         estadoPrevio: license.status,
         motivo,
+        // Queda anotado que la llave se verificó, sin guardar el número otra
+        // vez: ya vive en el negocio.
+        dniVerificado: true,
         inspeccionesCanceladas: inopinadasCanceladas.count,
         fecha: ahora.toISOString(),
       },
     });
 
-    // Auxiliar, como el resto de los avisos: la baja ya está hecha y un fallo
-    // del correo no puede deshacerla.
-    try {
-      if (application.contactEmail) {
-        await MailService.notifyLicenseCancelled(
-          application.contactEmail,
-          license.licenseNumber,
-          motivo
-        );
-      }
-    } catch (error) {
-      console.error("No se pudo avisar la baja al administrado:", error);
-    }
+    // **No se manda correo.** Todos los demás avisos del sistema van a alguien
+    // que no está presente —vencimiento, inspección de hoy, observación—, pero
+    // la baja la pide el titular parado frente al cajero: avisarle por correo
+    // de algo que acaba de hacer en persona es ruido. La constancia queda en
+    // AuditLog, que es donde importa.
 
     return {
       licenseNumber: license.licenseNumber,

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { LicenseRepository } from "@/repositories/license.repository";
 import { FineService } from "@/services/fine.service";
 import { FineRegistrationSchema } from "@/lib/validation/fine";
+import { GRAVEDADES, montoDeMulta } from "@/lib/uit";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -43,10 +44,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parseResult.error.flatten() }, { status: 400 });
   }
 
-  const { licenseId, amount, description, observations } = parseResult.data;
+  const { licenseId, gravedad, description, observations } = parseResult.data;
 
   try {
-    const fine = await FineService.createFine(user.id, licenseId, amount, description, observations);
+    // El monto sale de la UIT vigente; la pantalla solo lo muestra. Se guarda
+    // en soles, así que una multa vieja conserva su importe si la UIT sube.
+    const monto = await montoDeMulta(gravedad);
+    const escala = GRAVEDADES.find((g) => g.clave === gravedad);
+
+    const fine = await FineService.createFine(
+      user.id,
+      licenseId,
+      monto,
+      `${description} · ${escala?.nombre} (${escala?.porcentaje}% UIT)`,
+      observations
+    );
     return NextResponse.json({ fine });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });

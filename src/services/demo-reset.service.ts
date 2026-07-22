@@ -52,6 +52,10 @@ export class DemoResetService {
     // DEFAULT_TUPA_AMOUNT.
     await prisma.tarifa.deleteMany();
 
+    // Lo mismo con la UIT, de la que salen los montos de las multas: sin fila
+    // rige DEFAULT_UIT.
+    await prisma.uit.deleteMany();
+
     const borrados = {
       tramites,
       licencias,

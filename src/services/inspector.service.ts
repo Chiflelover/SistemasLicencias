@@ -8,6 +8,12 @@ import { NotificationService } from "@/services/notification.service";
 import { FineService } from "@/services/fine.service";
 import { MailService } from "@/services/mail.service";
 import {
+  GRAVEDADES,
+  esGravedadValida,
+  montoDeMulta,
+  type GravedadMulta,
+} from "@/lib/uit";
+import {
   ApplicationStatus,
   InspectionNumber,
   InspectionResult,
@@ -60,7 +66,7 @@ export class InspectorService {
     action: "approve" | "reject",
     observations?: string,
     paymentInvalid = false,
-    fineAmount?: number
+    fineGravedad?: GravedadMulta
   ) {
     const inspection = await InspectionRepository.findById(inspectionId);
 
@@ -83,13 +89,9 @@ export class InspectorService {
     // Se valida ANTES de marcarla como resuelta: si no, el intento fallido la
     // cerraba igual y el segundo rebotaba con "ya fue revisada", dejando la
     // inspección terminada y sin la multa.
-    if (
-      esInopinada &&
-      action === "reject" &&
-      (!Number.isFinite(fineAmount) || (fineAmount ?? 0) <= 0)
-    ) {
+    if (esInopinada && action === "reject" && !esGravedadValida(fineGravedad)) {
       throw new Error(
-        "Indica el monto de la multa para registrar la observación."
+        "Indica la gravedad de la multa para registrar la observación."
       );
     }
 
@@ -141,11 +143,18 @@ export class InspectorService {
           );
         }
 
+        // El monto se calcula acá con la UIT vigente, no llega del navegador.
+        // Se guarda en soles: si la UIT sube el año que viene, esta multa
+        // conserva el importe que tenía, que es como funciona en la realidad.
+        const gravedad = fineGravedad as GravedadMulta;
+        const monto = await montoDeMulta(gravedad);
+        const escala = GRAVEDADES.find((g) => g.clave === gravedad);
+
         await FineService.createFine(
           inspection.inspectorId,
           licencia.id,
-          fineAmount as number,
-          "Multa por inspección inopinada",
+          monto,
+          `Multa por inspección inopinada · ${escala?.nombre} (${escala?.porcentaje}% UIT)`,
           observations?.trim() || ""
         );
       }

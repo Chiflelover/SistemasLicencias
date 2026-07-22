@@ -393,6 +393,15 @@ model Tarifa {
   updatedAt DateTime @updatedAt
 }
 
+// Valor de la UIT, del que salen los montos de las multas. Cambia por decreto
+// todos los años, así que se configura en vez de vivir en el código. Misma
+// forma que Tarifa: una sola fila, y sin fila rige el valor de fábrica.
+model Uit {
+  id        String   @id @default("singleton")
+  amount    Decimal  @db.Decimal(10, 2)
+  updatedAt DateTime @updatedAt
+}
+
 // ─── Simulación de tiempo (demostración académica) ─────────────────────────────
 
 enum SimulationStatus {

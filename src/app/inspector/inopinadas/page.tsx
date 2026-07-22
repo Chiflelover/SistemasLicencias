@@ -21,7 +21,13 @@ interface LicenseOption {
 export default function InspectorInopinadasPage() {
   const [licenses, setLicenses] = useState<LicenseOption[]>([]);
   const [selectedLicenseId, setSelectedLicenseId] = useState<string>("");
-  const [amount, setAmount] = useState<string>("0");
+
+  // Viaja la gravedad, no el monto: el importe sale de la UIT vigente y la
+  // calcula el servidor. Ver src/lib/uit.ts.
+  const [gravedad, setGravedad] = useState<string>("");
+  const [gravedades, setGravedades] = useState<
+    Array<{ clave: string; nombre: string; porcentaje: number; monto: number }>
+  >([]);
   const [description, setDescription] = useState("");
   const [observations, setObservations] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -49,6 +55,14 @@ export default function InspectorInopinadasPage() {
     };
 
     fetchLicenses();
+
+    fetch("/api/uit", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => setGravedades(data.gravedades || []))
+      .catch(() => {
+        // Sin la escala no se dibujan los botones; el error del servidor
+        // avisa igual si se intenta registrar sin gravedad.
+      });
   }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -63,7 +77,7 @@ export default function InspectorInopinadasPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           licenseId: selectedLicenseId,
-          amount: Number(amount),
+          gravedad,
           description,
           observations,
         }),
@@ -77,7 +91,7 @@ export default function InspectorInopinadasPage() {
       setSuccessMessage("Registro inopinado guardado correctamente.");
       setDescription("");
       setObservations("");
-      setAmount("0");
+      setGravedad("");
     } catch (error) {
       setErrorMessage((error as Error).message);
     } finally {
@@ -124,17 +138,43 @@ export default function InspectorInopinadasPage() {
                 </select>
               </label>
 
-              <label className="space-y-2 text-sm text-slate-300">
-                <span className="font-semibold">Monto de multa (S/)</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-slate-100 outline-none focus:border-amber-500"
-                />
-              </label>
+              <div className="space-y-2 text-sm text-slate-300">
+                <span className="font-semibold">Gravedad de la infracción</span>
+
+                {/* Cuatro tramos y no un monto libre: las multas municipales
+                    se expresan en porcentaje de UIT. El monto lo calcula el
+                    servidor con la UIT vigente. */}
+                <div className="grid grid-cols-2 gap-2">
+                  {gravedades.map((g) => {
+                    const activo = gravedad === g.clave;
+
+                    return (
+                      <button
+                        key={g.clave}
+                        type="button"
+                        onClick={() => setGravedad(g.clave)}
+                        className={`rounded-2xl border px-3 py-2.5 text-left transition ${
+                          activo
+                            ? "border-amber-400 bg-amber-500/10"
+                            : "border-slate-800 bg-slate-950/80 hover:border-slate-600"
+                        }`}
+                      >
+                        <span
+                          className={`block text-sm font-bold ${
+                            activo ? "text-amber-300" : "text-slate-200"
+                          }`}
+                        >
+                          {g.nombre}
+                        </span>
+                        <span className="block text-[11px] text-slate-500">
+                          {g.porcentaje}% UIT · S/{" "}
+                          {g.monto.toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <label className="space-y-2 text-sm text-slate-300">

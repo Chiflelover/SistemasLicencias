@@ -105,7 +105,24 @@ export function InspectorPanel() {
   const [paymentInvalid, setPaymentInvalid] = useState(false);
 
   // Multa de una inspección inopinada: es lo único que produce observarla.
-  const [fineAmount, setFineAmount] = useState("");
+  //
+  // Viaja la gravedad y no el monto. El importe sale de la UIT vigente, que
+  // cambia el administrador: si lo mandara el navegador, un cambio de UIT entre
+  // que se abre la pantalla y se registra la multa dejaría el importe viejo.
+  const [fineGravedad, setFineGravedad] = useState<string>("");
+  const [gravedades, setGravedades] = useState<
+    Array<{ clave: string; nombre: string; porcentaje: number; monto: number }>
+  >([]);
+
+  useEffect(() => {
+    fetch("/api/uit", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => setGravedades(data.gravedades || []))
+      .catch(() => {
+        // Sin la escala no se pueden dibujar los botones, pero el resto de la
+        // pantalla sigue andando: aprobar y observar no dependen de esto.
+      });
+  }, []);
 
   const formatPaymentAmount = (amount: unknown) => {
     if (typeof amount === "number") {
@@ -227,10 +244,8 @@ export function InspectorPanel() {
             !esInopinada &&
             pagoDeclaradoPorElCiudadano &&
             paymentInvalid,
-          fineAmount:
-            action === "reject" && esInopinada
-              ? Number(fineAmount)
-              : undefined,
+          fineGravedad:
+            action === "reject" && esInopinada ? fineGravedad || undefined : undefined,
         }),
       });
       const data = await response.json();
@@ -253,7 +268,7 @@ export function InspectorPanel() {
       setDetails(null);
       setObservations("");
       setPaymentInvalid(false);
-      setFineAmount("");
+      setFineGravedad("");
       setPendingResult("approve");
 
       await loadInspections();
@@ -553,26 +568,53 @@ export function InspectorPanel() {
             {/* Observar una inopinada no frena nada: la licencia sigue
                 vigente y lo único que corresponde es la multa. */}
             {pendingResult === "reject" && esInopinada && (
-              <label className="block rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
+              <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
                 <span className="text-sm font-bold text-white">
-                  Monto de la multa (S/)
+                  Gravedad de la infracción
                 </span>
 
-                <input
-                  value={fineAmount}
-                  onChange={(event) =>
-                    setFineAmount(event.target.value.replace(/[^\d.]/g, ""))
-                  }
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-slate-100 outline-none focus:border-rose-400"
-                />
+                {/* Cuatro botones y no un monto libre: las multas municipales
+                    se expresan en porcentaje de UIT, no en un número cualquiera.
+                    El monto lo calcula el servidor con la UIT vigente; acá solo
+                    se muestra. */}
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {gravedades.map((g) => {
+                    const activo = fineGravedad === g.clave;
 
-                <span className="mt-2 block text-xs text-slate-400">
+                    return (
+                      <button
+                        key={g.clave}
+                        type="button"
+                        onClick={() => setFineGravedad(g.clave)}
+                        className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                          activo
+                            ? "border-rose-400 bg-rose-500/15"
+                            : "border-slate-800 bg-slate-950/50 hover:border-slate-600"
+                        }`}
+                      >
+                        <span
+                          className={`block text-sm font-bold ${
+                            activo ? "text-rose-200" : "text-slate-200"
+                          }`}
+                        >
+                          {g.nombre}
+                        </span>
+                        <span className="block text-[11px] text-slate-500">
+                          {g.porcentaje}% UIT
+                        </span>
+                        <span className="mt-0.5 block text-xs font-bold text-amber-300">
+                          S/ {g.monto.toLocaleString("es-PE", { minimumFractionDigits: 2 })}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <span className="mt-3 block text-xs text-slate-400">
                   La licencia no se da de baja: queda vigente hasta su fecha y
                   la multa se registra contra ella.
                 </span>
-              </label>
+              </div>
             )}
 
             <button

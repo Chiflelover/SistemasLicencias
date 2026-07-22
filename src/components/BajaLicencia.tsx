@@ -48,6 +48,11 @@ export default function BajaLicencia() {
   const [dandoDeBaja, setDandoDeBaja] = useState(false);
   const [exito, setExito] = useState<string | null>(null);
 
+  // Llave de la baja: el DNI del representante del trámite. Lo dicta el
+  // contribuyente en el mostrador y el cajero lo transcribe; la pantalla **no
+  // lo muestra**, porque mostrarlo sería regalar la llave.
+  const [dni, setDni] = useState("");
+
   const buscar = async () => {
     const limpio = ruc.replace(/\D/g, "");
 
@@ -90,7 +95,7 @@ export default function BajaLicencia() {
       const response = await fetch("/api/cajero/baja-licencia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ applicationId: tramite.id, motivo }),
+        body: JSON.stringify({ applicationId: tramite.id, motivo, dni }),
       });
 
       const data = await response.json();
@@ -100,6 +105,7 @@ export default function BajaLicencia() {
       setTramite(null);
       setPuedeDarseDeBaja(false);
       setMotivo("");
+      setDni("");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -223,8 +229,31 @@ export default function BajaLicencia() {
                   <li>· El RUC queda libre para iniciar un trámite nuevo.</li>
                   <li>· Se cancela cualquier inspección que estuviera agendada.</li>
                   <li>· No se cobra nada.</li>
+                  <li>· Solo puede pedirla el titular, con su DNI.</li>
                 </ul>
               </div>
+
+              {/* La llave. Va antes del motivo porque es lo que habilita la
+                  operación: sin el DNI del titular no hay baja posible. */}
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  DNI del representante legal
+                </span>
+
+                <input
+                  value={dni}
+                  onChange={(e) => setDni(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  inputMode="numeric"
+                  placeholder="8 dígitos"
+                  className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 font-mono text-slate-100 outline-none focus:border-amber-400"
+                />
+
+                <span className="mt-1 block text-xs text-slate-500">
+                  Tiene que coincidir con el del trámite. Pídeselo al
+                  contribuyente: es lo que acredita que la baja la pide el
+                  titular.
+                </span>
+              </label>
 
               <label className="block">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -248,7 +277,11 @@ export default function BajaLicencia() {
               <button
                 type="button"
                 onClick={darDeBaja}
-                disabled={dandoDeBaja || motivo.trim().length < MIN_MOTIVO}
+                disabled={
+                  dandoDeBaja ||
+                  dni.length !== 8 ||
+                  motivo.trim().length < MIN_MOTIVO
+                }
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
               >
                 {dandoDeBaja ? (

@@ -115,6 +115,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const applicationId = String(body.applicationId || "").trim();
     const motivo = String(body.motivo || "");
+    const dni = String(body.dni || "").trim();
 
     if (!applicationId) {
       return NextResponse.json(
@@ -123,10 +124,18 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!/^\d{8}$/.test(dni)) {
+      return NextResponse.json(
+        { error: "Ingresa el DNI del representante legal (8 dígitos)." },
+        { status: 400 }
+      );
+    }
+
     const resultado = await LicenseService.cancelLicense({
       applicationId,
       cashierId: user.id,
       motivo,
+      dni,
     });
 
     return NextResponse.json({
