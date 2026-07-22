@@ -252,22 +252,33 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
     color: navy,
   });
 
+  // La unidad de medida es obligatoria en la representación impresa (campo 14
+  // del Anexo I de la RS 123-2022). Se imprime la descripción y no el código
+  // del catálogo 03, con el mismo criterio que el anexo aplica a los demás
+  // campos codificados: el tipo de documento también se sustituye por su
+  // denominación.
+  //
+  // "P. UNIT." y no "V. UNIT.": el obligatorio en la impresa es el precio de
+  // venta unitario (campo 22), no el valor unitario (campo 20). Acá coinciden
+  // porque la operación es inafecta y no hay impuesto que sumar.
   texto("CANT.", 50, y + 2, 8, bold, rgb(1, 1, 1));
-  texto("DESCRIPCIÓN", 100, y + 2, 8, bold, rgb(1, 1, 1));
-  texto("V. UNIT.", width - 160, y + 2, 8, bold, rgb(1, 1, 1));
+  texto("U. MEDIDA", 85, y + 2, 8, bold, rgb(1, 1, 1));
+  texto("DESCRIPCIÓN", 150, y + 2, 8, bold, rgb(1, 1, 1));
+  texto("P. UNIT.", width - 160, y + 2, 8, bold, rgb(1, 1, 1));
   texto("IMPORTE", width - 95, y + 2, 8, bold, rgb(1, 1, 1));
 
   y -= 26;
   texto("1", 55, y);
-  texto("Derecho de trámite - Licencia de funcionamiento", 100, y, 8);
+  texto("SERVICIO", 85, y, 8);
+  texto("Derecho de trámite - Licencia de funcionamiento", 150, y, 8);
   // Sin desglose: en una operación inafecta el importe es el total, no una
   // base a la que después se le suma el impuesto.
   texto(total.toFixed(2), width - 160, y);
   texto(total.toFixed(2), width - 95, y);
 
   y -= 14;
-  texto(`Expediente ${data.applicationNumber}`, 100, y, 7, regular, gris);
-  texto("Tasa TUPA - Ley 28976", 100, y - 11, 7, regular, gris);
+  texto(`Expediente ${data.applicationNumber}`, 150, y, 7, regular, gris);
+  texto("Tasa TUPA - Ley 28976", 150, y - 11, 7, regular, gris);
 
   // ── Totales ───────────────────────────────────────────────────────────────
   y -= 50;
@@ -411,7 +422,9 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   // si el décimo campo corresponde, y un campo de más se ve al escanear
   // mientras que uno de menos no lo nota nadie. En el pie es correcto según
   // cualquier lectura de la norma.
-  texto("Resumen (código hash):", 40, 84, 7, bold, gris);
+  // Etiqueta corta y en mayúsculas, como sus vecinas: la versión larga casi
+  // tocaba el valor en la columna 130.
+  texto("RESUMEN (HASH):", 40, 84, 7, bold, gris);
   texto(resumen, 130, 84, 7, regular, negro);
 
   texto(
