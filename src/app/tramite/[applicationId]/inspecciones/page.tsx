@@ -1,13 +1,8 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { getCurrentSystemDate } from "@/lib/date";
-import {
-  ApplicationStatus,
-  InspectionNumber,
-  InspectionStatus,
-  Role,
-} from "@prisma/client";
+import { InspectionService } from "@/services/inspection.service";
+import { ApplicationStatus, InspectionStatus } from "@prisma/client";
 import { ArrowLeft, BadgeCheck, Building2, CalendarDays, ClipboardCheck, FileCheck2, MapPin, ShieldCheck, UserCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -87,84 +82,68 @@ async function getApplication(applicationId: string) {
   });
 }
 
+/**
+ * Respaldo para un trámite que quedó pagado pero sin inspección agendada.
+ *
+ * No debería pasar, pero pasa: `/api/public/tramite/[id]/pago/manual` asienta
+ * el pago y promueve el estado **antes** de agendar, así que un corte de la
+ * base en el medio deja el trámite pagado y sin visita. Esta pantalla es la
+ * primera que ve el ciudadano después de pagar, así que es donde se completa.
+ *
+ * Agenda con `InspectionService.scheduleInspection`, que es el único agendador
+ * del sistema: respeta las franjas (8, 10, 12 y 15), el día hábil de
+ * anticipación, el reparto entre inspectores y el aviso al inspector. Antes
+ * creaba la inspección a mano **a las 9:00** —una hora que no existe en las
+ * franjas— y se salteaba todo eso.
+ */
 async function ensureInspectionAssigned(applicationId: string) {
   const application = await prisma.application.findUnique({
     where: {
       id: applicationId,
     },
-    include: {
+    select: {
+      status: true,
       inspections: {
         select: {
-          id: true,
           status: true,
-          number: true,
         },
       },
     },
   });
 
-  if (!application) return;
+  if (!application || application.status !== ApplicationStatus.PAYMENT_COMPLETED) {
+    return;
+  }
 
   const hasScheduledInspection = application.inspections.some(
     (inspection) => inspection.status === InspectionStatus.SCHEDULED
   );
 
+  // La visita ya estaba agendada y lo único que faltaba era que el estado lo
+  // reflejara.
   if (hasScheduledInspection) {
-    if (application.status === ApplicationStatus.PAYMENT_COMPLETED) {
-      await prisma.application.update({
-        where: {
-          id: application.id,
-        },
-        data: {
-          status: ApplicationStatus.INSPECTION_SCHEDULED,
-        },
-      });
-    }
+    await prisma.application.update({
+      where: {
+        id: applicationId,
+      },
+      data: {
+        status: ApplicationStatus.INSPECTION_SCHEDULED,
+      },
+    });
 
     return;
   }
 
-  if (application.status !== ApplicationStatus.PAYMENT_COMPLETED) {
-    return;
+  // Nunca puede tumbar la pantalla: sin inspector activo o sin franja libre el
+  // trámite se muestra igual, con el aviso de "pendiente de asignación".
+  try {
+    await InspectionService.scheduleInspection(applicationId);
+  } catch (error: any) {
+    console.error(
+      "No se pudo agendar la inspección pendiente:",
+      error?.message || error
+    );
   }
-
-  const inspector = await prisma.user.findFirst({
-    where: {
-      role: Role.INSPECTOR,
-      active: true,
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-  });
-
-  if (!inspector) {
-    return;
-  }
-
-  const now = await getCurrentSystemDate();
-  const scheduledAt = new Date(now);
-  scheduledAt.setDate(scheduledAt.getDate() + 1);
-  scheduledAt.setHours(9, 0, 0, 0);
-
-  await prisma.inspection.create({
-    data: {
-      applicationId: application.id,
-      inspectorId: inspector.id,
-      number: InspectionNumber.FIRST,
-      status: InspectionStatus.SCHEDULED,
-      scheduledAt,
-    },
-  });
-
-  await prisma.application.update({
-    where: {
-      id: application.id,
-    },
-    data: {
-      status: ApplicationStatus.INSPECTION_SCHEDULED,
-    },
-  });
 }
 
 export default async function PublicInspectionsPage({
@@ -178,20 +157,15 @@ export default async function PublicInspectionsPage({
     notFound();
   }
 
-  if (
-    application.status === ApplicationStatus.PAYMENT_COMPLETED &&
-    application.inspections.length === 0
-  ) {
+  // Acá había dos `if` que hacían lo mismo y, entre los dos, cubrían todos los
+  // casos: cualquier trámite pagado se redirigía **a esta misma URL** para
+  // volver a leerse. Como se llega con `<Link>`, ese redirect lo resolvía el
+  // router en el navegador y el hueco de la página quedaba vacío mientras
+  // tanto —el layout dibujado y el contenido en blanco—. Releer el trámite
+  // hace lo mismo sin el salto.
+  if (application.status === ApplicationStatus.PAYMENT_COMPLETED) {
     await ensureInspectionAssigned(application.id);
-    redirect(`/tramite/${application.id}/inspecciones`);
-  }
-
-  if (
-    application.status === ApplicationStatus.PAYMENT_COMPLETED &&
-    application.inspections.length > 0
-  ) {
-    await ensureInspectionAssigned(application.id);
-    redirect(`/tramite/${application.id}/inspecciones`);
+    application = (await getApplication(params.applicationId)) ?? application;
   }
 
   const hasFloorPlan = application.documents.some(
