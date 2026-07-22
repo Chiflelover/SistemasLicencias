@@ -3,6 +3,7 @@ import { ApplicationRepository } from "@/repositories/application.repository";
 import { LicenseService } from "@/services/license.service";
 import { InspectionService } from "@/services/inspection.service";
 import { getCurrentSystemDate } from "@/lib/date";
+import { vigentes } from "@/lib/documents";
 import { AuditService } from "@/services/audit.service";
 import { NotificationService } from "@/services/notification.service";
 import { FineService } from "@/services/fine.service";
@@ -58,7 +59,19 @@ export class InspectorService {
   }
 
   static async getInspectionDetails(inspectionId: string) {
-    return InspectionRepository.findById(inspectionId);
+    const inspection = await InspectionRepository.findById(inspectionId);
+
+    if (!inspection) return inspection;
+
+    // El inspector revisa el expediente vigente, no la pila de reemplazos: un
+    // plano y una ficha, los últimos. Los anteriores siguen en la base.
+    return {
+      ...inspection,
+      application: {
+        ...inspection.application,
+        documents: vigentes(inspection.application.documents),
+      },
+    };
   }
 
   static async reviewInspection(

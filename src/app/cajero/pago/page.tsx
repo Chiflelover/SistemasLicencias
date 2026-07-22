@@ -31,6 +31,22 @@ const METODOS = [
   { value: "YAPE", label: "Yape", icon: Smartphone },
 ];
 
+/** Largo máximo del código de operación. Ver OPERACION_VALIDA. */
+const OPERACION_MAX = 12;
+
+/**
+ * Código de operación del Yape: solo dígitos, de 6 a 12.
+ *
+ * **Yape no publica el formato** de ese número, así que el rango es una
+ * comprobación de sensatez y no la regla oficial: ataja letras, pegar basura y
+ * largos absurdos, sin arriesgarse a rechazar un código legítimo. Exigir un
+ * largo exacto sería peor — si el número no coincide, la ventanilla no puede
+ * registrar un Yape real. La conciliación de verdad la hace el banco.
+ *
+ * Está repetido en el servidor (`cash.service.ts`), que es el que decide.
+ */
+const OPERACION_VALIDA = /^\d{6,12}$/;
+
 interface ApplicationRow {
   id: string;
   number: string;
@@ -252,9 +268,9 @@ export default function CajeroPagoPage() {
     metodo !== metodo2 || (metodo === "YAPE" && metodo2 === "YAPE");
 
   // Todo tramo por Yape necesita su código de operación, sea el pago simple,
-  // mixto o múltiple.
+  // mixto o múltiple. El formato lo valida también el servidor.
   const faltaOperacionYape = tramos.some(
-    (tramo) => tramo.method === "YAPE" && !tramo.operacion.trim()
+    (tramo) => tramo.method === "YAPE" && !OPERACION_VALIDA.test(tramo.operacion.trim())
   );
 
   const mixtoValido =
@@ -560,10 +576,18 @@ export default function CajeroPagoPage() {
                 </span>
                 <input
                   value={operacion1}
-                  onChange={(e) => setOperacion1(e.target.value)}
-                  placeholder="El código que muestra la app"
+                  onChange={(e) =>
+                    setOperacion1(
+                      e.target.value.replace(/\D/g, "").slice(0, OPERACION_MAX)
+                    )
+                  }
+                  inputMode="numeric"
+                  placeholder="Solo números, entre 6 y 12"
                   className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 font-mono text-slate-100 outline-none focus:border-amber-400"
                 />
+                <span className="mt-1 block text-xs text-slate-500">
+                  El código de la constancia del yapeo.
+                </span>
               </label>
             )}
 
@@ -594,8 +618,13 @@ export default function CajeroPagoPage() {
                     </span>
                     <input
                       value={operacion1}
-                      onChange={(e) => setOperacion1(e.target.value)}
-                      placeholder="El código que muestra la app"
+                      onChange={(e) =>
+                        setOperacion1(
+                          e.target.value.replace(/\D/g, "").slice(0, OPERACION_MAX)
+                        )
+                      }
+                      inputMode="numeric"
+                      placeholder="Solo números, entre 6 y 12"
                       className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 font-mono text-slate-100 outline-none focus:border-amber-400"
                     />
                   </label>
@@ -654,8 +683,13 @@ export default function CajeroPagoPage() {
                     </span>
                     <input
                       value={operacion2}
-                      onChange={(e) => setOperacion2(e.target.value)}
-                      placeholder="El código que muestra la app"
+                      onChange={(e) =>
+                        setOperacion2(
+                          e.target.value.replace(/\D/g, "").slice(0, OPERACION_MAX)
+                        )
+                      }
+                      inputMode="numeric"
+                      placeholder="Solo números, entre 6 y 12"
                       className="mt-1.5 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-2.5 font-mono text-slate-100 outline-none focus:border-amber-400"
                     />
                   </label>

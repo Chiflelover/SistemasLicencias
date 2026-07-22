@@ -157,6 +157,10 @@ export function InspectorPanel() {
     details?.application.payments.some((pago) => !pago.registeredById)
   );
 
+  // Los recorta el servidor (`InspectorService.getInspectionDetails`): llega la
+  // versión vigente de cada tipo, no la pila de reemplazos.
+  const documentosVigentes = details?.application.documents ?? [];
+
   const loadInspections = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -428,8 +432,8 @@ export function InspectorPanel() {
             <div className="rounded-2xl border border-slate-850 bg-slate-950/40 p-4">
               <p className="text-slate-500 uppercase text-[11px] tracking-[0.2em]">Documentos adjuntos</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {details?.application.documents.length ? (
-                  details.application.documents.map((document) => {
+                {documentosVigentes.length ? (
+                  documentosVigentes.map((document) => {
                     // El endpoint de subsanación marca el nombre con
                     // "(subsanado)". Se resalta para que el inspector distinga
                     // el documento corregido del original, que quedan juntos.

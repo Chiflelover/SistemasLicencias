@@ -28,7 +28,12 @@ export class InspectionRepository {
           include: {
             business: true,
             applicant: { select: { id: true, fullName: true, email: true, phone: true } },
-            documents: { select: { id: true, type: true, name: true, fileName: true, mimeType: true, size: true, createdAt: true } },
+            // Orden explícito: la pantalla se queda con el último de cada tipo
+            // y sin `orderBy` el orden de las filas no está garantizado.
+            documents: {
+              select: { id: true, type: true, name: true, fileName: true, mimeType: true, size: true, createdAt: true },
+              orderBy: { createdAt: "asc" },
+            },
             payments: true,
             license: {
               select: {

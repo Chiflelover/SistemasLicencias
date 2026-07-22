@@ -41,8 +41,12 @@ export async function GET() {
     },
     include: {
       business: true,
-      // El nombre lo usa la pantalla para marcar los que se reemplazaron.
-      documents: { select: { id: true, type: true, name: true } },
+      // El nombre lo usa la pantalla para marcar los que se reemplazaron, y el
+      // orden importa: se muestra el último de cada tipo.
+      documents: {
+        select: { id: true, type: true, name: true },
+        orderBy: { createdAt: "asc" },
+      },
       payments: {
         select: { id: true, amount: true, operationNumber: true, paidAt: true },
       },

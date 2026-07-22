@@ -72,6 +72,33 @@ export function isUnderObservation(status: ApplicationStatus): boolean {
 }
 
 /**
+ * Se queda con la versión vigente de cada documento obligatorio.
+ *
+ * El plano y la ficha **se agregan** cuando se reemplazan o se subsanan: el
+ * archivo viejo no se pisa, queda en la base. Para quien tiene que revisar el
+ * expediente —el inspector, el cajero— eso significaba ver dos planos y dos
+ * fichas sin saber cuál mira. Se devuelve el último de cada tipo; los
+ * `ADDITIONAL` (el comprobante de pago) van todos, porque no se reemplazan
+ * entre sí.
+ *
+ * **La lista llega ordenada por `createdAt` ascendente**: sin `orderBy` el
+ * orden de las filas no está garantizado y "el último" no significaría nada.
+ */
+export function vigentes<T extends { type: DocumentType | string }>(
+  documentos: T[]
+): T[] {
+  const ultimoPorTipo = new Map<string, T>();
+  const adicionales: T[] = [];
+
+  for (const documento of documentos) {
+    if (documento.type === DocumentType.ADDITIONAL) adicionales.push(documento);
+    else ultimoPorTipo.set(String(documento.type), documento);
+  }
+
+  return [...ultimoPorTipo.values(), ...adicionales];
+}
+
+/**
  * True si el expediente todavía se está armando: se puede reemplazar un
  * archivo equivocado antes de pagar.
  *

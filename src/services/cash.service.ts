@@ -137,9 +137,22 @@ export class CashService {
     for (const forma of formas) {
       if (forma.method !== PaymentMethod.YAPE) continue;
 
-      if (!String(forma.operacion || "").trim()) {
+      const operacion = String(forma.operacion || "").trim();
+
+      if (!operacion) {
         throw new Error(
           "Falta el número de operación del Yape. Es el código que aparece en la app del contribuyente."
+        );
+      }
+
+      // Yape no publica el formato de ese número, así que esto es una
+      // comprobación de sensatez y no la regla oficial: ataja letras y largos
+      // absurdos sin arriesgarse a rechazar un código legítimo. Exigir un
+      // largo exacto sería peor: dejaría a la ventanilla sin poder registrar
+      // un Yape real. La conciliación de verdad la hace el banco.
+      if (!/^\d{6,12}$/.test(operacion)) {
+        throw new Error(
+          "El número de operación del Yape debe tener entre 6 y 12 dígitos, sin letras ni espacios."
         );
       }
     }
