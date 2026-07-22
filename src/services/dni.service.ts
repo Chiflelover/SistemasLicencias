@@ -24,7 +24,13 @@ export interface DniPersonData {
 }
 
 /**
- * Consulta de DNI en RENIEC a través de APIPERU.
+ * Consulta de DNI contra el **padrón reducido de SUNAT**, vía APIPERU.
+ *
+ * No es RENIEC, aunque se le parezca: es la copia parcial que publica SUNAT.
+ * Devuelve **solo el nombre** —ni dirección, ni fecha de nacimiento, ni sexo— y
+ * **no trae datos de menores de edad**. Esto último importa: un representante
+ * legal menor haría fallar la consulta, y por eso el alta no se frena si la
+ * consulta no resuelve (la licencia imprime solo el número).
  *
  * Sirve para autocompletar el nombre del representante legal en ventanilla,
  * evitando errores de tipeo en un dato que después figura en la licencia.
@@ -89,7 +95,8 @@ export class DniService {
     const materno = result.data.apellido_materno || "";
 
     // Se arma "Nombres Apellidos", que es como se firma un trámite, en lugar
-    // del "Apellidos, Nombres" que devuelve RENIEC.
+    // del "Apellidos, Nombres" que devuelve el padrón. El `fullName` lo
+    // construimos nosotros: la API no lo manda en ese orden.
     const fullName =
       [nombres, paterno, materno].filter(Boolean).join(" ").trim() ||
       result.data.nombre_completo ||

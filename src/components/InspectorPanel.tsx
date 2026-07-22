@@ -29,7 +29,18 @@ interface InspectionDetail {
     business: { legalName: string; ruc: string; commercialAddress: string | null; activityType: string | null };
     applicant: { fullName: string; email: string; phone: string } | null;
     documents: Array<{ id: string; name: string; type: string; fileName: string }>;
-    payments: Array<{ id: string; amount: number; operationNumber: string; status: string; createdAt: string }>;
+    // `registeredById` distingue el origen del cobro: lo llena el cajero que
+    // atendió en ventanilla y queda en null cuando el pago lo declaró el
+    // ciudadano por la web. De eso depende que exista un comprobante que
+    // revisar.
+    payments: Array<{
+      id: string;
+      amount: number;
+      operationNumber: string;
+      status: string;
+      createdAt: string;
+      registeredById: string | null;
+    }>;
   };
 }
 
@@ -116,6 +127,18 @@ export function InspectorPanel() {
   // trámite, solo deja constancia o multa.
   const esInopinada = selectedInspection?.number === "UNANNOUNCED";
 
+  /**
+   * ¿El pago lo declaró el ciudadano por la web?
+   *
+   * Solo entonces existe un comprobante subido que el inspector pueda dar por
+   * inválido. Si lo cobró un cajero, el dinero se recibió en el mostrador y
+   * quedó asentado en su arqueo: no hay papel que revisar y ofrecer la casilla
+   * sería contradictorio. El servidor comprueba lo mismo por su cuenta.
+   */
+  const pagoDeclaradoPorElCiudadano = Boolean(
+    details?.application.payments.some((pago) => !pago.registeredById)
+  );
+
   const loadInspections = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -198,7 +221,11 @@ export function InspectorPanel() {
         body: JSON.stringify({
           action,
           observations,
-          paymentInvalid: action === "reject" && !esInopinada && paymentInvalid,
+          paymentInvalid:
+            action === "reject" &&
+            !esInopinada &&
+            pagoDeclaradoPorElCiudadano &&
+            paymentInvalid,
           fineAmount:
             action === "reject" && esInopinada
               ? Number(fineAmount)
@@ -503,9 +530,11 @@ export function InspectorPanel() {
             </div>
 
             {/* Solo tiene sentido al rechazar: marca que el problema es el
-                pago, no el local, y cierra el trámite en firme. En una
-                inopinada no aplica: esa licencia ya se pagó y está vigente. */}
-            {pendingResult === "reject" && !esInopinada && (
+                pago, no el local, y cierra el trámite en firme. Dos casos donde
+                no aplica: en una inopinada, porque esa licencia ya se pagó y
+                está vigente; y en un cobro de ventanilla, porque no hay ningún
+                comprobante subido que se pueda declarar inválido. */}
+            {pendingResult === "reject" && !esInopinada && pagoDeclaradoPorElCiudadano && (
               <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
                 <input
                   type="checkbox"

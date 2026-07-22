@@ -96,7 +96,7 @@ export class BusinessService {
       fiscalAddress: data.fiscalAddress,
       commercialAddress: data.fiscalAddress,
       activityType: data.activityType || "No registrado",
-      // El relleno solo queda si RENIEC no resolvió el nombre; en ese caso la
+      // El relleno solo queda si el padrón no resolvió el nombre; en ese caso la
       // licencia imprime únicamente el DNI (ver formatRepresentative).
       representativeName: data.representativeName || "No registrado",
       representativeDni: data.representativeDni || "",

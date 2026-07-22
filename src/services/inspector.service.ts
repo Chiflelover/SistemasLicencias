@@ -93,6 +93,22 @@ export class InspectorService {
       );
     }
 
+    // El rechazo por pago inválido supone que hay un comprobante subido por el
+    // ciudadano. Si el cobro lo registró un cajero (`registeredById`), el
+    // dinero se recibió en el mostrador y quedó en su arqueo: no existe papel
+    // que declarar inválido. La pantalla ya esconde la casilla; esto cierra la
+    // puerta a una petición directa, que si no cerraría en firme —y sin
+    // segunda oportunidad— un trámite pagado en ventanilla.
+    const cobradoEnVentanilla =
+      inspection.application.payments.length > 0 &&
+      inspection.application.payments.every((pago) => pago.registeredById);
+
+    if (paymentInvalid && cobradoEnVentanilla) {
+      throw new Error(
+        "Este trámite se pagó en ventanilla: no hay comprobante que declarar inválido. Si el local tiene problemas, regístralo como observación."
+      );
+    }
+
     const result =
       action === "approve"
         ? InspectionResult.APPROVED

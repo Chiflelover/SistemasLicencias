@@ -128,7 +128,7 @@ export default function RegistroPresencialPage() {
   /**
    * Autocompleta el nombre del representante al completar los 8 dígitos.
    *
-   * El correo y el teléfono no vienen de RENIEC: los releva el cajero, pero
+   * El correo y el teléfono no vienen del padrón: los releva el cajero, pero
    * siguen siendo obligatorios.
    */
   const buscarDni = async (dni: string) => {

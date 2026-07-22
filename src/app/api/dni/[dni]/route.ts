@@ -4,7 +4,8 @@ import { DniService } from "@/services/dni.service";
 export const dynamic = "force-dynamic";
 
 /**
- * Consulta de DNI en RENIEC.
+ * Consulta de DNI contra el padrón reducido de SUNAT (no RENIEC: ver
+ * `DniService`). Devuelve solo el nombre.
  *
  * **Sin sesión.** Antes exigía personal, porque devuelve el nombre de una
  * persona a partir de su documento y eso no es información pública como los

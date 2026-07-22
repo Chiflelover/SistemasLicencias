@@ -96,7 +96,7 @@ export class ApplicationService {
     activityType?: string;
     contactEmail?: string;
     representativeDni?: string;
-    // Resuelto contra RENIEC en la ruta, no declarado por el ciudadano: va
+    // Resuelto contra el padrón en la ruta, no declarado por el ciudadano: va
     // impreso en la licencia como titular.
     representativeName?: string;
   }): Promise<{ application: Application; business: Business }> {

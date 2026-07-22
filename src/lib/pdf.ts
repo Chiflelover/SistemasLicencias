@@ -12,7 +12,7 @@ interface LicenseData {
   applicantName: string;
   /** Nombre relevado en ventanilla. El flujo público no lo pide. */
   representativeName?: string;
-  /** Declarado por el ciudadano, sin validar contra RENIEC. */
+  /** Declarado por el ciudadano; el nombre se resuelve aparte, contra el padrón. */
   representativeDni?: string;
 }
 

@@ -68,7 +68,7 @@ export default function IniciarTramitePage() {
   const [correo, setCorreo] = useState("");
   const [dni, setDni] = useState("");
 
-  // Nombre que devuelve RENIEC al completar los 8 dígitos. Es confirmación
+  // Nombre que devuelve el padrón al completar los 8 dígitos. Es confirmación
   // visual: el servidor lo vuelve a consultar y no confía en lo que llegue.
   const [nombreDni, setNombreDni] = useState<string | null>(null);
   const [buscandoDni, setBuscandoDni] = useState(false);
@@ -471,8 +471,8 @@ export default function IniciarTramitePage() {
               </label>
 
               {/* Identifica al titular en la licencia. Al completar los 8
-                  dígitos se consulta RENIEC y se muestra el nombre, igual que
-                  con el RUC. El servidor lo vuelve a resolver por su cuenta:
+                  dígitos se consulta el padrón y se muestra el nombre, igual
+                  que con el RUC. El servidor lo vuelve a resolver por su cuenta:
                   este nombre es solo para que la persona confirme que es
                   quien cree. */}
               <label className="block text-sm text-slate-300">
@@ -509,8 +509,8 @@ export default function IniciarTramitePage() {
                   </p>
                 )}
 
-                {/* No bloquea: si RENIEC no responde, el trámite sigue y la
-                    licencia imprime solo el número. */}
+                {/* No bloquea: si la consulta no resuelve, el trámite sigue y
+                    la licencia imprime solo el número. */}
                 {errorDni && (
                   <p className="mt-2 text-xs text-amber-300">{errorDni}</p>
                 )}

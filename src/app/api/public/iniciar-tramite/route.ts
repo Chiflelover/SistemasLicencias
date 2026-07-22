@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     }
 
     // DNI del representante legal. Se valida el formato acá y el nombre se
-    // resuelve más abajo contra RENIEC: identifica al titular en la licencia,
+    // resuelve más abajo contra el padrón: identifica al titular en la licencia,
     // que si no salía impresa con el usuario sintético del trámite.
     const representativeDni = String(body.representativeDni || "").trim();
 
@@ -126,9 +126,10 @@ export async function POST(request: Request) {
     // cualquier cosa y ese nombre termina impreso en la licencia. La consulta
     // sale del caché, porque el formulario acabó de hacerla.
     //
-    // Si RENIEC no responde, el trámite sigue: el formato ya está validado y
-    // una caída de la API externa no puede frenar un alta. En ese caso la
-    // licencia imprime solo el DNI, como antes.
+    // Si la consulta no resuelve, el trámite sigue: el formato ya está validado
+    // y una caída de la API externa no puede frenar un alta. En ese caso la
+    // licencia imprime solo el DNI, como antes. No es solo por caídas: el
+    // padrón tampoco devuelve datos de menores de edad.
     let representativeName: string | undefined;
 
     try {
