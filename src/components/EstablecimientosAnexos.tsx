@@ -157,9 +157,20 @@ export default function EstablecimientosAnexos({
                 <>
                   <div className="flex items-start justify-between gap-2">
                     {/* Sin `uppercase`: al lado va el distrito en mayúsculas y
-                        los dos gritando se leen peor. */}
+                        los dos gritando se leen peor.
+
+                        El código va acá porque es **lo único** que distingue a
+                        dos anexos: hay RUCs con varios en la misma dirección
+                        exacta, con el mismo tipo y sin actividad declarada —la
+                        UNT tiene tres—. Sin verlo, el que elige no tiene con
+                        qué decidir. */}
                     <p className="text-xs font-bold text-slate-200">
                       {local.tipo}
+                      {local.codigo && (
+                        <span className="ml-1.5 font-mono font-normal text-slate-500">
+                          · {local.codigo}
+                        </span>
+                      )}
                     </p>
 
                     <span
