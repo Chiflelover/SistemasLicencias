@@ -295,7 +295,11 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
 
   y -= 14;
   texto(`Expediente ${data.applicationNumber}`, 150, y, 7, regular, gris);
-  texto("Tasa TUPA - Ley 28976", 150, y - 11, 7, regular, gris);
+  // "Servicio administrativo" y no "Tasa TUPA": la factura va gravada al IGV
+  // (pedido del profesor), y una tasa es inafecta por definición —llamarla tasa
+  // contradecía el impuesto que se cobra—. Un servicio administrativo sí es una
+  // operación gravada. Se conserva la referencia a la Ley 28976.
+  texto("Servicio administrativo - Ley 28976", 150, y - 11, 7, regular, gris);
 
   // ── Totales ───────────────────────────────────────────────────────────────
   y -= 50;
