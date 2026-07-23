@@ -42,7 +42,11 @@ export class LicenseService {
       legalName: application.business.legalName,
       ruc: application.business.ruc,
       fiscalAddress: application.business.fiscalAddress,
-      commercialAddress: application.business.commercialAddress,
+      // El local se lee del TRAMITE (cada licencia tiene el suyo), con respaldo
+      // en Business para trámites viejos que no lo llevan.
+      commercialAddress:
+        application.establishmentAddress ||
+        application.business.commercialAddress,
       activityType: application.business.activityType,
       issuedAt,
       expiresAt,
@@ -198,7 +202,11 @@ export class LicenseService {
       legalName: application.business.legalName,
       ruc: application.business.ruc,
       fiscalAddress: application.business.fiscalAddress,
-      commercialAddress: application.business.commercialAddress,
+      // El local se lee del TRAMITE (cada licencia tiene el suyo), con respaldo
+      // en Business para trámites viejos que no lo llevan.
+      commercialAddress:
+        application.establishmentAddress ||
+        application.business.commercialAddress,
       activityType: application.business.activityType,
       issuedAt: newIssuedAt,
       expiresAt: newExpiresAt,
@@ -250,8 +258,8 @@ export class LicenseService {
    * para recién después poder darla de baja.
    *
    * El efecto que importa: `CANCELLED` no figura en `OPEN_APPLICATION_STATUSES`
-   * ni en `LICENSED_STATUSES`, así que **el RUC queda libre solo**, sin tocar
-   * `findBlockingApplicationByRuc`.
+   * ni en `LICENSED_STATUSES`, así que **el local queda libre solo**, sin tocar
+   * `findBlockingApplication`.
    *
    * **Exige el DNI del representante del trámite como llave.** Sin eso,
    * cualquiera que supiera el RUC —que es público— podía presentarse en la

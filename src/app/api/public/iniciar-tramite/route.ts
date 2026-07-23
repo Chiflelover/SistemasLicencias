@@ -107,6 +107,11 @@ export async function POST(request: Request) {
 
     const commercialAddress = establecimiento?.direccion;
 
+    // Llave del local: el anexo elegido, o el domicilio fiscal si no se eligió.
+    // Siempre concreta. Es lo que distingue un local de otro para el bloqueo.
+    const establishmentAddress =
+      establecimiento?.direccion ?? rucData.fiscalAddress;
+
     // Jurisdicción: la del domicilio fiscal, o la del establecimiento elegido si
     // está en Trujillo. Si ni una ni otra, el trámite es de otro municipio.
     if (
@@ -127,21 +132,24 @@ export async function POST(request: Request) {
       );
     }
 
-    // No se permite abrir un segundo trámite para el mismo RUC mientras haya
-    // uno en curso o una licencia vigente. Se valida acá y no solo en la
-    // pantalla, para que no dependa del navegador.
-    const tramiteExistente =
-      await ApplicationService.findBlockingApplicationByRuc(rucData.ruc);
+    // No se permite abrir un segundo trámite para el **mismo local** mientras
+    // haya uno en curso o una licencia vigente ahí. El bloqueo es por
+    // (RUC + local): otro local del mismo RUC sí puede tramitar. Se valida acá y
+    // no solo en la pantalla, para que no dependa del navegador.
+    const tramiteExistente = await ApplicationService.findBlockingApplication(
+      rucData.ruc,
+      establishmentAddress
+    );
 
     if (tramiteExistente) {
       return NextResponse.json(
         {
           error:
             tramiteExistente.motivo === "EN_PROCESO"
-              ? `El RUC ${rucData.ruc} ya tiene el trámite ${tramiteExistente.number} en proceso. No puedes iniciar otro hasta que finalice.`
+              ? `Este local del RUC ${rucData.ruc} ya tiene el trámite ${tramiteExistente.number} en proceso. No puedes iniciar otro para el mismo local hasta que finalice.`
               : tramiteExistente.motivo === "LICENCIA_VENCIDA"
-                ? `La licencia del RUC ${rucData.ruc} venció (trámite ${tramiteExistente.number}). No corresponde iniciar un trámite nuevo: la renovación se hace en ventanilla, en la Municipalidad Provincial de Trujillo.`
-                : `El RUC ${rucData.ruc} ya cuenta con una licencia vigente (trámite ${tramiteExistente.number}). No corresponde iniciar un trámite nuevo.`,
+                ? `La licencia de este local (RUC ${rucData.ruc}, trámite ${tramiteExistente.number}) venció. La renovación se hace en ventanilla, en la Municipalidad Provincial de Trujillo.`
+                : `Este local del RUC ${rucData.ruc} ya cuenta con una licencia vigente (trámite ${tramiteExistente.number}).`,
           tramiteExistente,
         },
         { status: 409 }
@@ -172,6 +180,7 @@ export async function POST(request: Request) {
         legalName: rucData.legalName,
         fiscalAddress: rucData.fiscalAddress,
         commercialAddress,
+        establishmentAddress,
         activityType,
         contactEmail,
         representativeDni,

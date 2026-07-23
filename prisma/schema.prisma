@@ -173,6 +173,14 @@ model Application {
   // valor sintético, así que dos trámites con el mismo Gmail chocarían.
   contactEmail String?
 
+  // Local para el que se pide la licencia. Va en el TRAMITE y no en Business
+  // porque un mismo RUC puede tener varias licencias, una por local (Ley 28976,
+  // la licencia es por establecimiento). En Business era un solo valor
+  // compartido: el segundo local pisaba al primero. Es la llave que distingue
+  // un local de otro para el bloqueo. Null en trámites viejos; los nuevos
+  // siempre lo llevan (el domicilio fiscal si no se eligió anexo).
+  establishmentAddress String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

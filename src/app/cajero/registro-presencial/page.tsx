@@ -17,10 +17,11 @@ import {
   Store,
 } from "lucide-react";
 
-type TramiteExistente = {
+type LocalTomado = {
   id: string;
   number: string;
   status: string;
+  establishmentAddress: string | null;
   motivo: "EN_PROCESO" | "YA_TIENE_LICENCIA" | "LICENCIA_VENCIDA";
 };
 
@@ -33,7 +34,9 @@ type SunatData = {
   distrito?: string;
   provincia?: string;
   departamento?: string;
-  tramiteExistente?: TramiteExistente | null;
+  // Locales del RUC ya tomados. El bloqueo es por local: se avisa solo si el
+  // elegido es uno de estos.
+  localesTomados?: LocalTomado[];
 };
 
 /** Trámite del mismo RUC que todavía se está armando, para retomarlo. */
@@ -135,7 +138,26 @@ export default function RegistroPresencialPage() {
       campos.commercialAddress !== campos.fiscalAddress
   );
   const enJurisdiccion = aptoPorFiscal || aptoPorEstablecimiento;
-  const tramiteExistente = sunat?.tramiteExistente ?? null;
+
+  // Distrito/provincia/departamento a mostrar: los del establecimiento elegido
+  // si habilita por él (siempre Trujillo: solo esos son clicables), o los del
+  // domicilio fiscal si no. Si no, el distrito quedaría en Lima al lado de un
+  // "habilitado".
+  const ubicacion = aptoPorEstablecimiento
+    ? { distrito: "TRUJILLO", provincia: "TRUJILLO", departamento: "LA LIBERTAD" }
+    : {
+        distrito: sunat?.distrito || "—",
+        provincia: sunat?.provincia || "—",
+        departamento: sunat?.departamento || "—",
+      };
+
+  // El bloqueo es por local: se avisa solo si el establecimiento elegido —el
+  // anexo, o el domicilio fiscal si no se eligió— ya tiene trámite o licencia.
+  const localElegido = campos.commercialAddress || campos.fiscalAddress || "";
+  const tramiteExistente =
+    sunat?.localesTomados?.find(
+      (local) => local.establishmentAddress === localElegido
+    ) ?? null;
 
   // El cajero no puede registrar lo que el sistema rechazaría igual, ni abrir
   // un segundo trámite para un RUC que ya tiene uno en curso. La excepción es
@@ -509,20 +531,16 @@ export default function RegistroPresencialPage() {
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <p className={labelClass}>Distrito</p>
-                  <p className="text-sm text-slate-200">
-                    {sunat.distrito || "—"}
-                  </p>
+                  <p className="text-sm text-slate-200">{ubicacion.distrito}</p>
                 </div>
                 <div>
                   <p className={labelClass}>Provincia</p>
-                  <p className="text-sm text-slate-200">
-                    {sunat.provincia || "—"}
-                  </p>
+                  <p className="text-sm text-slate-200">{ubicacion.provincia}</p>
                 </div>
                 <div>
                   <p className={labelClass}>Departamento</p>
                   <p className="text-sm text-slate-200">
-                    {sunat.departamento || "—"}
+                    {ubicacion.departamento}
                   </p>
                 </div>
               </div>

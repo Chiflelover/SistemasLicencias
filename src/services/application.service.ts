@@ -62,23 +62,39 @@ const BLOCKING_STATUSES: ApplicationStatus[] = [
 ];
 
 export class ApplicationService {
+  /** Traduce el estado de un trámite bloqueante al motivo que ve el ciudadano. */
+  private static motivoBloqueo(status: ApplicationStatus) {
+    return status === ApplicationStatus.EXPIRED
+      ? ("LICENCIA_VENCIDA" as const)
+      : LICENSED_STATUSES.includes(status)
+        ? ("YA_TIENE_LICENCIA" as const)
+        : ("EN_PROCESO" as const);
+  }
+
   /**
-   * Busca por RUC un trámite que impida iniciar uno nuevo.
+   * Busca un trámite que impida iniciar otro **para ese local**.
    *
-   * Devuelve null si el negocio no existe, si nunca tramitó, si su último
-   * trámite terminó rechazado en forma definitiva o si quedó en borrador
-   * (ver `BLOCKING_STATUSES`).
+   * El bloqueo es por (RUC + establecimiento), no por RUC: un mismo RUC puede
+   * tener varias licencias, una por local (Ley 28976). Lo que no se puede es
+   * tener dos trámites vivos para el **mismo** local. Devuelve null si ese local
+   * está libre —o si nunca tramitó, o si su último trámite ahí terminó rechazado
+   * en firme o quedó en borrador (ver `BLOCKING_STATUSES`)—.
    */
-  static async findBlockingApplicationByRuc(ruc: string) {
+  static async findBlockingApplication(
+    ruc: string,
+    establishmentAddress: string
+  ) {
     const application = await prisma.application.findFirst({
       where: {
         business: { ruc },
+        establishmentAddress,
         status: { in: BLOCKING_STATUSES },
       },
       select: {
         id: true,
         number: true,
         status: true,
+        establishmentAddress: true,
         createdAt: true,
         business: { select: { legalName: true, ruc: true } },
       },
@@ -89,27 +105,56 @@ export class ApplicationService {
       return null;
     }
 
-    // Una licencia vencida se distingue del resto: no es que "ya tiene
-    // licencia", es que le toca renovar, y eso solo se hace en ventanilla.
-    const motivo =
-      application.status === ApplicationStatus.EXPIRED
-        ? ("LICENCIA_VENCIDA" as const)
-        : LICENSED_STATUSES.includes(application.status)
-          ? ("YA_TIENE_LICENCIA" as const)
-          : ("EN_PROCESO" as const);
-
-    return { ...application, motivo };
+    return { ...application, motivo: this.motivoBloqueo(application.status) };
   }
 
-  /** Devuelve el trámite vigente de ese solicitante y negocio, si lo hay. */
+  /**
+   * Locales del RUC que están tomados (con trámite vivo o licencia).
+   *
+   * Lo usa la consulta del RUC para avisar en la pantalla, antes de enviar, si
+   * el local que el ciudadano eligió ya tiene trámite. El bloqueo real lo hace
+   * `findBlockingApplication` en el servidor.
+   */
+  static async listBlockingByRuc(ruc: string) {
+    const applications = await prisma.application.findMany({
+      where: {
+        business: { ruc },
+        status: { in: BLOCKING_STATUSES },
+      },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        establishmentAddress: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return applications.map((app) => ({
+      ...app,
+      motivo: this.motivoBloqueo(app.status),
+    }));
+  }
+
+  /**
+   * Trámite vigente de ese solicitante y negocio **para ese local**, si lo hay.
+   *
+   * Se acota por establecimiento: un borrador del local A no se reutiliza cuando
+   * se está iniciando el trámite del local B; ahí corresponde uno nuevo.
+   */
   private static async findOpenApplication(
     applicantId: string,
-    businessId: string
+    businessId: string,
+    establishmentAddress: string
   ) {
     return prisma.application.findFirst({
       where: {
         applicantId,
         businessId,
+        // Este local, o un trámite que todavía no eligió local (borrador
+        // legacy / anterior a la migración): ese se adopta para el local que se
+        // esté iniciando. Al adoptarlo se le fija el local.
+        OR: [{ establishmentAddress }, { establishmentAddress: null }],
         status: { in: OPEN_APPLICATION_STATUSES },
       },
       orderBy: { createdAt: "desc" },
@@ -117,18 +162,25 @@ export class ApplicationService {
   }
 
   /**
-   * Trámite vigente de ese negocio, sea de quien sea la fila del solicitante.
+   * Trámite vigente de ese negocio **para ese local**, sea de quien sea la fila
+   * del solicitante.
    *
    * La ventanilla necesita mirar por negocio y no por solicitante: el trámite
    * que empezó por la web quedó a nombre del usuario sintético
    * (`tramite-{ruc}@municipalidad.local`), mientras que acá el solicitante se
-   * busca por el correo que tipea el cajero. Con la versión de arriba no lo
-   * encontraría y abriría un **segundo** trámite para el mismo RUC.
+   * busca por el correo que tipea el cajero. Con la versión por solicitante no lo
+   * encontraría y abriría un **segundo** trámite para el mismo local. Se acota
+   * por establecimiento por lo mismo que arriba.
    */
-  private static async findOpenApplicationByBusiness(businessId: string) {
+  private static async findOpenApplicationByBusiness(
+    businessId: string,
+    establishmentAddress: string
+  ) {
     return prisma.application.findFirst({
       where: {
         businessId,
+        // Igual que arriba: este local o el trámite sin local aún elegido.
+        OR: [{ establishmentAddress }, { establishmentAddress: null }],
         status: { in: OPEN_APPLICATION_STATUSES },
       },
       orderBy: { createdAt: "desc" },
@@ -146,6 +198,10 @@ export class ApplicationService {
     // Local para el que se pide la licencia. La ruta lo resuelve contra los
     // anexos del RUC; si no se eligió ninguno, es el domicilio fiscal.
     commercialAddress?: string;
+    // Igual que el anterior pero **siempre concreto** (el domicilio fiscal si no
+    // se eligió anexo): es la llave del local, va en el trámite y decide el
+    // bloqueo y el reuso.
+    establishmentAddress: string;
     activityType?: string;
     contactEmail?: string;
     representativeDni?: string;
@@ -186,23 +242,23 @@ export class ApplicationService {
 
     const existingApplication = await ApplicationService.findOpenApplication(
       applicant.id,
-      business.id
+      business.id,
+      params.establishmentAddress
     );
 
     if (existingApplication) {
-      // Si retoma un trámite y cambió el correo, se actualiza: es el dato con
+      // Se retoma. Se fija el local (reclama el borrador adoptado, que pudo venir
+      // sin local elegido) y, si cambió el correo, se actualiza: es el dato con
       // el que se le va a avisar.
-      if (params.contactEmail) {
-        await prisma.application.update({
-          where: { id: existingApplication.id },
-          data: { contactEmail: params.contactEmail },
-        });
-      }
+      const tracked = await prisma.application.update({
+        where: { id: existingApplication.id },
+        data: {
+          establishmentAddress: params.establishmentAddress,
+          ...(params.contactEmail ? { contactEmail: params.contactEmail } : {}),
+        },
+      });
 
-      return {
-        application: existingApplication,
-        business,
-      };
+      return { application: tracked, business };
     }
 
     const applicationNumber = await ApplicationRepository.generateNumber();
@@ -213,6 +269,7 @@ export class ApplicationService {
         applicantId: applicant.id,
         businessId: business.id,
         contactEmail: params.contactEmail ?? null,
+        establishmentAddress: params.establishmentAddress,
         createdAt: now,
       },
     });
@@ -246,6 +303,8 @@ export class ApplicationService {
     email: string;
     /** Local para el que se pide la licencia. Sin esto, el domicilio fiscal. */
     commercialAddress?: string;
+    /** La llave del local, siempre concreta: bloqueo y reuso se acotan por ella. */
+    establishmentAddress: string;
   }): Promise<{ application: Application; business: Business }> {
     const now = await getCurrentSystemDate();
 
@@ -282,19 +341,25 @@ export class ApplicationService {
     });
 
     const existingApplication =
-      await ApplicationService.findOpenApplicationByBusiness(business.id);
+      await ApplicationService.findOpenApplicationByBusiness(
+        business.id,
+        params.establishmentAddress
+      );
 
     if (existingApplication) {
-      // Se adopta el trámite que ya existía —típicamente un borrador que quedó
-      // de un intento por la web— en vez de abrir otro. El solicitante pasa a
-      // ser el que el cajero acaba de relevar: es el que dio la cara en el
-      // mostrador y el correo con el que se le va a avisar.
+      // Se adopta el trámite que ya existía **para este local** —típicamente un
+      // borrador que quedó de un intento por la web— en vez de abrir otro. El
+      // solicitante pasa a ser el que el cajero acaba de relevar: es el que dio
+      // la cara en el mostrador y el correo con el que se le va a avisar.
       const tracked = await prisma.application.update({
         where: { id: existingApplication.id },
         data: {
           applicantId: applicant.id,
           registeredById: params.cashierId,
           contactEmail: params.email,
+          // Reclama el local para el borrador adoptado (era null si venía sin
+          // local elegido).
+          establishmentAddress: params.establishmentAddress,
         },
       });
 
@@ -314,6 +379,7 @@ export class ApplicationService {
         // User.email. Sin esto el administrado atendido en ventanilla no
         // recibía ningún aviso pese a haber dejado su correo.
         contactEmail: params.email,
+        establishmentAddress: params.establishmentAddress,
         createdAt: now,
         updatedAt: now,
       },

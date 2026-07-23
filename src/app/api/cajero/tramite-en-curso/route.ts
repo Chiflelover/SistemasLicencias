@@ -45,6 +45,9 @@ export async function GET(request: Request) {
         status: true,
         contactEmail: true,
         registeredById: true,
+        // El local de ESTE trámite. Va en el trámite, no en Business (que es
+        // compartido entre los locales del RUC).
+        establishmentAddress: true,
         business: {
           select: {
             legalName: true,
@@ -81,13 +84,14 @@ export async function GET(request: Request) {
         contactEmail: application.contactEmail || "",
         // De dónde vino: cambia el texto que ve el cajero.
         origen: application.registeredById ? "VENTANILLA" : "WEB",
-        // El local elegido, si no es el domicilio fiscal: así la tarjeta lo
-        // muestra ya seleccionado al retomar el trámite.
+        // El local de este trámite, si no es el domicilio fiscal: así la tarjeta
+        // lo muestra ya seleccionado al retomar. Se lee del trámite, no de
+        // Business (que es compartido entre los locales del RUC).
         commercialAddress:
-          application.business.commercialAddress ===
-          application.business.fiscalAddress
-            ? ""
-            : application.business.commercialAddress,
+          application.establishmentAddress &&
+          application.establishmentAddress !== application.business.fiscalAddress
+            ? application.establishmentAddress
+            : "",
         activityType: sinRelleno(application.business.activityType),
         representativeName: sinRelleno(application.business.representativeName),
         representativeDni: sinRelleno(application.business.representativeDni),

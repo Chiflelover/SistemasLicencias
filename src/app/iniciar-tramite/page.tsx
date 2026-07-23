@@ -7,10 +7,11 @@ import { checkRucEligibility } from "@/lib/ruc-eligibility";
 import EstablecimientosAnexos from "@/components/EstablecimientosAnexos";
 import { AlertTriangle, ArrowLeft, Building2, BriefcaseBusiness, CheckCircle2, Loader2, MapPin, Search, ShieldCheck } from "lucide-react";
 
-type TramiteExistente = {
+type LocalTomado = {
   id: string;
   number: string;
   status: string;
+  establishmentAddress: string | null;
   motivo: "EN_PROCESO" | "YA_TIENE_LICENCIA" | "LICENCIA_VENCIDA";
 };
 
@@ -23,7 +24,9 @@ type RucData = {
   departamento?: string;
   estado?: string;
   condicion?: string;
-  tramiteExistente?: TramiteExistente | null;
+  // Locales del RUC que ya tienen trámite o licencia. El bloqueo es por local:
+  // se avisa recién cuando el elegido es uno de estos.
+  localesTomados?: LocalTomado[];
 };
 
 const ETIQUETAS_ESTADO: Record<string, string> = {
@@ -124,7 +127,28 @@ export default function IniciarTramitePage() {
     rucData && establecimiento && establecimiento !== rucData.fiscalAddress
   );
   const allowed = aptoPorFiscal || aptoPorEstablecimiento;
-  const tramiteExistente = rucData?.tramiteExistente ?? null;
+
+  // Distrito/provincia/departamento a mostrar: los del **establecimiento
+  // elegido** si el trámite queda habilitado por él, o los del domicilio fiscal
+  // si no. Cuando habilita por establecimiento, siempre es Trujillo: solo los
+  // anexos del distrito son clicables. Si no, el distrito seguiría en Lima al
+  // lado de un "APTO", que es justo lo confuso.
+  const ubicacion = aptoPorEstablecimiento
+    ? { distrito: "TRUJILLO", provincia: "TRUJILLO", departamento: "LA LIBERTAD" }
+    : {
+        distrito: rucData?.distrito || "",
+        provincia: rucData?.provincia || "",
+        departamento: rucData?.departamento || "",
+      };
+
+  // El bloqueo es por local: se avisa solo si el establecimiento elegido —el
+  // anexo, o el domicilio fiscal si no se eligió— ya tiene trámite o licencia.
+  // Otro local del mismo RUC no bloquea.
+  const localElegido = establecimiento || rucData?.fiscalAddress || "";
+  const tramiteExistente =
+    rucData?.localesTomados?.find(
+      (local) => local.establishmentAddress === localElegido
+    ) ?? null;
 
   // Estado tributario: un RUC dado de baja o suspendido no puede tramitar.
   const elegibilidad = rucData
@@ -429,7 +453,7 @@ export default function IniciarTramitePage() {
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
                     <input
-                      value={rucData?.distrito || ""}
+                      value={ubicacion.distrito}
                       readOnly
                       placeholder="---"
                       className="w-full cursor-not-allowed bg-transparent text-slate-400 outline-none placeholder:text-slate-600"
@@ -442,7 +466,7 @@ export default function IniciarTramitePage() {
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
                     <input
-                      value={rucData?.provincia || ""}
+                      value={ubicacion.provincia}
                       readOnly
                       placeholder="---"
                       className="w-full cursor-not-allowed bg-transparent text-slate-400 outline-none placeholder:text-slate-600"
@@ -455,7 +479,7 @@ export default function IniciarTramitePage() {
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
                     <input
-                      value={rucData?.departamento || ""}
+                      value={ubicacion.departamento}
                       readOnly
                       placeholder="---"
                       className="w-full cursor-not-allowed bg-transparent text-slate-400 outline-none placeholder:text-slate-600"
@@ -757,24 +781,26 @@ export default function IniciarTramitePage() {
                     {allowed ? "APTO PARA TRÁMITE" : "NO APTO PARA TRÁMITE"}
                   </p>
 
+                  {/* La ubicación del local que habilita el trámite: la del
+                      establecimiento elegido, o la del domicilio fiscal. */}
                   <p className="mt-2">
-                    Distrito detectado:{" "}
+                    Distrito:{" "}
                     <span className="font-semibold">
-                      {rucData.distrito || "No registrado"}
+                      {ubicacion.distrito || "No registrado"}
                     </span>
                   </p>
 
                   <p className="mt-1">
-                    Provincia detectada:{" "}
+                    Provincia:{" "}
                     <span className="font-semibold">
-                      {rucData.provincia || "No registrado"}
+                      {ubicacion.provincia || "No registrado"}
                     </span>
                   </p>
 
                   <p className="mt-1">
-                    Departamento detectado:{" "}
+                    Departamento:{" "}
                     <span className="font-semibold">
-                      {rucData.departamento || "No registrado"}
+                      {ubicacion.departamento || "No registrado"}
                     </span>
                   </p>
 

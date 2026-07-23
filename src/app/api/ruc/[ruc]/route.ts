@@ -3,10 +3,12 @@ import { RucService } from "@/services/ruc.service";
 import { ApplicationService } from "@/services/application.service";
 
 /**
- * Datos del RUC en SUNAT, más el trámite que ya exista para ese RUC.
+ * Datos del RUC en SUNAT, más los **locales tomados** de ese RUC.
  *
- * Así la pantalla puede avisar antes de que el ciudadano intente iniciar un
- * trámite duplicado.
+ * El bloqueo es por (RUC + local): un mismo RUC puede tener varias licencias,
+ * una por local. La pantalla usa `localesTomados` para avisar, al elegir un
+ * local, si ese ya tiene trámite —antes de enviar—. El bloqueo real lo hace el
+ * servidor al iniciar el trámite.
  */
 export async function GET(
   request: Request,
@@ -22,13 +24,13 @@ export async function GET(
       );
     }
 
-    const [data, tramiteExistente] = await Promise.all([
+    const [data, localesTomados] = await Promise.all([
       RucService.getBusinessData(ruc),
-      ApplicationService.findBlockingApplicationByRuc(ruc),
+      ApplicationService.listBlockingByRuc(ruc),
     ]);
 
     return NextResponse.json(
-      { ...data, tramiteExistente },
+      { ...data, localesTomados },
       { status: 200 }
     );
   } catch (error: any) {

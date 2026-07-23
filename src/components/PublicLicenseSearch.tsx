@@ -14,6 +14,9 @@ type SearchResult = {
   id: string;
   number: string;
   status: string;
+  // Local de este trámite. Un mismo RUC puede tener varias licencias, una por
+  // local: es lo que distingue una fila de otra en la lista.
+  establishmentAddress: string | null;
   business: {
     ruc: string;
     legalName: string;
@@ -188,7 +191,8 @@ export default function PublicLicenseSearch() {
                           RUC {application.business.ruc}
                         </p>
                         <p className="mt-0.5 text-xs text-slate-500">
-                          {application.business.commercialAddress ||
+                          {application.establishmentAddress ||
+                            application.business.commercialAddress ||
                             "Dirección no registrada"}
                         </p>
                       </td>

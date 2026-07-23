@@ -185,6 +185,10 @@ export async function POST(request: Request) {
 
     const commercialAddress = establecimiento?.direccion;
 
+    // Llave del local: el anexo elegido, o el domicilio fiscal si no se eligió.
+    // Siempre concreta. Distingue un local de otro para el bloqueo y el reuso.
+    const establishmentAddress = establecimiento?.direccion ?? fiscalAddress;
+
     // Jurisdicción: la del domicilio fiscal, o la del establecimiento elegido si
     // está en Trujillo. Si ni una ni otra, el trámite es de otro municipio.
     if (
@@ -204,10 +208,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Un RUC con trámite en curso o licencia vigente no puede abrir otro,
-    // igual que en el flujo público. Se valida acá y no solo en la pantalla.
-    const tramiteExistente =
-      await ApplicationService.findBlockingApplicationByRuc(ruc);
+    // El bloqueo es por (RUC + local): otro local del mismo RUC sí puede
+    // tramitar. Se valida acá y no solo en la pantalla.
+    const tramiteExistente = await ApplicationService.findBlockingApplication(
+      ruc,
+      establishmentAddress
+    );
 
     // Un trámite que todavía se está armando no bloquea: la ventanilla lo
     // **retoma**. Es el caso del que empezó por la web y se quedó sin conexión:
@@ -219,10 +225,10 @@ export async function POST(request: Request) {
         {
           error:
             tramiteExistente.motivo === "EN_PROCESO"
-              ? `El RUC ${ruc} ya tiene el trámite ${tramiteExistente.number} en proceso. No corresponde registrar otro hasta que finalice.`
+              ? `Este local del RUC ${ruc} ya tiene el trámite ${tramiteExistente.number} en proceso. No corresponde registrar otro para el mismo local hasta que finalice.`
               : tramiteExistente.motivo === "LICENCIA_VENCIDA"
-                ? `La licencia del RUC ${ruc} venció (trámite ${tramiteExistente.number}). No se registra un trámite nuevo: usa "Renovación de licencia" para cobrarle la renovación.`
-                : `El RUC ${ruc} ya cuenta con una licencia vigente (trámite ${tramiteExistente.number}).`,
+                ? `La licencia de este local (RUC ${ruc}, trámite ${tramiteExistente.number}) venció. Usa "Renovación de licencia" para cobrarle la renovación.`
+                : `Este local del RUC ${ruc} ya cuenta con una licencia vigente (trámite ${tramiteExistente.number}).`,
           tramiteExistente,
         },
         { status: 409 }
@@ -279,6 +285,7 @@ export async function POST(request: Request) {
         ruc,
         fiscalAddress,
         commercialAddress,
+        establishmentAddress,
         representativeName,
         representativeDni,
         representativeRole,
