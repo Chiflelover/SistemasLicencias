@@ -37,9 +37,26 @@ export const COMPROBANTE = {
   docCode: "6",
 };
 
-// IGV_RATE y desglosarIgv se eliminaron: el derecho de trámite es una tasa
-// municipal y no está gravado con IGV, así que no hay nada que desglosar. El
-// comprobante lo declara como operación inafecta por el importe completo.
+/**
+ * El importe cobrado **incluye IGV**.
+ *
+ * En la realidad el derecho de trámite es una tasa municipal y sería inafecto
+ * —así estuvo un tiempo—. Pero el profesor pidió tratar el cobro como una
+ * **operación comercial gravada**: el que paga es una empresa, y necesita la
+ * factura con el IGV desglosado para registrarla en su Registro de Compras,
+ * deducir el gasto y sustentar el crédito fiscal ante SUNAT. Con S/ 180 el
+ * crédito fiscal es S/ 27.46. Es un ejercicio de la mecánica del IGV, no el
+ * tratamiento tributario real de una tasa.
+ */
+export const IGV_RATE = 0.18;
+
+/** Desglosa un importe que ya incluye IGV: base gravada + IGV = total. */
+export function desglosarIgv(total: number) {
+  const gravado = Math.round((total / (1 + IGV_RATE)) * 100) / 100;
+  const igv = Math.round((total - gravado) * 100) / 100;
+
+  return { gravado, igv, total };
+}
 
 /**
  * Resumen (código hash) del comprobante.
@@ -162,11 +179,9 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
 
   const comprobante = COMPROBANTE;
   const numero = numeroComprobante(data.correlativo);
-  // El derecho de trámite es una TASA municipal, o sea un tributo: no está
-  // gravado con IGV. Por eso el importe va entero como operación inafecta y el
-  // impuesto queda en cero, en lugar de partirse en base + 18 %.
-  const total = data.total;
-  const igv = 0;
+  // El importe cobrado ya incluye IGV: se parte en base gravada (152.54 con la
+  // tarifa por defecto) e IGV al 18 % (27.46). Ver `desglosarIgv`.
+  const { gravado, igv, total } = desglosarIgv(data.total);
 
   // El adquirente es siempre la empresa titular del RUC: el derecho de trámite
   // lo paga el negocio, no el representante.
@@ -259,8 +274,10 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   // denominación.
   //
   // "P. UNIT." y no "V. UNIT.": el obligatorio en la impresa es el precio de
-  // venta unitario (campo 22), no el valor unitario (campo 20). Acá coinciden
-  // porque la operación es inafecta y no hay impuesto que sumar.
+  // venta unitario (campo 22), que va **con IGV**, no el valor unitario (campo
+  // 20). La columna IMPORTE es el valor de venta (sin IGV): por eso P. UNIT.
+  // (180) e IMPORTE (152.54) no coinciden, y la diferencia es el IGV que se
+  // suma abajo.
   texto("CANT.", 50, y + 2, 8, bold, rgb(1, 1, 1));
   texto("U. MEDIDA", 85, y + 2, 8, bold, rgb(1, 1, 1));
   texto("DESCRIPCIÓN", 150, y + 2, 8, bold, rgb(1, 1, 1));
@@ -271,10 +288,10 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   texto("1", 55, y);
   texto("SERVICIO", 85, y, 8);
   texto("Derecho de trámite - Licencia de funcionamiento", 150, y, 8);
-  // Sin desglose: en una operación inafecta el importe es el total, no una
-  // base a la que después se le suma el impuesto.
+  // P. UNIT. = precio de venta unitario (con IGV) = total. IMPORTE = valor de
+  // venta de la línea (sin IGV) = base gravada. El IGV se suma en los totales.
   texto(total.toFixed(2), width - 160, y);
-  texto(total.toFixed(2), width - 95, y);
+  texto(gravado.toFixed(2), width - 95, y);
 
   y -= 14;
   texto(`Expediente ${data.applicationNumber}`, 150, y, 7, regular, gris);
@@ -284,8 +301,8 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   y -= 50;
 
   const totales: Array<[string, string, boolean]> = [
-    ["Operaciones inafectas", `S/ ${total.toFixed(2)}`, false],
-    ["IGV", `S/ ${igv.toFixed(2)}`, false],
+    ["Operaciones gravadas", `S/ ${gravado.toFixed(2)}`, false],
+    [`IGV (${(IGV_RATE * 100).toFixed(0)}%)`, `S/ ${igv.toFixed(2)}`, false],
     ["IMPORTE TOTAL", `S/ ${total.toFixed(2)}`, true],
   ];
 
@@ -324,11 +341,11 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Uint8Array>
   y -= 10;
   texto(importeEnLetras(total), 40, y, 9, bold, navy);
 
-  // Motivo de la inafectación, dicho en el documento: sin esto, un comprobante
-  // con IGV en cero parece un error de cálculo y no una regla tributaria.
+  // Se deja dicho que el importe ya incluye el IGV: así el desglose de arriba
+  // (base + IGV = total) no se lee como que el impuesto se sumó por fuera.
   y -= 14;
   texto(
-    "Operación inafecta al IGV: el derecho de trámite es una tasa municipal.",
+    "El importe total incluye IGV (18%). Operación gravada.",
     40,
     y,
     7,
