@@ -6,11 +6,27 @@ import { isUnderRenewal } from "@/lib/documents";
 
 export const dynamic = "force-dynamic";
 
+const SELECCION = {
+  id: true,
+  number: true,
+  status: true,
+  // El local de cada trámite: un RUC puede tener varias licencias, una por
+  // local, y hay que distinguirlas para elegir cuál renovar.
+  establishmentAddress: true,
+  business: { select: { ruc: true, legalName: true } },
+  documents: { select: { id: true, type: true, name: true } },
+  license: {
+    select: { licenseNumber: true, issuedAt: true, expiresAt: true, status: true },
+  },
+} as const;
+
 /**
- * Busca por RUC el trámite que corresponde renovar en ventanilla.
+ * Lista por RUC las licencias del negocio, para renovar en ventanilla.
  *
- * La renovación se habilita recién cuando la licencia venció, así que la
- * respuesta dice explícitamente si toca renovar o todavía no, y por qué.
+ * Un RUC puede tener varias, una por local. Se devuelven todas con su local y
+ * si son renovables (`renovable`): la renovación se habilita recién cuando la
+ * licencia venció, así que una vigente o por vencer se lista pero no se renueva
+ * todavía. El cajero elige cuál.
  */
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -29,48 +45,31 @@ export async function GET(request: Request) {
   }
 
   try {
-    const application = await prisma.application.findFirst({
-      where: { business: { ruc } },
+    const conLicencia = await prisma.application.findMany({
+      where: { business: { ruc }, license: { isNot: null } },
       orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        number: true,
-        status: true,
-        business: { select: { ruc: true, legalName: true } },
-        documents: { select: { id: true, type: true, name: true } },
-        license: {
-          select: { licenseNumber: true, issuedAt: true, expiresAt: true, status: true },
-        },
-      },
+      select: { id: true },
     });
-
-    if (!application) {
-      return NextResponse.json({ tramite: null });
-    }
 
     // El vencimiento se procesa al consultar: sin esto, una licencia cuya
     // fecha ya pasó seguiría figurando vigente hasta que alguien la mire por
     // otro lado.
-    await LicenseService.ensureRenewalState(application.id);
+    for (const app of conLicencia) {
+      await LicenseService.ensureRenewalState(app.id);
+    }
 
-    const actualizado = await prisma.application.findUnique({
-      where: { id: application.id },
-      select: {
-        id: true,
-        number: true,
-        status: true,
-        business: { select: { ruc: true, legalName: true } },
-        documents: { select: { id: true, type: true, name: true } },
-        license: {
-          select: { licenseNumber: true, issuedAt: true, expiresAt: true, status: true },
-        },
-      },
+    const actualizadas = await prisma.application.findMany({
+      where: { business: { ruc }, license: { isNot: null } },
+      orderBy: { createdAt: "desc" },
+      select: SELECCION,
     });
 
-    return NextResponse.json({
-      tramite: actualizado,
-      renovable: actualizado ? isUnderRenewal(actualizado.status) : false,
-    });
+    const tramites = actualizadas.map((app) => ({
+      ...app,
+      renovable: isUnderRenewal(app.status),
+    }));
+
+    return NextResponse.json({ tramites });
   } catch (error: any) {
     console.error("Error consultando la renovación:", error);
 

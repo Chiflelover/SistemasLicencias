@@ -28,6 +28,9 @@ const SELECCION = {
   id: true,
   number: true,
   status: true,
+  // El local de cada trámite: un RUC puede tener varias licencias, una por
+  // local, y hay que distinguirlas para elegir cuál dar de baja.
+  establishmentAddress: true,
   business: { select: { ruc: true, legalName: true, commercialAddress: true } },
   license: {
     select: {
@@ -39,7 +42,13 @@ const SELECCION = {
   },
 } as const;
 
-/** Busca por RUC la licencia que se puede dar de baja. */
+/**
+ * Lista por RUC las licencias que se pueden dar de baja.
+ *
+ * Devuelve **todas** las del RUC —un RUC puede tener varias, una por local—,
+ * cada una con su local y si se puede dar de baja. El cajero elige cuál. Una ya
+ * dada de baja se lista igual, marcada, para que se vea que ya está.
+ */
 export async function GET(request: Request) {
   const user = await getCurrentUser();
 
@@ -57,31 +66,33 @@ export async function GET(request: Request) {
   }
 
   try {
-    const application = await prisma.application.findFirst({
-      where: { business: { ruc } },
+    // Solo los trámites con licencia emitida: es lo único que se da de baja.
+    const conLicencia = await prisma.application.findMany({
+      where: { business: { ruc }, license: { isNot: null } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+
+    // El vencimiento se procesa al consultar, igual que en la renovación: sin
+    // esto una licencia cuya fecha ya pasó seguiría figurando vigente.
+    for (const app of conLicencia) {
+      await LicenseService.ensureRenewalState(app.id);
+    }
+
+    const actualizadas = await prisma.application.findMany({
+      where: { business: { ruc }, license: { isNot: null } },
       orderBy: { createdAt: "desc" },
       select: SELECCION,
     });
 
-    if (!application) {
-      return NextResponse.json({ tramite: null, puedeDarseDeBaja: false });
-    }
+    const tramites = actualizadas.map((app) => ({
+      ...app,
+      puedeDarseDeBaja: Boolean(
+        app.license && DABLES_DE_BAJA.includes(app.license.status)
+      ),
+    }));
 
-    // El vencimiento se procesa al consultar, igual que en la renovación: sin
-    // esto una licencia cuya fecha ya pasó seguiría figurando vigente.
-    await LicenseService.ensureRenewalState(application.id);
-
-    const actualizado = await prisma.application.findUnique({
-      where: { id: application.id },
-      select: SELECCION,
-    });
-
-    const estado = actualizado?.license?.status;
-
-    return NextResponse.json({
-      tramite: actualizado,
-      puedeDarseDeBaja: Boolean(estado && DABLES_DE_BAJA.includes(estado)),
-    });
+    return NextResponse.json({ tramites });
   } catch (error: any) {
     console.error("Error consultando la baja de licencia:", error);
 
