@@ -168,7 +168,29 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!belongsToDistrictTrujillo(rucData)) {
+    // Local elegido en la tarjeta de anexos. Se resuelve acá porque también
+    // **decide la jurisdicción**: un local del distrito de Trujillo habilita el
+    // trámite aunque el domicilio fiscal esté fuera (la licencia de ese local la
+    // emite la MPT). Sale del caché, no gasta cuota.
+    //
+    // `null` cuando no vino el campo, y ahí es distinto de "el domicilio
+    // fiscal": significa **no tocar el que ya estaba**. Si mandara el fiscal,
+    // retomar un trámite sin abrir la tarjeta devolvería la licencia al
+    // domicilio fiscal sin que nadie lo hubiera pedido. Para volver al fiscal,
+    // la pantalla lo manda explícito.
+    const elegido = read("commercialAddress");
+    const establecimiento = elegido
+      ? await resolverEstablecimiento({ ruc, fiscalAddress, elegido })
+      : null;
+
+    const commercialAddress = establecimiento?.direccion;
+
+    // Jurisdicción: la del domicilio fiscal, o la del establecimiento elegido si
+    // está en Trujillo. Si ni una ni otra, el trámite es de otro municipio.
+    if (
+      !belongsToDistrictTrujillo(rucData) &&
+      !establecimiento?.esAnexoTrujillo
+    ) {
       return NextResponse.json(
         {
           error: OUT_OF_DISTRICT_MESSAGE,
@@ -245,19 +267,6 @@ export async function POST(request: Request) {
     } catch (fileError: any) {
       return NextResponse.json({ error: fileError.message }, { status: 400 });
     }
-
-    // Local elegido en la tarjeta de anexos, verificado contra los anexos
-    // reales del RUC.
-    //
-    // `undefined` cuando la petición no trae el campo, y ahí es distinto de
-    // "el domicilio fiscal": significa **no tocar el que ya estaba**. Si
-    // mandara el fiscal, retomar un trámite sin abrir la tarjeta devolvería la
-    // licencia al domicilio fiscal sin que nadie lo hubiera pedido. Para
-    // volver al fiscal, la pantalla lo manda explícito.
-    const elegido = read("commercialAddress");
-    const commercialAddress = elegido
-      ? await resolverEstablecimiento({ ruc, fiscalAddress, elegido })
-      : undefined;
 
     // 1. Alta del negocio, el solicitante y el trámite. Si el RUC ya tenía uno
     //    a medio armar —típicamente empezado por la web— lo adopta en vez de

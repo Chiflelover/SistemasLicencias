@@ -25,4 +25,4 @@ export function belongsToDistrictTrujillo(data: {
 
 /** Mensaje único de rechazo territorial, para no repetirlo en cada ruta. */
 export const OUT_OF_DISTRICT_MESSAGE =
-  "No se puede iniciar el trámite. Este sistema solo atiende establecimientos con domicilio fiscal en el distrito de Trujillo, provincia de Trujillo, departamento de La Libertad.";
+  "No se puede registrar el trámite. Ni el domicilio fiscal ni el establecimiento elegido están en el distrito de Trujillo, provincia de Trujillo, departamento de La Libertad. Si el negocio tiene un local en Trujillo, elígelo en la lista de establecimientos.";

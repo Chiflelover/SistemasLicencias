@@ -86,11 +86,37 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!belongsToDistrictTrujillo(rucData)) {
+    // Local elegido en la tarjeta de anexos. Se resuelve acá porque ahora
+    // también **decide la jurisdicción**: un local del distrito de Trujillo
+    // habilita el trámite aunque el domicilio fiscal esté fuera —la licencia de
+    // ese local la emite la MPT (Ley 28976, la licencia es por establecimiento
+    // y la da la municipalidad donde está el local)—. Sale del caché, no gasta
+    // cuota. Se verifica contra los anexos reales: la pantalla solo deja tocar
+    // los del distrito, pero esta dirección termina impresa en la licencia.
+    //
+    // `null` cuando no vino el campo: no se pisa el local que el negocio ya
+    // tuviera.
+    const elegidoPublico = String(body.commercialAddress || "").trim();
+    const establecimiento = elegidoPublico
+      ? await resolverEstablecimiento({
+          ruc: rucData.ruc,
+          fiscalAddress: rucData.fiscalAddress,
+          elegido: elegidoPublico,
+        })
+      : null;
+
+    const commercialAddress = establecimiento?.direccion;
+
+    // Jurisdicción: la del domicilio fiscal, o la del establecimiento elegido si
+    // está en Trujillo. Si ni una ni otra, el trámite es de otro municipio.
+    if (
+      !belongsToDistrictTrujillo(rucData) &&
+      !establecimiento?.esAnexoTrujillo
+    ) {
       return NextResponse.json(
         {
           error:
-            "No se puede iniciar el trámite. Este sistema solo atiende establecimientos con domicilio fiscal en el distrito de Trujillo, provincia de Trujillo, departamento de La Libertad.",
+            "No se puede iniciar el trámite. El domicilio fiscal está fuera del distrito de Trujillo. Si el negocio tiene un local en Trujillo, elígelo en la lista de establecimientos.",
           details: {
             distrito: rucData.distrito || "No registrado",
             provincia: rucData.provincia || "No registrado",
@@ -139,20 +165,6 @@ export async function POST(request: Request) {
     } catch {
       representativeName = undefined;
     }
-
-    // Local elegido en la tarjeta de anexos. Se verifica contra los anexos
-    // reales del RUC: la pantalla solo deja tocar los del distrito, pero esta
-    // dirección termina impresa en la licencia.
-    //
-    // Sin campo, `undefined`: no se pisa el local que el negocio ya tuviera.
-    const elegidoPublico = String(body.commercialAddress || "").trim();
-    const commercialAddress = elegidoPublico
-      ? await resolverEstablecimiento({
-          ruc: rucData.ruc,
-          fiscalAddress: rucData.fiscalAddress,
-          elegido: elegidoPublico,
-        })
-      : undefined;
 
     const { application, business } =
       await ApplicationService.startPublicApplication({

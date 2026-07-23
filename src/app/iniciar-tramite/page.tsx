@@ -114,7 +114,16 @@ export default function IniciarTramitePage() {
   const [creatingApplication, setCreatingApplication] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const allowed = isAllowedForTrujillo(rucData);
+  // La jurisdicción la da el domicilio fiscal, o un establecimiento anexo del
+  // distrito de Trujillo si se eligió uno: la licencia de un local de Trujillo
+  // la emite la MPT aunque la sede esté fuera. En la tarjeta solo los de
+  // Trujillo son clicables, así que un `establecimiento` distinto del fiscal es
+  // siempre uno de Trujillo. El servidor lo vuelve a verificar.
+  const aptoPorFiscal = isAllowedForTrujillo(rucData);
+  const aptoPorEstablecimiento = Boolean(
+    rucData && establecimiento && establecimiento !== rucData.fiscalAddress
+  );
+  const allowed = aptoPorFiscal || aptoPorEstablecimiento;
   const tramiteExistente = rucData?.tramiteExistente ?? null;
 
   // Estado tributario: un RUC dado de baja o suspendido no puede tramitar.
@@ -161,6 +170,10 @@ export default function IniciarTramitePage() {
 
     setRuc(cleanValue);
     setRucData(null);
+    // La elección de establecimiento es de ese RUC: al cambiarlo se descarta,
+    // si no la jurisdicción quedaría habilitada por un local de otro negocio.
+    setEstablecimiento("");
+    setEstablecimientoCodigo("");
     setErrorMessage(null);
   };
 
@@ -168,6 +181,8 @@ export default function IniciarTramitePage() {
     const cleanRuc = ruc.trim();
 
     setRucData(null);
+    setEstablecimiento("");
+    setEstablecimientoCodigo("");
     setErrorMessage(null);
 
     if (!/^\d{11}$/.test(cleanRuc)) {
@@ -596,15 +611,19 @@ export default function IniciarTramitePage() {
 
                     <div>
                       <p className="font-bold">
-                        {allowed
-                          ? "RUC válido para iniciar trámite"
-                          : "RUC fuera de jurisdicción"}
+                        {!allowed
+                          ? "RUC fuera de jurisdicción"
+                          : aptoPorFiscal
+                            ? "RUC válido para iniciar trámite"
+                            : "Habilitado por el establecimiento en Trujillo"}
                       </p>
 
                       <p className="mt-2 text-sm">
-                        {allowed
-                          ? "El domicilio fiscal pertenece al distrito de Trujillo, provincia de Trujillo, departamento de La Libertad. Puedes continuar con el trámite."
-                          : "No se puede iniciar el trámite. Este sistema solo atiende establecimientos con domicilio fiscal en el distrito de Trujillo, provincia de Trujillo, departamento de La Libertad."}
+                        {!allowed
+                          ? "No se puede iniciar el trámite. El domicilio fiscal está fuera del distrito de Trujillo. Si el negocio tiene un local en Trujillo, selecciónalo en la lista de establecimientos."
+                          : aptoPorFiscal
+                            ? "El domicilio fiscal pertenece al distrito de Trujillo, provincia de Trujillo, departamento de La Libertad. Puedes continuar con el trámite."
+                            : "El domicilio fiscal está fuera de Trujillo, pero elegiste un establecimiento en el distrito: la licencia la emite la Municipalidad Provincial de Trujillo para ese local. Puedes continuar."}
                       </p>
 
                     </div>
@@ -758,6 +777,15 @@ export default function IniciarTramitePage() {
                       {rucData.departamento || "No registrado"}
                     </span>
                   </p>
+
+                  {/* El domicilio fiscal está fuera, pero el trámite quedó APTO
+                      porque se eligió un local del distrito. */}
+                  {aptoPorEstablecimiento && (
+                    <p className="mt-2 border-t border-emerald-500/20 pt-2">
+                      Habilitado por el establecimiento elegido en el distrito de
+                      Trujillo.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

@@ -124,7 +124,17 @@ export default function RegistroPresencialPage() {
     ? checkRucEligibility(sunat)
     : { elegible: true as boolean, motivo: undefined };
 
-  const enJurisdiccion = sunat ? esDeTrujillo(sunat) : false;
+  // La jurisdicción la da el domicilio fiscal, o un establecimiento anexo del
+  // distrito de Trujillo si se eligió uno: la licencia de un local de Trujillo
+  // la emite la MPT aunque la sede esté fuera. En la tarjeta solo los de
+  // Trujillo son clicables, así que un `commercialAddress` distinto del fiscal
+  // es siempre uno de Trujillo. El servidor lo vuelve a verificar.
+  const aptoPorFiscal = sunat ? esDeTrujillo(sunat) : false;
+  const aptoPorEstablecimiento = Boolean(
+    campos.commercialAddress &&
+      campos.commercialAddress !== campos.fiscalAddress
+  );
+  const enJurisdiccion = aptoPorFiscal || aptoPorEstablecimiento;
   const tramiteExistente = sunat?.tramiteExistente ?? null;
 
   // El cajero no puede registrar lo que el sistema rechazaría igual, ni abrir
@@ -227,7 +237,11 @@ export default function RegistroPresencialPage() {
         ruc: data.ruc,
         legalName: data.legalName,
         fiscalAddress: data.fiscalAddress,
+        // Nuevo RUC: se descarta el local elegido del anterior, si no la
+        // jurisdicción quedaría habilitada por un anexo de otro negocio.
+        commercialAddress: "",
       }));
+      setEstablecimientoCodigo("");
 
       // Si el RUC ya tiene un trámite a medio armar —el ciudadano empezó por la
       // web y se quedó sin conexión— se trae lo que declaró para revisarlo con
@@ -584,14 +598,19 @@ export default function RegistroPresencialPage() {
                 <div className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
                   <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                   <span>
-                    Fuera de jurisdicción: solo se atienden establecimientos del
-                    distrito de Trujillo, provincia de Trujillo, La Libertad.
+                    Fuera de jurisdicción: el domicilio fiscal no es de Trujillo.
+                    Si el negocio tiene un local en el distrito, elígelo en la
+                    lista de establecimientos.
                   </span>
                 </div>
               ) : (
                 <div className="flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                  <span>RUC habilitado para registrar el trámite.</span>
+                  <span>
+                    {aptoPorFiscal
+                      ? "RUC habilitado para registrar el trámite."
+                      : "Habilitado por el establecimiento elegido en el distrito de Trujillo."}
+                  </span>
                 </div>
               )}
             </div>
